@@ -87,7 +87,7 @@ map.on("load", () => {
   );
 
   // -------------------------
-  // ADD FACT MARKERS
+  // ADD FACT MARKERS - CHATGPT WROTE DESCRIPTION FROM MY NOTES!!!!
   // -------------------------
 
   map.addSource("places", {
