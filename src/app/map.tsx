@@ -3,16 +3,31 @@ import {
   Map,
   Marker,
 } from '@maplibre/maplibre-react-native';
+import { useQuery } from 'convex/react';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { LocationPopup } from '@/components/location-popup';
-import { places, type Place } from '@/data/places';
+import { api } from '../../convex/_generated/api';
+import type { Place } from '@/data/places';
 
 const HARVARD_YARD: [number, number] = [-71.1167, 42.377];
 
 export default function MapScreen() {
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const locations = useQuery(api.locations.getLocations);
+  const places: Place[] = (locations ?? []).flatMap((location) => {
+    if (location.latitude === undefined || location.longitude === undefined) {
+      return [];
+    }
+
+    return [{
+      id: location._id,
+      title: location.name,
+      description: location.description,
+      coordinates: [location.longitude, location.latitude] as [number, number],
+    }];
+  });
 
   return (
     <View style={styles.container}>
