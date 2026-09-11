@@ -1,5 +1,8 @@
+import { useAuth } from '@clerk/expo';
+import { useHostedAuth } from '@clerk/expo/hosted-auth';
 import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Platform, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimatedIcon } from '@/components/animated-icon';
@@ -8,6 +11,66 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WebBadge } from '@/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+
+function AuthControls() {
+  const { isLoaded, isSignedIn, signOut } = useAuth();
+  const { startHostedAuth } = useHostedAuth();
+  const [error, setError] = useState<string | null>(null);
+
+  const startAuth = async (mode: 'sign-in' | 'sign-up') => {
+    setError(null);
+    try {
+      await startHostedAuth({ mode });
+    } catch (authError) {
+      setError(authError instanceof Error ? authError.message : 'Authentication failed.');
+    }
+  };
+
+  const handleSignOut = async () => {
+    setError(null);
+    try {
+      await signOut();
+    } catch (authError) {
+      setError(authError instanceof Error ? authError.message : 'Unable to sign out.');
+    }
+  };
+
+  if (!isLoaded) {
+    return <ActivityIndicator accessibilityLabel="Loading authentication" />;
+  }
+
+  return (
+    <ThemedView type="backgroundElement" style={styles.authCard}>
+      <ThemedText type="subtitle">
+        {isSignedIn ? 'You are signed in' : 'Save your favorite places'}
+      </ThemedText>
+      {isSignedIn ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={handleSignOut}
+          style={({ pressed }) => [styles.authButton, pressed && styles.authButtonPressed]}>
+          <ThemedText style={styles.authButtonText}>Sign out</ThemedText>
+        </Pressable>
+      ) : (
+        <ThemedView style={styles.authActions}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => startAuth('sign-in')}
+            style={({ pressed }) => [styles.authButton, pressed && styles.authButtonPressed]}>
+            <ThemedText style={styles.authButtonText}>Sign in</ThemedText>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => startAuth('sign-up')}
+            style={({ pressed }) => [styles.authButton, pressed && styles.authButtonPressed]}>
+            <ThemedText style={styles.authButtonText}>Sign up</ThemedText>
+          </Pressable>
+        </ThemedView>
+      )}
+      {error && <ThemedText style={styles.authError}>{error}</ThemedText>}
+    </ThemedView>
+  );
+}
 
 function getDevMenuHint() {
   if (Platform.OS === 'web') {
@@ -38,6 +101,8 @@ export default function HomeScreen() {
             Welcome to&nbsp;Expo
           </ThemedText>
         </ThemedView>
+
+        <AuthControls />
 
         <ThemedText type="code" style={styles.code}>
           get started
@@ -94,5 +159,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.four,
     borderRadius: Spacing.four,
+  },
+  authCard: {
+    alignSelf: 'stretch',
+    gap: Spacing.three,
+    padding: Spacing.four,
+    borderRadius: Spacing.four,
+  },
+  authActions: {
+    flexDirection: 'row',
+    gap: Spacing.three,
+  },
+  authButton: {
+    backgroundColor: '#208AEF',
+    borderRadius: Spacing.two,
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.two,
+  },
+  authButtonPressed: {
+    opacity: 0.75,
+  },
+  authButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  authError: {
+    color: '#B42318',
   },
 });
