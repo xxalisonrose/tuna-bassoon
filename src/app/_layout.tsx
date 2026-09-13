@@ -1,35 +1,47 @@
 import { ClerkProvider } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
 import { ConvexProvider, ConvexReactClient } from 'convex/react';
+import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
 import { useColorScheme } from 'react-native';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
 
-const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
+const publishableKey =
+  process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
+
+const convexUrl =
+  process.env.EXPO_PUBLIC_CONVEX_URL ?? '';
 
 if (!publishableKey) {
-  throw new Error("Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY. Add your key to .env.local.\nRun: 1) clerk auth login  2) clerk link  3) clerk env pull — then restart the dev server.");
+  throw new Error(
+    'Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY in .env.local.'
+  );
 }
 
-SplashScreen.preventAutoHideAsync();
+if (!convexUrl) {
+  throw new Error(
+    'Missing EXPO_PUBLIC_CONVEX_URL in .env.local.'
+  );
+}
 
-const convex = new ConvexReactClient(
-  process.env.EXPO_PUBLIC_CONVEX_URL!,
-  {
-    unsavedChangesWarning: false,
-  }
-);
+const convex = new ConvexReactClient(convexUrl, {
+  unsavedChangesWarning: false,
+});
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+
   return (
-    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+    <ClerkProvider
+      publishableKey={publishableKey}
+      tokenCache={tokenCache}>
       <ConvexProvider client={convex}>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <AnimatedSplashOverlay />
+        <ThemeProvider
+          value={
+            colorScheme === 'dark'
+              ? DarkTheme
+              : DefaultTheme
+          }>
           <AppTabs />
         </ThemeProvider>
       </ConvexProvider>
