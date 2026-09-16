@@ -1,12 +1,13 @@
 import {
   Camera,
+  type CameraRef,
   Map,
   Marker,
 } from '@maplibre/maplibre-react-native';
 import { useQuery } from 'convex/react';
 import * as Location from 'expo-location';
-import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { LocationPopup } from '@/components/location-popup';
 import type { Place } from '@/data/places';
@@ -15,6 +16,7 @@ import { api } from '../../convex/_generated/api';
 const HARVARD_YARD: [number, number] = [-71.1167, 42.377];
 
 export default function MapScreen() {
+  const cameraRef = useRef<CameraRef>(null);
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [userCoordinates, setUserCoordinates] =
     useState<[number, number] | null>(null);
@@ -50,7 +52,9 @@ export default function MapScreen() {
 
         if (!servicesEnabled) {
           if (isMounted) {
-            setLocationMessage('Turn on location services to see your position.');
+            setLocationMessage(
+              'Turn on location services to see your position.',
+            );
           }
           return;
         }
@@ -92,12 +96,25 @@ export default function MapScreen() {
 
   const startingCenter = userCoordinates ?? HARVARD_YARD;
 
+  const recenterMap = () => {
+    if (!userCoordinates) {
+      return;
+    }
+
+    cameraRef.current?.flyTo({
+      center: userCoordinates,
+      zoom: 15,
+      duration: 750,
+    });
+  };
+
   return (
     <View style={styles.container}>
       <Map
         style={styles.map}
         mapStyle="https://tiles.openfreemap.org/styles/liberty">
         <Camera
+          ref={cameraRef}
           key={userCoordinates ? 'user-location' : 'harvard-yard'}
           initialViewState={{
             center: startingCenter,
@@ -135,10 +152,30 @@ export default function MapScreen() {
       </Map>
 
       {locationMessage !== '' && (
-        <View style={styles.locationMessage}>
+        <View
+          accessibilityLiveRegion="polite"
+          style={styles.locationMessage}>
           <Text style={styles.locationMessageText}>{locationMessage}</Text>
         </View>
       )}
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Recenter map on my location"
+        accessibilityHint="Moves the map back to your current position"
+        disabled={!userCoordinates}
+        onPress={recenterMap}
+        style={({ pressed }) => [
+          styles.recenterButton,
+          !userCoordinates && styles.recenterButtonDisabled,
+          pressed && styles.recenterButtonPressed,
+        ]}>
+        <Text
+          accessible={false}
+          style={styles.recenterButtonIcon}>
+          ◎
+        </Text>
+      </Pressable>
 
       {selectedPlace && (
         <LocationPopup
@@ -207,5 +244,36 @@ const styles = StyleSheet.create({
   locationMessageText: {
     color: '#ffffff',
     fontSize: 14,
+  },
+  recenterButton: {
+    position: 'absolute',
+    right: 18,
+    bottom: 28,
+    width: 52,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 26,
+    elevation: 5,
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  recenterButtonDisabled: {
+    opacity: 0.45,
+  },
+  recenterButtonPressed: {
+    opacity: 0.75,
+  },
+  recenterButtonIcon: {
+    color: '#208AEF',
+    fontSize: 32,
+    fontWeight: '700',
+    lineHeight: 34,
   },
 });
