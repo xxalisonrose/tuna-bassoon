@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import {
   AccessibilityInfo,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -29,19 +30,12 @@ export function LocationPopup({
       accessibilityViewIsModal
       style={styles.card}>
       <View style={styles.header}>
-        <View style={styles.heading}>
-          <Text accessibilityRole="header" style={styles.title}>
-            {place.title}
-          </Text>
-
-          {place.category && (
-            <Text
-              accessibilityLabel={`Category: ${place.category}`}
-              style={styles.category}>
-              {place.category}
-            </Text>
-          )}
-        </View>
+        <Text
+          accessibilityRole="header"
+          numberOfLines={2}
+          style={styles.title}>
+          {place.title}
+        </Text>
 
         <Pressable
           accessibilityRole="button"
@@ -59,23 +53,37 @@ export function LocationPopup({
         </Pressable>
       </View>
 
-      <Text style={styles.description}>{place.description}</Text>
-
-      {place.badges.length > 0 && (
-        <View style={styles.badgeSection}>
-          <Text style={styles.badgeHeading}>
-            {place.badges.length === 1 ? 'Badge' : 'Badges'}
+      <ScrollView
+        accessibilityLabel={`Details for ${place.title}`}
+        contentContainerStyle={styles.scrollContent}
+        persistentScrollbar
+        showsVerticalScrollIndicator>
+        {place.category && (
+          <Text
+            accessibilityLabel={`Category: ${place.category}`}
+            style={styles.category}>
+            {place.category}
           </Text>
+        )}
 
-          <View style={styles.badgeList}>
-            {place.badges.map((badge) => (
-              <Text key={badge} style={styles.badge}>
-                {badge}
-              </Text>
-            ))}
+        <Text style={styles.description}>{place.description}</Text>
+
+        {place.badges.length > 0 && (
+          <View style={styles.badgeSection}>
+            <Text style={styles.badgeHeading}>
+              {place.badges.length === 1 ? 'Badge' : 'Badges'}
+            </Text>
+
+            <View style={styles.badgeList}>
+              {place.badges.map((badge) => (
+                <Text key={badge} style={styles.badge}>
+                  {badge}
+                </Text>
+              ))}
+            </View>
           </View>
-        </View>
-      )}
+        )}
+      </ScrollView>
     </View>
   );
 }
@@ -84,9 +92,10 @@ const styles = StyleSheet.create({
   card: {
     position: 'absolute',
     right: 16,
-    bottom: 110,
+    bottom: 96,
     left: 16,
-    padding: 18,
+    maxHeight: '62%',
+    overflow: 'hidden',
     backgroundColor: '#ffffff',
     borderRadius: 16,
     elevation: 8,
@@ -100,28 +109,20 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  heading: {
-    flex: 1,
-    alignItems: 'flex-start',
-    gap: 6,
+    alignItems: 'center',
+    minHeight: 68,
+    paddingTop: 12,
+    paddingRight: 12,
+    paddingBottom: 12,
+    paddingLeft: 18,
+    borderBottomColor: '#e5e5e5',
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   title: {
+    flex: 1,
     color: '#111111',
     fontSize: 20,
     fontWeight: '700',
-  },
-  category: {
-    overflow: 'hidden',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    color: '#174E80',
-    fontSize: 13,
-    fontWeight: '600',
-    backgroundColor: '#E6F4FE',
-    borderRadius: 12,
   },
   closeButton: {
     width: 44,
@@ -140,13 +141,30 @@ const styles = StyleSheet.create({
     fontSize: 26,
     lineHeight: 28,
   },
+  scrollContent: {
+    alignItems: 'flex-start',
+    gap: 14,
+    padding: 18,
+    paddingBottom: 22,
+  },
+  category: {
+    overflow: 'hidden',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    color: '#174E80',
+    fontSize: 13,
+    fontWeight: '600',
+    backgroundColor: '#E6F4FE',
+    borderRadius: 12,
+  },
   description: {
+    alignSelf: 'stretch',
     color: '#444444',
     fontSize: 16,
     lineHeight: 24,
   },
   badgeSection: {
-    marginTop: 16,
+    alignSelf: 'stretch',
     gap: 8,
   },
   badgeHeading: {
