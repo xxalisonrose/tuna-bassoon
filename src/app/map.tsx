@@ -6,14 +6,55 @@ import {
 } from '@maplibre/maplibre-react-native';
 import { useQuery } from 'convex/react';
 import * as Location from 'expo-location';
+import {
+  type ErrorBoundaryProps,
+} from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { LocationPopup } from '@/components/location-popup';
 import type { Place } from '@/data/places';
 import { api } from '../../convex/_generated/api';
 
 const HARVARD_YARD: [number, number] = [-71.1167, 42.377];
+
+export function ErrorBoundary({
+  retry,
+}: ErrorBoundaryProps) {
+  return (
+    <View style={styles.errorContainer}>
+      <View
+        accessibilityLiveRegion="assertive"
+        accessibilityRole="alert"
+        style={styles.errorCard}>
+        <Text style={styles.errorTitle}>
+          We couldn’t load the map
+        </Text>
+
+        <Text style={styles.errorText}>
+          Check your internet connection and try again.
+        </Text>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Try loading the map again"
+          onPress={retry}
+          style={({ pressed }) => [
+            styles.retryButton,
+            pressed && styles.retryButtonPressed,
+          ]}>
+          <Text style={styles.retryButtonText}>Try Again</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
 
 export default function MapScreen() {
   const cameraRef = useRef<CameraRef>(null);
@@ -22,8 +63,13 @@ export default function MapScreen() {
     useState<[number, number] | null>(null);
   const [locationMessage, setLocationMessage] =
     useState('Finding your location...');
+  const [locationsTakingLong, setLocationsTakingLong] = useState(false);
 
   const locations = useQuery(api.locations.getLocations);
+
+  const locationsAreLoading = locations === undefined;
+  const locationsAreEmpty =
+    locations !== undefined && locations.length === 0;
 
   const places: Place[] = (locations ?? []).flatMap((location) => {
     if (location.latitude === undefined || location.longitude === undefined) {
@@ -34,16 +80,31 @@ export default function MapScreen() {
       {
         id: location._id,
         title: location.name,
-description: location.description,
-category: location.category,
-badges: location.badges,
-coordinates: [
+        description: location.description,
+        category: location.category,
+        badges: location.badges,
+        coordinates: [
           location.longitude,
           location.latitude,
         ] as [number, number],
       },
     ];
   });
+
+  useEffect(() => {
+    if (!locationsAreLoading) {
+      setLocationsTakingLong(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setLocationsTakingLong(true);
+    }, 8000);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [locationsAreLoading]);
 
   useEffect(() => {
     let isMounted = true;
@@ -161,6 +222,33 @@ coordinates: [
         </View>
       )}
 
+      {locationsAreLoading && (
+        <View
+          accessibilityLiveRegion="polite"
+          style={styles.mapStatus}>
+          <ActivityIndicator
+            accessibilityLabel="Loading map locations"
+            color="#208AEF"
+          />
+          <Text style={styles.mapStatusText}>
+            {locationsTakingLong
+              ? 'Still connecting to location data...'
+              : 'Loading locations...'}
+          </Text>
+        </View>
+      )}
+
+      {locationsAreEmpty && (
+        <View
+          accessibilityLiveRegion="polite"
+          style={styles.mapStatus}>
+          <Text style={styles.mapStatusTitle}>No locations yet</Text>
+          <Text style={styles.mapStatusText}>
+            New places will appear here when they are added.
+          </Text>
+        </View>
+      )}
+
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Recenter map on my location"
@@ -172,9 +260,7 @@ coordinates: [
           !userCoordinates && styles.recenterButtonDisabled,
           pressed && styles.recenterButtonPressed,
         ]}>
-        <Text
-          accessible={false}
-          style={styles.recenterButtonIcon}>
+        <Text accessible={false} style={styles.recenterButtonIcon}>
           ◎
         </Text>
       </Pressable>
@@ -238,6 +324,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 16,
     alignSelf: 'center',
+    maxWidth: '90%',
     backgroundColor: 'rgba(0, 0, 0, 0.75)',
     borderRadius: 18,
     paddingHorizontal: 16,
@@ -246,6 +333,38 @@ const styles = StyleSheet.create({
   locationMessageText: {
     color: '#ffffff',
     fontSize: 14,
+    textAlign: 'center',
+  },
+  mapStatus: {
+    position: 'absolute',
+    top: 70,
+    alignSelf: 'center',
+    maxWidth: '85%',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    elevation: 4,
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  mapStatusTitle: {
+    color: '#111111',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  mapStatusText: {
+    color: '#444444',
+    fontSize: 14,
+    textAlign: 'center',
   },
   recenterButton: {
     position: 'absolute',
@@ -277,5 +396,51 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '700',
     lineHeight: 34,
+  },
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: '#f5f5f5',
+  },
+  errorCard: {
+    width: '100%',
+    maxWidth: 420,
+    alignItems: 'center',
+    gap: 14,
+    padding: 24,
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+  },
+  errorTitle: {
+    color: '#111111',
+    fontSize: 22,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  errorText: {
+    color: '#444444',
+    fontSize: 16,
+    lineHeight: 23,
+    textAlign: 'center',
+  },
+  retryButton: {
+    minWidth: 120,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+    paddingHorizontal: 20,
+    backgroundColor: '#208AEF',
+    borderRadius: 12,
+  },
+  retryButtonPressed: {
+    opacity: 0.75,
+  },
+  retryButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
