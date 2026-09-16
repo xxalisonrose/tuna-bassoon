@@ -34,8 +34,10 @@ export default function MapScreen() {
       {
         id: location._id,
         title: location.name,
-        description: location.description,
-        coordinates: [
+description: location.description,
+category: location.category,
+badges: location.badges,
+coordinates: [
           location.longitude,
           location.latitude,
         ] as [number, number],

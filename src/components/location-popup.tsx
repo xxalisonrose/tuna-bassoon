@@ -1,4 +1,11 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect } from 'react';
+import {
+  AccessibilityInfo,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import type { Place } from '@/data/places';
 
@@ -11,20 +18,64 @@ export function LocationPopup({
   place,
   onClose,
 }: LocationPopupProps) {
+  useEffect(() => {
+    AccessibilityInfo.announceForAccessibility(
+      `Location details opened for ${place.title}`,
+    );
+  }, [place.title]);
+
   return (
-    <View style={styles.card}>
+    <View
+      accessibilityViewIsModal
+      style={styles.card}>
       <View style={styles.header}>
-        <Text style={styles.title}>{place.title}</Text>
+        <View style={styles.heading}>
+          <Text accessibilityRole="header" style={styles.title}>
+            {place.title}
+          </Text>
+
+          {place.category && (
+            <Text
+              accessibilityLabel={`Category: ${place.category}`}
+              style={styles.category}>
+              {place.category}
+            </Text>
+          )}
+        </View>
 
         <Pressable
+          accessibilityRole="button"
           accessibilityLabel="Close location information"
+          accessibilityHint="Closes this location detail card"
+          hitSlop={8}
           onPress={onClose}
-          style={styles.closeButton}>
-          <Text style={styles.closeText}>×</Text>
+          style={({ pressed }) => [
+            styles.closeButton,
+            pressed && styles.closeButtonPressed,
+          ]}>
+          <Text accessible={false} style={styles.closeText}>
+            ×
+          </Text>
         </Pressable>
       </View>
 
       <Text style={styles.description}>{place.description}</Text>
+
+      {place.badges.length > 0 && (
+        <View style={styles.badgeSection}>
+          <Text style={styles.badgeHeading}>
+            {place.badges.length === 1 ? 'Badge' : 'Badges'}
+          </Text>
+
+          <View style={styles.badgeList}>
+            {place.badges.map((badge) => (
+              <Text key={badge} style={styles.badge}>
+                {badge}
+              </Text>
+            ))}
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -50,31 +101,72 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: 12,
+  },
+  heading: {
+    flex: 1,
+    alignItems: 'flex-start',
+    gap: 6,
   },
   title: {
-    flex: 1,
     color: '#111111',
     fontSize: 20,
     fontWeight: '700',
   },
+  category: {
+    overflow: 'hidden',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    color: '#174E80',
+    fontSize: 13,
+    fontWeight: '600',
+    backgroundColor: '#E6F4FE',
+    borderRadius: 12,
+  },
   closeButton: {
-    width: 32,
-    height: 32,
+    width: 44,
+    height: 44,
     marginLeft: 12,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#eeeeee',
-    borderRadius: 16,
+    borderRadius: 22,
+  },
+  closeButtonPressed: {
+    opacity: 0.7,
   },
   closeText: {
     color: '#333333',
-    fontSize: 24,
-    lineHeight: 26,
+    fontSize: 26,
+    lineHeight: 28,
   },
   description: {
     color: '#444444',
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  badgeSection: {
+    marginTop: 16,
+    gap: 8,
+  },
+  badgeHeading: {
+    color: '#222222',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  badgeList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  badge: {
+    overflow: 'hidden',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    color: '#6B3E00',
+    fontSize: 13,
+    fontWeight: '600',
+    backgroundColor: '#FFF2CC',
+    borderRadius: 12,
   },
 });
