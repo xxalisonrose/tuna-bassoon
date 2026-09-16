@@ -1,6 +1,7 @@
-import { ClerkProvider } from '@clerk/expo';
+import { ClerkProvider, useAuth } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
-import { ConvexProvider, ConvexReactClient } from 'convex/react';
+import { ConvexReactClient } from 'convex/react';
+import { ConvexProviderWithClerk } from 'convex/react-clerk';
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
 import { useColorScheme } from 'react-native';
 
@@ -14,13 +15,13 @@ const convexUrl =
 
 if (!publishableKey) {
   throw new Error(
-    'Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY in .env.local.'
+    'Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY in .env.local.',
   );
 }
 
 if (!convexUrl) {
   throw new Error(
-    'Missing EXPO_PUBLIC_CONVEX_URL in .env.local.'
+    'Missing EXPO_PUBLIC_CONVEX_URL in .env.local.',
   );
 }
 
@@ -35,7 +36,9 @@ export default function TabLayout() {
     <ClerkProvider
       publishableKey={publishableKey}
       tokenCache={tokenCache}>
-      <ConvexProvider client={convex}>
+      <ConvexProviderWithClerk
+        client={convex}
+        useAuth={useAuth}>
         <ThemeProvider
           value={
             colorScheme === 'dark'
@@ -44,7 +47,7 @@ export default function TabLayout() {
           }>
           <AppTabs />
         </ThemeProvider>
-      </ConvexProvider>
+      </ConvexProviderWithClerk>
     </ClerkProvider>
   );
 }

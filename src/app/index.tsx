@@ -1,10 +1,15 @@
 import { useAuth } from '@clerk/expo';
 import { useHostedAuth } from '@clerk/expo/hosted-auth';
+import {
+  useConvexAuth,
+  useQuery,
+} from 'convex/react';
 import { useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
+  Text,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -15,14 +20,24 @@ import {
   MaxContentWidth,
   Spacing,
 } from '@/constants/theme';
+import { api } from '../../convex/_generated/api';
 
 function AuthControls() {
   const { isLoaded, isSignedIn, signOut } = useAuth();
+  const {
+    isAuthenticated: isConvexAuthenticated,
+    isLoading: isConvexLoading,
+  } = useConvexAuth();
   const { startHostedAuth } = useHostedAuth();
   const [error, setError] = useState<string | null>(null);
 
+  const currentUser = useQuery(
+    api.users.getCurrentUser,
+    isConvexAuthenticated ? {} : 'skip',
+  );
+
   const startAuth = async (
-    mode: 'sign-in' | 'sign-up'
+    mode: 'sign-in' | 'sign-up',
   ) => {
     setError(null);
 
@@ -32,7 +47,7 @@ function AuthControls() {
       setError(
         authError instanceof Error
           ? authError.message
-          : 'Authentication failed.'
+          : 'Authentication failed.',
       );
     }
   };
@@ -46,7 +61,7 @@ function AuthControls() {
       setError(
         authError instanceof Error
           ? authError.message
-          : 'Unable to sign out.'
+          : 'Unable to sign out.',
       );
     }
   };
@@ -59,6 +74,15 @@ function AuthControls() {
       />
     );
   }
+
+  const backendIsConnecting =
+    isConvexLoading ||
+    (isConvexAuthenticated && currentUser === undefined);
+
+  const backendIsConnected =
+    isConvexAuthenticated &&
+    currentUser !== undefined &&
+    currentUser !== null;
 
   return (
     <ThemedView
@@ -76,48 +100,85 @@ function AuthControls() {
           : 'Sign in to save places, earn badges, and collect stamps.'}
       </ThemedText>
 
+      {isSignedIn && (
+        <ThemedView
+          accessibilityLiveRegion="polite"
+          style={styles.backendStatus}>
+          {backendIsConnecting ? (
+            <>
+              <ActivityIndicator
+                accessibilityLabel="Connecting secure profile"
+                size="small"
+              />
+              <ThemedText type="small">
+                Connecting secure profile...
+              </ThemedText>
+            </>
+          ) : (
+            <>
+              <ThemedView
+                style={[
+                  styles.statusDot,
+                  backendIsConnected
+                    ? styles.statusDotConnected
+                    : styles.statusDotError,
+                ]}
+              />
+              <ThemedText type="small">
+                {backendIsConnected
+                  ? 'Secure profile connected'
+                  : 'Profile connection needs attention'}
+              </ThemedText>
+            </>
+          )}
+        </ThemedView>
+      )}
+
       {isSignedIn ? (
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel="Sign out"
           onPress={handleSignOut}
           style={({ pressed }) => [
             styles.authButton,
             pressed && styles.authButtonPressed,
           ]}>
-          <ThemedText style={styles.authButtonText}>
-            Sign out
-          </ThemedText>
+          <Text style={styles.authButtonText}>Sign out</Text>
         </Pressable>
       ) : (
         <ThemedView style={styles.authActions}>
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="Sign in"
             onPress={() => startAuth('sign-in')}
             style={({ pressed }) => [
               styles.authButton,
+              styles.authActionButton,
               pressed && styles.authButtonPressed,
             ]}>
-            <ThemedText style={styles.authButtonText}>
-              Sign in
-            </ThemedText>
+            <Text style={styles.authButtonText}>Sign in</Text>
           </Pressable>
 
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="Create account"
             onPress={() => startAuth('sign-up')}
             style={({ pressed }) => [
               styles.authButton,
+              styles.authActionButton,
               pressed && styles.authButtonPressed,
             ]}>
-            <ThemedText style={styles.authButtonText}>
+            <Text style={styles.authButtonText}>
               Create account
-            </ThemedText>
+            </Text>
           </Pressable>
         </ThemedView>
       )}
 
       {error && (
-        <ThemedText style={styles.authError}>
+        <ThemedText
+          accessibilityLiveRegion="assertive"
+          style={styles.authError}>
           {error}
         </ThemedText>
       )}
@@ -184,19 +245,44 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: Spacing.three,
   },
-  authButton: {
-    flex: 1,
+  backendStatus: {
+    minHeight: 44,
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: Spacing.two,
+  },
+  statusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  statusDotConnected: {
+    backgroundColor: '#18864B',
+  },
+  statusDotError: {
+    backgroundColor: '#B42318',
+  },
+  authButton: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#A51C30',
     borderRadius: Spacing.two,
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.three,
+  },
+  authActionButton: {
+    flex: 1,
   },
   authButtonPressed: {
     opacity: 0.75,
   },
   authButtonText: {
     color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '600',
   },
   authError: {
