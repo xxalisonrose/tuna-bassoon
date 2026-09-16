@@ -11,6 +11,7 @@
 import type * as locations from "../locations.js";
 import type * as seed from "../seed.js";
 import type * as users from "../users.js";
+import type * as visits from "../visits.js";
 
 import type {
   ApiFromModules,
@@ -22,6 +23,7 @@ declare const fullApi: ApiFromModules<{
   locations: typeof locations;
   seed: typeof seed;
   users: typeof users;
+  visits: typeof visits;
 }>;
 
 /**

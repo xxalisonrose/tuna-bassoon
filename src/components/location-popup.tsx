@@ -1,6 +1,12 @@
-import { useEffect } from 'react';
+import {
+  useConvexAuth,
+  useMutation,
+  useQuery,
+} from 'convex/react';
+import { useEffect, useState } from 'react';
 import {
   AccessibilityInfo,
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,21 +15,151 @@ import {
 } from 'react-native';
 
 import type { Place } from '@/data/places';
+import { api } from '../../convex/_generated/api';
 
 type LocationPopupProps = {
   place: Place;
+  userCoordinates: [number, number] | null;
   onClose: () => void;
+};
+
+type CheckInMessage = {
+  text: string;
+  type: 'success' | 'error' | 'information';
 };
 
 export function LocationPopup({
   place,
+  userCoordinates,
   onClose,
 }: LocationPopupProps) {
+  const {
+    isAuthenticated,
+    isLoading: isAuthenticationLoading,
+  } = useConvexAuth();
+
+  const checkIn = useMutation(api.visits.checkIn);
+
+  const existingVisit = useQuery(
+    api.visits.getVisitForLocation,
+    isAuthenticated
+      ? {
+          locationId: place.id,
+        }
+      : 'skip',
+  );
+
+  const [isCheckingIn, setIsCheckingIn] = useState(false);
+  const [checkInMessage, setCheckInMessage] =
+    useState<CheckInMessage | null>(null);
+
   useEffect(() => {
+    setCheckInMessage(null);
+
     AccessibilityInfo.announceForAccessibility(
       `Location details opened for ${place.title}`,
     );
-  }, [place.title]);
+  }, [place.id, place.title]);
+
+  const visitStatusIsLoading =
+    isAuthenticationLoading ||
+    (isAuthenticated && existingVisit === undefined);
+
+  const handleCheckIn = async () => {
+    if (!isAuthenticated) {
+      setCheckInMessage({
+        text: 'Sign in from the Home tab before checking in.',
+        type: 'information',
+      });
+      return;
+    }
+
+    if (!userCoordinates) {
+      setCheckInMessage({
+        text: 'Your current location is not available yet.',
+        type: 'error',
+      });
+      return;
+    }
+
+    setIsCheckingIn(true);
+    setCheckInMessage(null);
+
+    try {
+      const result = await checkIn({
+        locationId: place.id,
+        userLatitude: userCoordinates[1],
+        userLongitude: userCoordinates[0],
+      });
+
+      if (result.status === 'too_far') {
+        setCheckInMessage({
+          text: `You are approximately ${result.distanceMeters} meters away. Move within 80 meters to check in.`,
+          type: 'error',
+        });
+        return;
+      }
+
+      if (result.status === 'already_checked_in') {
+        setCheckInMessage({
+          text: 'You have already checked in at this location.',
+          type: 'information',
+        });
+        return;
+      }
+
+      const badgeProgress =
+        result.badgeTags.length > 0
+          ? ` Progress added toward: ${result.badgeTags.join(', ')}.`
+          : '';
+
+      setCheckInMessage({
+        text: `Check-in successful! You collected the ${result.stampName} stamp.${badgeProgress}`,
+        type: 'success',
+      });
+    } catch (checkInError) {
+      setCheckInMessage({
+        text:
+          checkInError instanceof Error
+            ? checkInError.message
+            : 'Unable to check in right now.',
+        type: 'error',
+      });
+    } finally {
+      setIsCheckingIn(false);
+    }
+  };
+
+  const checkInButtonLabel = (() => {
+    if (!isAuthenticated) {
+      return 'Sign in to check in';
+    }
+
+    if (visitStatusIsLoading) {
+      return 'Checking visit status...';
+    }
+
+    if (existingVisit) {
+      return 'Already checked in';
+    }
+
+    if (!userCoordinates) {
+      return 'Waiting for GPS...';
+    }
+
+    if (isCheckingIn) {
+      return 'Checking distance...';
+    }
+
+    return 'Check In';
+  })();
+
+  const checkInIsDisabled =
+    !isAuthenticated ||
+    visitStatusIsLoading ||
+    existingVisit !== null ||
+    !userCoordinates ||
+    isCheckingIn;
 
   return (
     <View
@@ -66,12 +202,14 @@ export function LocationPopup({
           </Text>
         )}
 
-        <Text style={styles.description}>{place.description}</Text>
+        <Text style={styles.description}>
+          {place.description}
+        </Text>
 
         {place.badges.length > 0 && (
           <View style={styles.badgeSection}>
             <Text style={styles.badgeHeading}>
-              {place.badges.length === 1 ? 'Badge' : 'Badges'}
+              Badge progress
             </Text>
 
             <View style={styles.badgeList}>
@@ -82,6 +220,42 @@ export function LocationPopup({
               ))}
             </View>
           </View>
+        )}
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={checkInButtonLabel}
+          disabled={checkInIsDisabled}
+          onPress={handleCheckIn}
+          style={({ pressed }) => [
+            styles.checkInButton,
+            checkInIsDisabled && styles.checkInButtonDisabled,
+            pressed && styles.checkInButtonPressed,
+          ]}>
+          {isCheckingIn ? (
+            <ActivityIndicator
+              accessibilityLabel="Checking your distance"
+              color="#ffffff"
+            />
+          ) : (
+            <Text style={styles.checkInButtonText}>
+              {checkInButtonLabel}
+            </Text>
+          )}
+        </Pressable>
+
+        {checkInMessage && (
+          <Text
+            accessibilityLiveRegion="assertive"
+            style={[
+              styles.checkInMessage,
+              checkInMessage.type === 'success' &&
+                styles.checkInMessageSuccess,
+              checkInMessage.type === 'error' &&
+                styles.checkInMessageError,
+            ]}>
+            {checkInMessage.text}
+          </Text>
         )}
       </ScrollView>
     </View>
@@ -186,5 +360,41 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     backgroundColor: '#FFF2CC',
     borderRadius: 12,
+  },
+  checkInButton: {
+    width: '100%',
+    minHeight: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    backgroundColor: '#A51C30',
+    borderRadius: 12,
+  },
+  checkInButtonDisabled: {
+    backgroundColor: '#8A8A8A',
+  },
+  checkInButtonPressed: {
+    opacity: 0.75,
+  },
+  checkInButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  checkInMessage: {
+    alignSelf: 'stretch',
+    color: '#174E80',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  checkInMessageSuccess: {
+    color: '#176B3A',
+  },
+  checkInMessageError: {
+    color: '#B42318',
   },
 });

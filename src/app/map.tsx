@@ -6,9 +6,7 @@ import {
 } from '@maplibre/maplibre-react-native';
 import { useQuery } from 'convex/react';
 import * as Location from 'expo-location';
-import {
-  type ErrorBoundaryProps,
-} from 'expo-router';
+import { type ErrorBoundaryProps } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -58,12 +56,14 @@ export function ErrorBoundary({
 
 export default function MapScreen() {
   const cameraRef = useRef<CameraRef>(null);
-  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const [selectedPlace, setSelectedPlace] =
+    useState<Place | null>(null);
   const [userCoordinates, setUserCoordinates] =
     useState<[number, number] | null>(null);
   const [locationMessage, setLocationMessage] =
     useState('Finding your location...');
-  const [locationsTakingLong, setLocationsTakingLong] = useState(false);
+  const [locationsTakingLong, setLocationsTakingLong] =
+    useState(false);
 
   const locations = useQuery(api.locations.getLocations);
 
@@ -71,25 +71,30 @@ export default function MapScreen() {
   const locationsAreEmpty =
     locations !== undefined && locations.length === 0;
 
-  const places: Place[] = (locations ?? []).flatMap((location) => {
-    if (location.latitude === undefined || location.longitude === undefined) {
-      return [];
-    }
+  const places: Place[] = (locations ?? []).flatMap(
+    (location) => {
+      if (
+        location.latitude === undefined ||
+        location.longitude === undefined
+      ) {
+        return [];
+      }
 
-    return [
-      {
-        id: location._id,
-        title: location.name,
-        description: location.description,
-        category: location.category,
-        badges: location.badges,
-        coordinates: [
-          location.longitude,
-          location.latitude,
-        ] as [number, number],
-      },
-    ];
-  });
+      return [
+        {
+          id: location._id,
+          title: location.name,
+          description: location.description,
+          category: location.category,
+          badges: location.badges,
+          coordinates: [
+            location.longitude,
+            location.latitude,
+          ] as [number, number],
+        },
+      ];
+    },
+  );
 
   useEffect(() => {
     if (!locationsAreLoading) {
@@ -111,7 +116,8 @@ export default function MapScreen() {
 
     async function loadCurrentLocation() {
       try {
-        const servicesEnabled = await Location.hasServicesEnabledAsync();
+        const servicesEnabled =
+          await Location.hasServicesEnabledAsync();
 
         if (!servicesEnabled) {
           if (isMounted) {
@@ -125,16 +131,22 @@ export default function MapScreen() {
         const permission =
           await Location.requestForegroundPermissionsAsync();
 
-        if (permission.status !== Location.PermissionStatus.GRANTED) {
+        if (
+          permission.status !==
+          Location.PermissionStatus.GRANTED
+        ) {
           if (isMounted) {
-            setLocationMessage('Location permission was not granted.');
+            setLocationMessage(
+              'Location permission was not granted.',
+            );
           }
           return;
         }
 
-        const currentLocation = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
+        const currentLocation =
+          await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
 
         if (isMounted) {
           setUserCoordinates([
@@ -145,7 +157,9 @@ export default function MapScreen() {
         }
       } catch {
         if (isMounted) {
-          setLocationMessage('Unable to find your current location.');
+          setLocationMessage(
+            'Unable to find your current location.',
+          );
         }
       }
     }
@@ -157,7 +171,8 @@ export default function MapScreen() {
     };
   }, []);
 
-  const startingCenter = userCoordinates ?? HARVARD_YARD;
+  const startingCenter =
+    userCoordinates ?? HARVARD_YARD;
 
   const recenterMap = () => {
     if (!userCoordinates) {
@@ -178,7 +193,11 @@ export default function MapScreen() {
         mapStyle="https://tiles.openfreemap.org/styles/liberty">
         <Camera
           ref={cameraRef}
-          key={userCoordinates ? 'user-location' : 'harvard-yard'}
+          key={
+            userCoordinates
+              ? 'user-location'
+              : 'harvard-yard'
+          }
           initialViewState={{
             center: startingCenter,
             zoom: 15,
@@ -195,7 +214,8 @@ export default function MapScreen() {
             <View
               style={[
                 styles.pin,
-                selectedPlace?.id === place.id && styles.selectedPin,
+                selectedPlace?.id === place.id &&
+                  styles.selectedPin,
               ]}>
               <View style={styles.pinCenter} />
             </View>
@@ -218,7 +238,9 @@ export default function MapScreen() {
         <View
           accessibilityLiveRegion="polite"
           style={styles.locationMessage}>
-          <Text style={styles.locationMessageText}>{locationMessage}</Text>
+          <Text style={styles.locationMessageText}>
+            {locationMessage}
+          </Text>
         </View>
       )}
 
@@ -230,6 +252,7 @@ export default function MapScreen() {
             accessibilityLabel="Loading map locations"
             color="#208AEF"
           />
+
           <Text style={styles.mapStatusText}>
             {locationsTakingLong
               ? 'Still connecting to location data...'
@@ -242,7 +265,10 @@ export default function MapScreen() {
         <View
           accessibilityLiveRegion="polite"
           style={styles.mapStatus}>
-          <Text style={styles.mapStatusTitle}>No locations yet</Text>
+          <Text style={styles.mapStatusTitle}>
+            No locations yet
+          </Text>
+
           <Text style={styles.mapStatusText}>
             New places will appear here when they are added.
           </Text>
@@ -257,10 +283,13 @@ export default function MapScreen() {
         onPress={recenterMap}
         style={({ pressed }) => [
           styles.recenterButton,
-          !userCoordinates && styles.recenterButtonDisabled,
+          !userCoordinates &&
+            styles.recenterButtonDisabled,
           pressed && styles.recenterButtonPressed,
         ]}>
-        <Text accessible={false} style={styles.recenterButtonIcon}>
+        <Text
+          accessible={false}
+          style={styles.recenterButtonIcon}>
           ◎
         </Text>
       </Pressable>
@@ -268,6 +297,7 @@ export default function MapScreen() {
       {selectedPlace && (
         <LocationPopup
           place={selectedPlace}
+          userCoordinates={userCoordinates}
           onClose={() => setSelectedPlace(null)}
         />
       )}
