@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as locationAgent from "../locationAgent.js";
 import type * as locations from "../locations.js";
 import type * as seed from "../seed.js";
 import type * as users from "../users.js";
@@ -20,6 +21,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  locationAgent: typeof locationAgent;
   locations: typeof locations;
   seed: typeof seed;
   users: typeof users;
@@ -52,4 +54,6 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  agent: import("@convex-dev/agent/_generated/component.js").ComponentApi<"agent">;
+};
