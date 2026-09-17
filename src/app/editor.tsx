@@ -1,4 +1,8 @@
-import { useAction, useMutation, useQuery } from 'convex/react';
+import {
+  useAction,
+  useMutation,
+  useQuery,
+} from 'convex/react';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -16,15 +20,18 @@ import type { Id } from '../../convex/_generated/dataModel';
 
 export default function EditorScreen() {
   const locations = useQuery(api.locations.getLocations);
+
   const generate = useAction(
     api.locationAgent.generateLocationDescription,
   );
+
   const approve = useMutation(
     api.locationAgent.approveLocationDescription,
   );
-  const [selectedId, setSelectedId] = useState<Id<'locations'> | null>(
-    null,
-  );
+
+  const [selectedId, setSelectedId] =
+    useState<Id<'locations'> | null>(null);
+
   const [notes, setNotes] = useState('');
   const [draft, setDraft] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -48,6 +55,7 @@ export default function EditorScreen() {
         locationId: selectedId,
         editorialNotes: notes.trim() || undefined,
       });
+
       setDraft(result.description);
       setMessage('Draft ready for review.');
     } catch (error) {
@@ -74,6 +82,7 @@ export default function EditorScreen() {
         locationId: selectedId,
         description: draft,
       });
+
       setDraft(null);
       setMessage('Description approved and published.');
     } catch (error) {
@@ -93,12 +102,16 @@ export default function EditorScreen() {
         <ThemedText type="title" style={styles.title}>
           Location editor
         </ThemedText>
+
         <ThemedText themeColor="textSecondary">
           Draft consistent descriptions with Gemini, then review
           and approve them before they appear on the map.
         </ThemedText>
 
-        <ThemedText type="smallBold">Choose a location</ThemedText>
+        <ThemedText type="smallBold">
+          Choose a location
+        </ThemedText>
+
         <ThemedView style={styles.locationList}>
           {locations === undefined ? (
             <ActivityIndicator />
@@ -123,6 +136,7 @@ export default function EditorScreen() {
                 <ThemedText type="smallBold">
                   {location.name}
                 </ThemedText>
+
                 <ThemedText
                   type="small"
                   themeColor="textSecondary"
@@ -139,6 +153,7 @@ export default function EditorScreen() {
             <ThemedText type="smallBold">
               Optional editorial notes
             </ThemedText>
+
             <TextInput
               multiline
               value={notes}
@@ -147,6 +162,7 @@ export default function EditorScreen() {
               placeholderTextColor="#777777"
               style={styles.notes}
             />
+
             <Pressable
               disabled={busy}
               onPress={handleGenerate}
@@ -167,11 +183,15 @@ export default function EditorScreen() {
         )}
 
         {draft && (
-          <ThemedView type="backgroundElement" style={styles.draftCard}>
+          <ThemedView
+            type="backgroundElement"
+            style={styles.draftCard}>
             <ThemedText type="smallBold">
               Draft description
             </ThemedText>
+
             <ThemedText>{draft}</ThemedText>
+
             <Pressable
               disabled={busy}
               onPress={handleApprove}
