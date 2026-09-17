@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as badges from "../badges.js";
 import type * as locations from "../locations.js";
 import type * as seed from "../seed.js";
 import type * as users from "../users.js";
@@ -20,6 +21,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  badges: typeof badges;
   locations: typeof locations;
   seed: typeof seed;
   users: typeof users;
