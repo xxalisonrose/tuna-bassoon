@@ -27,6 +27,10 @@ export default function AppTabs() {
           <TabTrigger name="map" href="/map" asChild>
             <TabButton>Map</TabButton>
           </TabTrigger>
+
+          <TabTrigger name="editor" href="/editor" asChild>
+            <TabButton>Editor</TabButton>
+          </TabTrigger>
         </CustomTabList>
       </TabList>
     </Tabs>

@@ -3,7 +3,7 @@ import { Agent } from '@convex-dev/agent';
 import { v } from 'convex/values';
 
 import { components, internal } from './_generated/api';
-import { action } from './_generated/server';
+import { action, mutation } from './_generated/server';
 import type { Doc, Id } from './_generated/dataModel';
 
 const LOCATION_VOICE = `
@@ -25,7 +25,7 @@ const locationAgent = new Agent(components.agent, {
   instructions: LOCATION_VOICE,
 });
 
-export const rewriteLocationDescription = action({
+export const generateLocationDescription = action({
   args: {
     locationId: v.id('locations'),
     editorialNotes: v.optional(v.string()),
@@ -79,17 +79,34 @@ export const rewriteLocationDescription = action({
       );
     }
 
-    await ctx.runMutation(
-      internal.locations.saveDescription,
-      {
-        locationId: args.locationId,
-        description,
-      },
-    );
-
     return {
       locationId: args.locationId,
       description,
     };
+  },
+});
+
+export const approveLocationDescription = mutation({
+  args: {
+    locationId: v.id('locations'),
+    description: v.string(),
+  },
+
+  handler: async (ctx, args) => {
+    if ((await ctx.auth.getUserIdentity()) === null) {
+      throw new Error(
+        'You must be signed in to approve a location description.',
+      );
+    }
+
+    const location = await ctx.db.get(args.locationId);
+
+    if (location === null) {
+      throw new Error('Location not found.');
+    }
+
+    await ctx.db.patch(args.locationId, {
+      description: args.description,
+    });
   },
 });
