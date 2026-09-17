@@ -9,8 +9,10 @@ import * as Location from 'expo-location';
 import { type ErrorBoundaryProps } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -61,6 +63,9 @@ export default function MapScreen() {
 
   const [selectedPlace, setSelectedPlace] =
     useState<Place | null>(null);
+
+  const [locationListVisible, setLocationListVisible] =
+    useState(false);
 
   const [userCoordinates, setUserCoordinates] =
     useState<[number, number] | null>(null);
@@ -202,9 +207,31 @@ export default function MapScreen() {
     });
   };
 
+  const toggleLocationList = () => {
+    const nextVisible = !locationListVisible;
+
+    setLocationListVisible(nextVisible);
+
+    AccessibilityInfo.announceForAccessibility(
+      nextVisible
+        ? 'Location list opened.'
+        : 'Location list closed.',
+    );
+  };
+
+  const selectPlace = (place: Place) => {
+    setSelectedPlace(place);
+    setLocationListVisible(false);
+
+    AccessibilityInfo.announceForAccessibility(
+      `${place.title} selected.`,
+    );
+  };
+
   return (
     <View style={styles.container}>
       <Map
+        accessible={false}
         style={styles.map}
         mapStyle="https://tiles.openfreemap.org/styles/liberty">
         <Camera
@@ -226,14 +253,18 @@ export default function MapScreen() {
             id={place.id}
             lngLat={place.coordinates}
             anchor="bottom"
-            onPress={() => setSelectedPlace(place)}>
+            onPress={() => selectPlace(place)}>
             <View
+              accessible={false}
               style={[
                 styles.pin,
                 selectedPlace?.id === place.id &&
                   styles.selectedPin,
               ]}>
-              <View style={styles.pinCenter} />
+              <View
+                accessible={false}
+                style={styles.pinCenter}
+              />
             </View>
           </Marker>
         ))}
@@ -243,8 +274,13 @@ export default function MapScreen() {
             id="current-user-location"
             lngLat={userCoordinates}
             anchor="center">
-            <View style={styles.userLocationOuter}>
-              <View style={styles.userLocationInner} />
+            <View
+              accessible={false}
+              style={styles.userLocationOuter}>
+              <View
+                accessible={false}
+                style={styles.userLocationInner}
+              />
             </View>
           </Marker>
         )}
@@ -306,10 +342,109 @@ export default function MapScreen() {
         </View>
       )}
 
+      {!locationsAreLoading &&
+        places.length > 0 &&
+        !locationListVisible && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open location list"
+            accessibilityHint="Opens an accessible list of locations on the map"
+            accessibilityState={{
+              expanded: locationListVisible,
+            }}
+            onPress={toggleLocationList}
+            style={({ pressed }) => [
+              styles.locationListButton,
+              pressed && styles.locationListButtonPressed,
+            ]}>
+            <Text style={styles.locationListButtonText}>
+              Location list
+            </Text>
+          </Pressable>
+        )}
+
+      {!locationsAreLoading &&
+        places.length > 0 &&
+        locationListVisible && (
+          <View
+            accessibilityViewIsModal
+            style={styles.locationListPanel}>
+            <View style={styles.locationListHeader}>
+              <Text
+                accessibilityRole="header"
+                style={styles.locationListTitle}>
+                Locations
+              </Text>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close location list"
+                accessibilityHint="Closes the accessible location list"
+                onPress={toggleLocationList}
+                style={({ pressed }) => [
+                  styles.locationListCloseButton,
+                  pressed &&
+                    styles.locationListCloseButtonPressed,
+                ]}>
+                <Text
+                  accessible={false}
+                  style={styles.locationListCloseText}>
+                  ×
+                </Text>
+              </Pressable>
+            </View>
+
+            <Text style={styles.locationListDescription}>
+              Select a location to view its details.
+            </Text>
+
+            <ScrollView
+              accessibilityLabel="Location list"
+              contentContainerStyle={
+                styles.locationListContent
+              }
+              showsVerticalScrollIndicator>
+              {places.map((place) => (
+                <Pressable
+                  key={place.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    place.category
+                      ? `${place.title}, ${place.category}`
+                      : place.title
+                  }
+                  accessibilityHint="Opens location details"
+                  onPress={() => selectPlace(place)}
+                  style={({ pressed }) => [
+                    styles.locationListItem,
+                    selectedPlace?.id === place.id &&
+                      styles.locationListItemSelected,
+                    pressed &&
+                      styles.locationListItemPressed,
+                  ]}>
+                  <Text style={styles.locationListItemTitle}>
+                    {place.title}
+                  </Text>
+
+                  {place.category && (
+                    <Text
+                      style={styles.locationListItemCategory}>
+                      {place.category}
+                    </Text>
+                  )}
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Recenter map on my location"
         accessibilityHint="Moves the map back to your current position"
+        accessibilityState={{
+          disabled: !userCoordinates,
+        }}
         disabled={!userCoordinates}
         onPress={recenterMap}
         style={({ pressed }) => [
@@ -426,6 +561,120 @@ const styles = StyleSheet.create({
     color: '#444444',
     fontSize: 14,
     textAlign: 'center',
+  },
+  locationListButton: {
+    position: 'absolute',
+    left: 18,
+    bottom: 28,
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+    backgroundColor: '#ffffff',
+    borderRadius: 26,
+    elevation: 5,
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  locationListButtonPressed: {
+    opacity: 0.75,
+  },
+  locationListButtonText: {
+    color: '#174E80',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  locationListPanel: {
+    position: 'absolute',
+    top: 24,
+    right: 16,
+    bottom: 24,
+    left: 16,
+    overflow: 'hidden',
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    elevation: 8,
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+  },
+  locationListHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 68,
+    paddingLeft: 18,
+    paddingRight: 12,
+    borderBottomColor: '#e5e5e5',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  locationListTitle: {
+    color: '#111111',
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  locationListCloseButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#eeeeee',
+    borderRadius: 22,
+  },
+  locationListCloseButtonPressed: {
+    opacity: 0.7,
+  },
+  locationListCloseText: {
+    color: '#333333',
+    fontSize: 26,
+    lineHeight: 28,
+  },
+  locationListDescription: {
+    paddingHorizontal: 18,
+    paddingTop: 14,
+    color: '#444444',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  locationListContent: {
+    gap: 10,
+    padding: 18,
+    paddingBottom: 28,
+  },
+  locationListItem: {
+    gap: 4,
+    minHeight: 56,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderColor: '#d0d5dd',
+    borderWidth: 1,
+    borderRadius: 12,
+  },
+  locationListItemSelected: {
+    borderColor: '#A51C30',
+    borderWidth: 2,
+  },
+  locationListItemPressed: {
+    opacity: 0.75,
+  },
+  locationListItemTitle: {
+    color: '#111111',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  locationListItemCategory: {
+    color: '#555555',
+    fontSize: 14,
   },
   recenterButton: {
     position: 'absolute',
