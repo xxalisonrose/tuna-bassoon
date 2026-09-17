@@ -47,7 +47,9 @@ export function ErrorBoundary({
             styles.retryButton,
             pressed && styles.retryButtonPressed,
           ]}>
-          <Text style={styles.retryButtonText}>Try Again</Text>
+          <Text style={styles.retryButtonText}>
+            Try Again
+          </Text>
         </Pressable>
       </View>
     </View>
@@ -56,20 +58,23 @@ export function ErrorBoundary({
 
 export default function MapScreen() {
   const cameraRef = useRef<CameraRef>(null);
+
   const [selectedPlace, setSelectedPlace] =
     useState<Place | null>(null);
+
   const [userCoordinates, setUserCoordinates] =
     useState<[number, number] | null>(null);
-  const [locationMessage, setLocationMessage] =
-    useState('Finding your location...');
+
+  const [locationMessage, setLocationMessage] = useState(
+    'Finding your location...',
+  );
+
   const [locationsTakingLong, setLocationsTakingLong] =
     useState(false);
 
   const locations = useQuery(api.locations.getLocations);
 
   const locationsAreLoading = locations === undefined;
-  const locationsAreEmpty =
-    locations !== undefined && locations.length === 0;
 
   const places: Place[] = (locations ?? []).flatMap(
     (location) => {
@@ -95,6 +100,14 @@ export default function MapScreen() {
       ];
     },
   );
+
+  const locationsAreEmpty =
+    locations !== undefined && locations.length === 0;
+
+  const placesAreEmpty =
+    locations !== undefined &&
+    locations.length > 0 &&
+    places.length === 0;
 
   useEffect(() => {
     if (!locationsAreLoading) {
@@ -125,6 +138,7 @@ export default function MapScreen() {
               'Turn on location services to see your position.',
             );
           }
+
           return;
         }
 
@@ -140,6 +154,7 @@ export default function MapScreen() {
               'Location permission was not granted.',
             );
           }
+
           return;
         }
 
@@ -153,6 +168,7 @@ export default function MapScreen() {
             currentLocation.coords.longitude,
             currentLocation.coords.latitude,
           ]);
+
           setLocationMessage('');
         }
       } catch {
@@ -271,6 +287,21 @@ export default function MapScreen() {
 
           <Text style={styles.mapStatusText}>
             New places will appear here when they are added.
+          </Text>
+        </View>
+      )}
+
+      {placesAreEmpty && (
+        <View
+          accessibilityLiveRegion="polite"
+          style={styles.mapStatus}>
+          <Text style={styles.mapStatusTitle}>
+            Locations need map information
+          </Text>
+
+          <Text style={styles.mapStatusText}>
+            The available locations are missing map
+            coordinates. They cannot appear on the map yet.
           </Text>
         </View>
       )}

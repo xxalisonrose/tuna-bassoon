@@ -68,7 +68,7 @@
     "badges": ["Art"]
   },
   {
-    "name": "Wadsworth House",
+    "name": "Wadsworth House — Revolutionary History",
     "description": "George Washington’s first home during the revolutionary war. Built in 1726, Wadsworth House is the second-oldest surviving building at Harvard. It served as the residence of Harvard presidents until 1849 and was General George Washington's first headquarters after taking command of the Continental Army in 1775.",
     "latitude": 42.3734,
     "longitude": -71.11812,
@@ -233,7 +233,7 @@
     "latitude": 42.375996,
     "longitude": -71.116967,
     "category": "Art",
-    "badges": ["Interesting Place"]
+    "badges": ["Art"]
   },
   {
     "name": "Cabot Science Complex Copper Map",
@@ -284,7 +284,7 @@
     "badges": ["Ghost Stories"]
   },
   {
-    "name": "Wadsworth House",
+    "name": "Wadsworth House — Ghost Stories",
     "description": "Spirits are said to remain in Harvard’s second-oldest building. Apparitions in colonial garb have been sighted, and more recently, heard by an on-site IT specialist",
     "latitude": 42.373234,
     "longitude": -71.11828,
