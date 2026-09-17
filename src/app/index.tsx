@@ -7,6 +7,7 @@ import {
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -24,11 +25,14 @@ import { api } from '../../convex/_generated/api';
 
 function AuthControls() {
   const { isLoaded, isSignedIn, signOut } = useAuth();
+
   const {
     isAuthenticated: isConvexAuthenticated,
     isLoading: isConvexLoading,
   } = useConvexAuth();
+
   const { startHostedAuth } = useHostedAuth();
+
   const [error, setError] = useState<string | null>(null);
 
   const currentUser = useQuery(
@@ -42,7 +46,14 @@ function AuthControls() {
     setError(null);
 
     try {
-      await startHostedAuth({ mode });
+      if (Platform.OS === 'web') {
+        await startHostedAuth({ mode });
+      } else {
+        await startHostedAuth({
+          mode,
+          redirectUrl: 'tunabassoonapp://callback',
+        });
+      }
     } catch (authError) {
       setError(
         authError instanceof Error
@@ -110,6 +121,7 @@ function AuthControls() {
                 accessibilityLabel="Connecting secure profile"
                 size="small"
               />
+
               <ThemedText type="small">
                 Connecting secure profile...
               </ThemedText>
@@ -124,6 +136,7 @@ function AuthControls() {
                     : styles.statusDotError,
                 ]}
               />
+
               <ThemedText type="small">
                 {backendIsConnected
                   ? 'Secure profile connected'
@@ -143,7 +156,9 @@ function AuthControls() {
             styles.authButton,
             pressed && styles.authButtonPressed,
           ]}>
-          <Text style={styles.authButtonText}>Sign out</Text>
+          <Text style={styles.authButtonText}>
+            Sign out
+          </Text>
         </Pressable>
       ) : (
         <ThemedView style={styles.authActions}>
@@ -156,7 +171,9 @@ function AuthControls() {
               styles.authActionButton,
               pressed && styles.authButtonPressed,
             ]}>
-            <Text style={styles.authButtonText}>Sign in</Text>
+            <Text style={styles.authButtonText}>
+              Sign in
+            </Text>
           </Pressable>
 
           <Pressable

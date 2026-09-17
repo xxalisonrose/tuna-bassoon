@@ -2,9 +2,9 @@ import { google } from '@ai-sdk/google';
 import { Agent } from '@convex-dev/agent';
 import { v } from 'convex/values';
 
+import type { Doc, Id } from './_generated/dataModel';
 import { components, internal } from './_generated/api';
 import { action, mutation } from './_generated/server';
-import type { Doc, Id } from './_generated/dataModel';
 
 const LOCATION_VOICE = `
 You write location descriptions for a Harvard history and landmarks app.
@@ -21,7 +21,7 @@ Voice:
 
 const locationAgent = new Agent(components.agent, {
   name: 'Harvard Location Description Editor',
-  languageModel: google('gemini-2.5-flash'),
+  languageModel: google('gemini-3.6-flash'),
   instructions: LOCATION_VOICE,
 });
 
@@ -46,16 +46,18 @@ export const generateLocationDescription = action({
       );
     }
 
-    const location: Doc<'locations'> | null = await ctx.runQuery(
-      internal.locations.getLocation,
-      { locationId: args.locationId },
-    );
+    const location: Doc<'locations'> | null =
+      await ctx.runQuery(
+        internal.locations.getLocation,
+        { locationId: args.locationId },
+      );
 
     if (location === null) {
       throw new Error('Location not found.');
     }
 
     const { thread } = await locationAgent.createThread(ctx);
+
     const result = await thread.generateText({
       prompt: [
         `Location name: ${location.name}`,
