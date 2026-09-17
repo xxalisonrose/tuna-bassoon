@@ -23,10 +23,10 @@ Add your Google AI Studio key to the Convex deployment environment (do not put i
 npx convex env set GOOGLE_GENERATIVE_AI_API_KEY your-google-ai-key
 ```
 
-The `api.locationAgent.rewriteLocationDescription` action rewrites a location
-using the app's shared editorial voice and saves the result back to Convex.
-It requires an authenticated user. Pass the location ID and optional editorial
-notes when calling it from an admin/editor workflow.
+The `api.locationAgent.generateLocationDescription` action drafts a rewrite
+using the app's shared editorial voice. The authenticated editor can review it
+and call `api.locationAgent.approveLocationDescription` to save it to Convex.
+Pass the location ID and optional editorial notes when calling the action.
 
 Seed locations from the Convex dashboard or by calling the `seedLocations`
 mutation. The map reads locations reactively through
