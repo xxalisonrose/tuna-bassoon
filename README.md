@@ -16,6 +16,18 @@ Copy the deployment URL into `.env.local`:
 EXPO_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
 ```
 
+Add the OpenAI key to the Convex deployment environment (do not put it in
+`.env.local` or the Expo app):
+
+```sh
+npx convex env set OPENAI_API_KEY your-openai-key
+```
+
+The `api.locationAgent.rewriteLocationDescription` action rewrites a location
+using the app's shared editorial voice and saves the result back to Convex.
+It requires an authenticated user. Pass the location ID and optional editorial
+notes when calling it from an admin/editor workflow.
+
 Seed locations from the Convex dashboard or by calling the `seedLocations`
 mutation. The map reads locations reactively through
 `api.locations.getLocations`, so changes in Convex appear automatically.

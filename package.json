@@ -3,9 +3,12 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
+    "@ai-sdk/openai": "^4.0.69",
     "@clerk/expo": "^4.6.6",
+    "@convex-dev/agent": "^0.7.3",
     "@expo/ui": "~57.0.18",
     "@maplibre/maplibre-react-native": "^11.3.10",
+    "ai": "^7.0.105",
     "convex": "^1.45.0",
     "expo": "~57.0.23",
     "expo-auth-session": "~57.0.12",
