@@ -49,15 +49,21 @@ export function LocationPopup({
       : 'skip',
   );
 
-  const [isCheckingIn, setIsCheckingIn] = useState(false);
+  const [isCheckingIn, setIsCheckingIn] =
+    useState(false);
+
   const [checkInMessage, setCheckInMessage] =
     useState<CheckInMessage | null>(null);
+
+  const announce = (text: string) => {
+    AccessibilityInfo.announceForAccessibility(text);
+  };
 
   useEffect(() => {
     setCheckInMessage(null);
 
-    AccessibilityInfo.announceForAccessibility(
-      `Location details opened for ${place.title}`,
+    announce(
+      `Location details opened for ${place.title}.`,
     );
   }, [place.id, place.title]);
 
@@ -67,23 +73,34 @@ export function LocationPopup({
 
   const handleCheckIn = async () => {
     if (!isAuthenticated) {
+      const text =
+        'Sign in from the Home tab before checking in.';
+
       setCheckInMessage({
-        text: 'Sign in from the Home tab before checking in.',
+        text,
         type: 'information',
       });
+
+      announce(text);
       return;
     }
 
     if (!userCoordinates) {
+      const text =
+        'Your current location is not available yet.';
+
       setCheckInMessage({
-        text: 'Your current location is not available yet.',
+        text,
         type: 'error',
       });
+
+      announce(text);
       return;
     }
 
     setIsCheckingIn(true);
     setCheckInMessage(null);
+    announce('Checking your distance from this location.');
 
     try {
       const result = await checkIn({
@@ -93,18 +110,27 @@ export function LocationPopup({
       });
 
       if (result.status === 'too_far') {
+        const text = `You are approximately ${result.distanceMeters} meters away. Move within 80 meters to check in.`;
+
         setCheckInMessage({
-          text: `You are approximately ${result.distanceMeters} meters away. Move within 80 meters to check in.`,
+          text,
           type: 'error',
         });
+
+        announce(text);
         return;
       }
 
       if (result.status === 'already_checked_in') {
+        const text =
+          'You have already checked in at this location.';
+
         setCheckInMessage({
-          text: 'You have already checked in at this location.',
+          text,
           type: 'information',
         });
+
+        announce(text);
         return;
       }
 
@@ -113,18 +139,26 @@ export function LocationPopup({
           ? ` Progress added toward: ${result.badgeTags.join(', ')}.`
           : '';
 
+      const text = `Check-in successful! You collected the ${result.stampName} stamp.${badgeProgress}`;
+
       setCheckInMessage({
-        text: `Check-in successful! You collected the ${result.stampName} stamp.${badgeProgress}`,
+        text,
         type: 'success',
       });
+
+      announce(text);
     } catch (checkInError) {
+      const text =
+        checkInError instanceof Error
+          ? checkInError.message
+          : 'Unable to check in right now.';
+
       setCheckInMessage({
-        text:
-          checkInError instanceof Error
-            ? checkInError.message
-            : 'Unable to check in right now.',
+        text,
         type: 'error',
       });
+
+      announce(text);
     } finally {
       setIsCheckingIn(false);
     }
@@ -161,9 +195,22 @@ export function LocationPopup({
     !userCoordinates ||
     isCheckingIn;
 
+  const popupAccessibilityLabel = [
+    `Location details for ${place.title}.`,
+    place.category
+      ? `Category: ${place.category}.`
+      : '',
+    place.badges.length > 0
+      ? `Related badges: ${place.badges.join(', ')}.`
+      : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
     <View
       accessibilityViewIsModal
+      accessibilityLabel={popupAccessibilityLabel}
       style={styles.card}>
       <View style={styles.header}>
         <Text
@@ -190,7 +237,7 @@ export function LocationPopup({
       </View>
 
       <ScrollView
-        accessibilityLabel={`Details for ${place.title}`}
+        accessibilityLabel={`Scrollable details for ${place.title}`}
         contentContainerStyle={styles.scrollContent}
         persistentScrollbar
         showsVerticalScrollIndicator>
@@ -202,19 +249,26 @@ export function LocationPopup({
           </Text>
         )}
 
-        <Text style={styles.description}>
+        <Text
+          accessibilityLabel={`Description: ${place.description}`}
+          style={styles.description}>
           {place.description}
         </Text>
 
         {place.badges.length > 0 && (
-          <View style={styles.badgeSection}>
+          <View
+            accessibilityLabel={`Related badges: ${place.badges.join(', ')}`}
+            style={styles.badgeSection}>
             <Text style={styles.badgeHeading}>
-              Badge progress
+              Related badges
             </Text>
 
             <View style={styles.badgeList}>
               {place.badges.map((badge) => (
-                <Text key={badge} style={styles.badge}>
+                <Text
+                  key={badge}
+                  accessibilityLabel={`Badge: ${badge}`}
+                  style={styles.badge}>
                   {badge}
                 </Text>
               ))}
@@ -225,11 +279,21 @@ export function LocationPopup({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={checkInButtonLabel}
+          accessibilityHint={
+            checkInIsDisabled
+              ? undefined
+              : 'Checks whether you are within 80 meters of this location.'
+          }
+          accessibilityState={{
+            disabled: checkInIsDisabled,
+            busy: isCheckingIn,
+          }}
           disabled={checkInIsDisabled}
           onPress={handleCheckIn}
           style={({ pressed }) => [
             styles.checkInButton,
-            checkInIsDisabled && styles.checkInButtonDisabled,
+            checkInIsDisabled &&
+              styles.checkInButtonDisabled,
             pressed && styles.checkInButtonPressed,
           ]}>
           {isCheckingIn ? (
@@ -247,6 +311,7 @@ export function LocationPopup({
         {checkInMessage && (
           <Text
             accessibilityLiveRegion="assertive"
+            accessibilityRole="alert"
             style={[
               styles.checkInMessage,
               checkInMessage.type === 'success' &&
