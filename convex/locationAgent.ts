@@ -1,4 +1,4 @@
-import { openai } from '@ai-sdk/openai';
+import { google } from '@ai-sdk/google';
 import { Agent } from '@convex-dev/agent';
 import { v } from 'convex/values';
 
@@ -21,7 +21,7 @@ Voice:
 
 const locationAgent = new Agent(components.agent, {
   name: 'Harvard Location Description Editor',
-  languageModel: openai.chat('gpt-4o-mini'),
+  languageModel: google('gemini-2.5-flash'),
   instructions: LOCATION_VOICE,
 });
 

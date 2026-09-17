@@ -3,7 +3,7 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
-    "@ai-sdk/openai": "^4.0.69",
+    "@ai-sdk/google": "^4.0.74",
     "@clerk/expo": "^4.6.6",
     "@convex-dev/agent": "^0.7.3",
     "@expo/ui": "~57.0.18",

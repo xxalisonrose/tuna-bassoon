@@ -16,11 +16,11 @@ Copy the deployment URL into `.env.local`:
 EXPO_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
 ```
 
-Add the OpenAI key to the Convex deployment environment (do not put it in
+Add your Google AI Studio key to the Convex deployment environment (do not put it in
 `.env.local` or the Expo app):
 
 ```sh
-npx convex env set OPENAI_API_KEY your-openai-key
+npx convex env set GOOGLE_GENERATIVE_AI_API_KEY your-google-ai-key
 ```
 
 The `api.locationAgent.rewriteLocationDescription` action rewrites a location
