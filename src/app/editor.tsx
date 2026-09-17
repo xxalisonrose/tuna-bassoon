@@ -1,6 +1,11 @@
-import { useAction, useMutation, useQuery } from 'convex/react';
+import {
+  useAction,
+  useMutation,
+  useQuery,
+} from 'convex/react';
 import { useState } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   Pressable,
   ScrollView,
@@ -16,15 +21,18 @@ import type { Id } from '../../convex/_generated/dataModel';
 
 export default function EditorScreen() {
   const locations = useQuery(api.locations.getLocations);
+
   const generate = useAction(
     api.locationAgent.generateLocationDescription,
   );
+
   const approve = useMutation(
     api.locationAgent.approveLocationDescription,
   );
-  const [selectedId, setSelectedId] = useState<Id<'locations'> | null>(
-    null,
-  );
+
+  const [selectedId, setSelectedId] =
+    useState<Id<'locations'> | null>(null);
+
   const [notes, setNotes] = useState('');
   const [draft, setDraft] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -34,9 +42,25 @@ export default function EditorScreen() {
     (location) => location._id === selectedId,
   );
 
+  const announce = (text: string) => {
+    AccessibilityInfo.announceForAccessibility(text);
+  };
+
+  const handleSelectLocation = (
+    locationId: Id<'locations'>,
+    locationName: string,
+  ) => {
+    setSelectedId(locationId);
+    setDraft(null);
+    setMessage(null);
+    announce(`${locationName} selected.`);
+  };
+
   const handleGenerate = async () => {
     if (!selectedId) {
-      setMessage('Choose a location first.');
+      const text = 'Choose a location before drafting a description.';
+      setMessage(text);
+      announce(text);
       return;
     }
 
@@ -48,14 +72,20 @@ export default function EditorScreen() {
         locationId: selectedId,
         editorialNotes: notes.trim() || undefined,
       });
+
       setDraft(result.description);
-      setMessage('Draft ready for review.');
+
+      const text = 'Draft ready for review.';
+      setMessage(text);
+      announce(text);
     } catch (error) {
-      setMessage(
+      const text =
         error instanceof Error
           ? error.message
-          : 'Unable to generate a draft.',
-      );
+          : 'Unable to generate a draft.';
+
+      setMessage(text);
+      announce(text);
     } finally {
       setBusy(false);
     }
@@ -74,72 +104,116 @@ export default function EditorScreen() {
         locationId: selectedId,
         description: draft,
       });
+
       setDraft(null);
-      setMessage('Description approved and published.');
+
+      const text = 'Description approved and published.';
+      setMessage(text);
+      announce(text);
     } catch (error) {
-      setMessage(
+      const text =
         error instanceof Error
           ? error.message
-          : 'Unable to save the description.',
-      );
+          : 'Unable to save the description.';
+
+      setMessage(text);
+      announce(text);
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView
+      accessibilityLabel="Location editor"
+      contentContainerStyle={styles.content}>
       <ThemedView style={styles.container}>
-        <ThemedText type="title" style={styles.title}>
+        <ThemedText
+          accessibilityRole="header"
+          type="title"
+          style={styles.title}>
           Location editor
         </ThemedText>
+
         <ThemedText themeColor="textSecondary">
           Draft consistent descriptions with Gemini, then review
           and approve them before they appear on the map.
         </ThemedText>
 
-        <ThemedText type="smallBold">Choose a location</ThemedText>
-        <ThemedView style={styles.locationList}>
+        <ThemedText
+          accessibilityRole="header"
+          type="smallBold">
+          Choose a location
+        </ThemedText>
+
+        <ThemedView
+  accessibilityRole="radiogroup"
+  accessibilityLabel="Locations"
+  style={styles.locationList}>
           {locations === undefined ? (
-            <ActivityIndicator />
+            <ActivityIndicator
+              accessibilityLabel="Loading locations"
+            />
           ) : locations.length === 0 ? (
             <ThemedText themeColor="textSecondary">
               No locations have been added yet.
             </ThemedText>
           ) : (
-            locations.map((location) => (
-              <Pressable
-                key={location._id}
-                onPress={() => {
-                  setSelectedId(location._id);
-                  setDraft(null);
-                  setMessage(null);
-                }}
-                style={[
-                  styles.locationButton,
-                  selectedId === location._id &&
-                    styles.locationButtonSelected,
-                ]}>
-                <ThemedText type="smallBold">
-                  {location.name}
-                </ThemedText>
-                <ThemedText
-                  type="small"
-                  themeColor="textSecondary"
-                  numberOfLines={2}>
-                  {location.description}
-                </ThemedText>
-              </Pressable>
-            ))
+            locations.map((location) => {
+              const isSelected = selectedId === location._id;
+
+              return (
+                <Pressable
+                  key={location._id}
+                  accessibilityRole="radio"
+                  accessibilityState={{
+                    selected: isSelected,
+                  }}
+                  accessibilityLabel={location.name}
+                  accessibilityHint={
+                    isSelected
+                      ? 'This location is selected.'
+                      : 'Select this location to draft its description.'
+                  }
+                  onPress={() =>
+                    handleSelectLocation(
+                      location._id,
+                      location.name,
+                    )
+                  }
+                  style={[
+                    styles.locationButton,
+                    isSelected &&
+                      styles.locationButtonSelected,
+                  ]}>
+                  <ThemedText type="smallBold">
+                    {location.name}
+                  </ThemedText>
+
+                  <ThemedText
+                    type="small"
+                    themeColor="textSecondary"
+                    numberOfLines={2}>
+                    {location.description}
+                  </ThemedText>
+                </Pressable>
+              );
+            })
           )}
         </ThemedView>
 
         {selectedLocation && (
           <>
-            <ThemedText type="smallBold">
+            <ThemedText
+              nativeID="editor-notes-label"
+              type="smallBold">
               Optional editorial notes
             </ThemedText>
+
             <TextInput
+              accessibilityLabel="Optional editorial notes"
+              accessibilityHint="Add guidance for the generated location description."
+              accessibilityRole="text"
               multiline
               value={notes}
               onChangeText={setNotes}
@@ -147,7 +221,19 @@ export default function EditorScreen() {
               placeholderTextColor="#777777"
               style={styles.notes}
             />
+
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                busy
+                  ? 'Generating location description'
+                  : 'Draft description with Gemini'
+              }
+              accessibilityHint="Generates a draft description for the selected location."
+              accessibilityState={{
+                busy,
+                disabled: busy,
+              }}
               disabled={busy}
               onPress={handleGenerate}
               style={({ pressed }) => [
@@ -156,7 +242,10 @@ export default function EditorScreen() {
                 pressed && styles.pressed,
               ]}>
               {busy ? (
-                <ActivityIndicator color="#ffffff" />
+                <ActivityIndicator
+                  accessibilityLabel="Generating description"
+                  color="#ffffff"
+                />
               ) : (
                 <ThemedText style={styles.buttonText}>
                   Draft with Gemini
@@ -167,12 +256,25 @@ export default function EditorScreen() {
         )}
 
         {draft && (
-          <ThemedView type="backgroundElement" style={styles.draftCard}>
+          <ThemedView
+            accessibilityLabel="Generated description draft"
+            accessibilityRole="summary"
+            type="backgroundElement"
+            style={styles.draftCard}>
             <ThemedText type="smallBold">
               Draft description
             </ThemedText>
+
             <ThemedText>{draft}</ThemedText>
+
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Approve and publish description"
+              accessibilityHint="Publishes the reviewed draft for this location."
+              accessibilityState={{
+                busy,
+                disabled: busy,
+              }}
               disabled={busy}
               onPress={handleApprove}
               style={({ pressed }) => [
@@ -180,16 +282,24 @@ export default function EditorScreen() {
                 busy && styles.disabled,
                 pressed && styles.pressed,
               ]}>
-              <ThemedText style={styles.buttonText}>
-                Approve and publish
-              </ThemedText>
+              {busy ? (
+                <ActivityIndicator
+                  accessibilityLabel="Publishing description"
+                  color="#ffffff"
+                />
+              ) : (
+                <ThemedText style={styles.buttonText}>
+                  Approve and publish
+                </ThemedText>
+              )}
             </Pressable>
           </ThemedView>
         )}
 
         {message && (
           <ThemedText
-            accessibilityLiveRegion="polite"
+            accessibilityLiveRegion="assertive"
+            accessibilityRole="alert"
             themeColor="textSecondary">
             {message}
           </ThemedText>

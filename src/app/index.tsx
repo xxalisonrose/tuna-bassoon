@@ -99,7 +99,9 @@ function AuthControls() {
     <ThemedView
       type="backgroundElement"
       style={styles.authCard}>
-      <ThemedText type="subtitle">
+      <ThemedText
+        accessibilityRole="header"
+        type="subtitle">
         {isSignedIn
           ? 'You are signed in'
           : 'Start exploring'}
@@ -129,6 +131,8 @@ function AuthControls() {
           ) : (
             <>
               <ThemedView
+                accessible={false}
+                importantForAccessibility="no"
                 style={[
                   styles.statusDot,
                   backendIsConnected
@@ -151,6 +155,7 @@ function AuthControls() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Sign out"
+          accessibilityHint="Signs you out of your Tuna Bassoon account"
           onPress={handleSignOut}
           style={({ pressed }) => [
             styles.authButton,
@@ -165,6 +170,7 @@ function AuthControls() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Sign in"
+            accessibilityHint="Opens the sign-in screen"
             onPress={() => startAuth('sign-in')}
             style={({ pressed }) => [
               styles.authButton,
@@ -179,6 +185,7 @@ function AuthControls() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Create account"
+            accessibilityHint="Opens the account creation screen"
             onPress={() => startAuth('sign-up')}
             style={({ pressed }) => [
               styles.authButton,
@@ -195,6 +202,7 @@ function AuthControls() {
       {error && (
         <ThemedText
           accessibilityLiveRegion="assertive"
+          accessibilityRole="alert"
           style={styles.authError}>
           {error}
         </ThemedText>
@@ -208,7 +216,10 @@ export default function HomeScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <ThemedView style={styles.heroSection}>
-          <ThemedText type="title" style={styles.title}>
+          <ThemedText
+            accessibilityRole="header"
+            type="title"
+            style={styles.title}>
             Tuna Bassoon
           </ThemedText>
 

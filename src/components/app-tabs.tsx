@@ -18,8 +18,11 @@ export default function AppTabs() {
         </NativeTabs.Trigger.Label>
 
         <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/extra/tabIcons/home.png')}
-          renderingMode="template"
+          sf={{
+            default: 'house',
+            selected: 'house.fill',
+          }}
+          md="home"
         />
       </NativeTabs.Trigger>
 
@@ -29,8 +32,11 @@ export default function AppTabs() {
         </NativeTabs.Trigger.Label>
 
         <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/extra/tabIcons/explore.png')}
-          renderingMode="template"
+          sf={{
+            default: 'map',
+            selected: 'map.fill',
+          }}
+          md="explore"
         />
       </NativeTabs.Trigger>
 

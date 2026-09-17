@@ -1,10 +1,11 @@
-import { v } from "convex/values";
+import { v } from 'convex/values';
+
 import {
   internalMutation,
   internalQuery,
   mutation,
   query,
-} from "./_generated/server";
+} from './_generated/server';
 
 export const addLocation = mutation({
   args: {
@@ -18,7 +19,7 @@ export const addLocation = mutation({
   },
 
   handler: async (ctx, args) => {
-    return await ctx.db.insert("locations", {
+    return await ctx.db.insert('locations', {
       name: args.title,
       description: args.description,
       latitude: args.latitude,
@@ -33,12 +34,14 @@ export const getLocations = query({
   args: {},
 
   handler: async (ctx) => {
-    return await ctx.db.query("locations").collect();
+    return await ctx.db.query('locations').collect();
   },
 });
 
 export const getLocation = internalQuery({
-  args: { locationId: v.id("locations") },
+  args: {
+    locationId: v.id('locations'),
+  },
 
   handler: async (ctx, args) => {
     return await ctx.db.get(args.locationId);
@@ -47,7 +50,7 @@ export const getLocation = internalQuery({
 
 export const saveDescription = internalMutation({
   args: {
-    locationId: v.id("locations"),
+    locationId: v.id('locations'),
     description: v.string(),
   },
 
@@ -55,7 +58,7 @@ export const saveDescription = internalMutation({
     const location = await ctx.db.get(args.locationId);
 
     if (location === null) {
-      throw new Error("Location not found.");
+      throw new Error('Location not found.');
     }
 
     await ctx.db.patch(args.locationId, {
