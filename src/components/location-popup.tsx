@@ -49,21 +49,17 @@ export function LocationPopup({
       : 'skip',
   );
 
-  const [isCheckingIn, setIsCheckingIn] =
-    useState(false);
-
+  const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [checkInMessage, setCheckInMessage] =
     useState<CheckInMessage | null>(null);
 
-  const announce = (text: string) => {
-    AccessibilityInfo.announceForAccessibility(text);
-  };
+  const uniqueBadgeTags = [...new Set(place.badges)];
 
   useEffect(() => {
     setCheckInMessage(null);
 
-    announce(
-      `Location details opened for ${place.title}.`,
+    AccessibilityInfo.announceForAccessibility(
+      `Location details opened for ${place.title}`,
     );
   }, [place.id, place.title]);
 
@@ -71,36 +67,35 @@ export function LocationPopup({
     isAuthenticationLoading ||
     (isAuthenticated && existingVisit === undefined);
 
+  const showCheckInMessage = (
+    message: CheckInMessage,
+  ) => {
+    setCheckInMessage(message);
+
+    AccessibilityInfo.announceForAccessibility(
+      message.text,
+    );
+  };
+
   const handleCheckIn = async () => {
     if (!isAuthenticated) {
-      const text =
-        'Sign in from the Home tab before checking in.';
-
-      setCheckInMessage({
-        text,
+      showCheckInMessage({
+        text: 'Sign in from the Home tab before checking in.',
         type: 'information',
       });
-
-      announce(text);
       return;
     }
 
     if (!userCoordinates) {
-      const text =
-        'Your current location is not available yet.';
-
-      setCheckInMessage({
-        text,
+      showCheckInMessage({
+        text: 'Your current location is not available yet.',
         type: 'error',
       });
-
-      announce(text);
       return;
     }
 
     setIsCheckingIn(true);
     setCheckInMessage(null);
-    announce('Checking your distance from this location.');
 
     try {
       const result = await checkIn({
@@ -110,55 +105,46 @@ export function LocationPopup({
       });
 
       if (result.status === 'too_far') {
-        const text = `You are approximately ${result.distanceMeters} meters away. Move within 80 meters to check in.`;
-
-        setCheckInMessage({
-          text,
+        showCheckInMessage({
+          text:
+            `You are approximately ${result.distanceMeters} ` +
+            'meters away. Move within 80 meters to check in.',
           type: 'error',
         });
-
-        announce(text);
         return;
       }
 
       if (result.status === 'already_checked_in') {
-        const text =
-          'You have already checked in at this location.';
-
-        setCheckInMessage({
-          text,
+        showCheckInMessage({
+          text: 'You have already checked in at this location.',
           type: 'information',
         });
-
-        announce(text);
         return;
       }
 
+      const earnedBadgeTags = [
+        ...new Set(result.badgeTags),
+      ];
+
       const badgeProgress =
-        result.badgeTags.length > 0
-          ? ` Progress added toward: ${result.badgeTags.join(', ')}.`
+        earnedBadgeTags.length > 0
+          ? ` Progress added toward: ${earnedBadgeTags.join(', ')}.`
           : '';
 
-      const text = `Check-in successful! You collected the ${result.stampName} stamp.${badgeProgress}`;
-
-      setCheckInMessage({
-        text,
+      showCheckInMessage({
+        text:
+          `Check-in successful! You collected the ` +
+          `${result.stampName} stamp.${badgeProgress}`,
         type: 'success',
       });
-
-      announce(text);
     } catch (checkInError) {
-      const text =
-        checkInError instanceof Error
-          ? checkInError.message
-          : 'Unable to check in right now.';
-
-      setCheckInMessage({
-        text,
+      showCheckInMessage({
+        text:
+          checkInError instanceof Error
+            ? checkInError.message
+            : 'Unable to check in right now.',
         type: 'error',
       });
-
-      announce(text);
     } finally {
       setIsCheckingIn(false);
     }
@@ -177,12 +163,12 @@ export function LocationPopup({
       return 'Already checked in';
     }
 
-    if (!userCoordinates) {
-      return 'Waiting for GPS...';
-    }
-
     if (isCheckingIn) {
       return 'Checking distance...';
+    }
+
+    if (!userCoordinates) {
+      return 'Waiting for GPS...';
     }
 
     return 'Check In';
@@ -195,22 +181,10 @@ export function LocationPopup({
     !userCoordinates ||
     isCheckingIn;
 
-  const popupAccessibilityLabel = [
-    `Location details for ${place.title}.`,
-    place.category
-      ? `Category: ${place.category}.`
-      : '',
-    place.badges.length > 0
-      ? `Related badges: ${place.badges.join(', ')}.`
-      : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
-
   return (
     <View
+      accessible={false}
       accessibilityViewIsModal
-      accessibilityLabel={popupAccessibilityLabel}
       style={styles.card}>
       <View style={styles.header}>
         <Text
@@ -230,14 +204,16 @@ export function LocationPopup({
             styles.closeButton,
             pressed && styles.closeButtonPressed,
           ]}>
-          <Text accessible={false} style={styles.closeText}>
+          <Text
+            accessible={false}
+            style={styles.closeText}>
             ×
           </Text>
         </Pressable>
       </View>
 
       <ScrollView
-        accessibilityLabel={`Scrollable details for ${place.title}`}
+        accessibilityLabel={`Details for ${place.title}`}
         contentContainerStyle={styles.scrollContent}
         persistentScrollbar
         showsVerticalScrollIndicator>
@@ -249,25 +225,23 @@ export function LocationPopup({
           </Text>
         )}
 
-        <Text
-          accessibilityLabel={`Description: ${place.description}`}
-          style={styles.description}>
+        <Text style={styles.description}>
           {place.description}
         </Text>
 
-        {place.badges.length > 0 && (
-          <View
-            accessibilityLabel={`Related badges: ${place.badges.join(', ')}`}
-            style={styles.badgeSection}>
-            <Text style={styles.badgeHeading}>
-              Related badges
+        {uniqueBadgeTags.length > 0 && (
+          <View style={styles.badgeSection}>
+            <Text
+              accessibilityRole="header"
+              style={styles.badgeHeading}>
+              Badge progress
             </Text>
 
             <View style={styles.badgeList}>
-              {place.badges.map((badge) => (
+              {uniqueBadgeTags.map((badge) => (
                 <Text
                   key={badge}
-                  accessibilityLabel={`Badge: ${badge}`}
+                  accessibilityLabel={`Badge category: ${badge}`}
                   style={styles.badge}>
                   {badge}
                 </Text>
@@ -279,14 +253,9 @@ export function LocationPopup({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={checkInButtonLabel}
-          accessibilityHint={
-            checkInIsDisabled
-              ? undefined
-              : 'Checks whether you are within 80 meters of this location.'
-          }
           accessibilityState={{
-            disabled: checkInIsDisabled,
             busy: isCheckingIn,
+            disabled: checkInIsDisabled,
           }}
           disabled={checkInIsDisabled}
           onPress={handleCheckIn}
@@ -298,7 +267,7 @@ export function LocationPopup({
           ]}>
           {isCheckingIn ? (
             <ActivityIndicator
-              accessibilityLabel="Checking your distance"
+              accessible={false}
               color="#ffffff"
             />
           ) : (
@@ -311,7 +280,11 @@ export function LocationPopup({
         {checkInMessage && (
           <Text
             accessibilityLiveRegion="assertive"
-            accessibilityRole="alert"
+            accessibilityRole={
+              checkInMessage.type === 'error'
+                ? 'alert'
+                : undefined
+            }
             style={[
               styles.checkInMessage,
               checkInMessage.type === 'success' &&

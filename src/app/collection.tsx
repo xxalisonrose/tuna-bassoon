@@ -218,82 +218,90 @@ export default function CollectionScreen() {
               </ThemedText>
             </View>
 
-{badgeProgress.map((badge) => {
-  const progressWidth =
-    `${Math.round(badge.progress * 100)}%` as `${number}%`;
+            {badgeProgress.map((badge) => {
+              const progressWidth =
+                `${Math.round(badge.progress * 100)}%` as `${number}%`;
 
-  const badgeAnnouncement =
-    `${badge.name}. ` +
-    `${badge.tag} badge. ` +
-    `${badge.description} ` +
-    `Progress: ${badge.completedVisits} of ` +
-    `${badge.requiredVisits} locations. ` +
-    `${badge.earned ? 'Badge earned.' : 'Not yet earned.'}`;
+              const badgeAnnouncement =
+                `${badge.name}. ` +
+                `${badge.tag} badge. ` +
+                `${badge.description} ` +
+                `Progress: ${badge.completedVisits} of ` +
+                `${badge.requiredVisits} locations. ` +
+                `${
+                  badge.earned
+                    ? 'Badge earned.'
+                    : 'Not yet earned.'
+                }`;
 
-  return (
-    <View
-      key={badge._id}
-      accessible
-      accessibilityLabel={badgeAnnouncement}>
-      <ThemedView
-        accessible={false}
-        importantForAccessibility="no-hide-descendants"
-        type="backgroundElement"
-        style={[
-          styles.badgeCard,
-          badge.earned && styles.earnedBadgeCard,
-        ]}>
-        <View style={styles.badgeHeader}>
-          <View style={styles.badgeTitleContainer}>
-            <ThemedText type="subtitle">
-              {badge.name}
-            </ThemedText>
+              return (
+                <View
+                  key={badge._id}
+                  accessible
+                  accessibilityLabel={badgeAnnouncement}>
+                  <ThemedView
+                    accessible={false}
+                    importantForAccessibility="no-hide-descendants"
+                    type="backgroundElement"
+                    style={[
+                      styles.badgeCard,
+                      badge.earned &&
+                        styles.earnedBadgeCard,
+                    ]}>
+                    <View style={styles.badgeHeader}>
+                      <View
+                        style={
+                          styles.badgeTitleContainer
+                        }>
+                        <ThemedText type="subtitle">
+                          {badge.name}
+                        </ThemedText>
 
-            <ThemedText
-              type="small"
-              themeColor="textSecondary">
-              {badge.tag}
-            </ThemedText>
-          </View>
+                        <ThemedText
+                          type="small"
+                          themeColor="textSecondary">
+                          {badge.tag}
+                        </ThemedText>
+                      </View>
 
-          {badge.earned && (
-            <View style={styles.earnedPill}>
-              <ThemedText
-                type="small"
-                style={styles.earnedPillText}>
-                Earned
-              </ThemedText>
-            </View>
-          )}
-        </View>
+                      {badge.earned && (
+                        <View style={styles.earnedPill}>
+                          <ThemedText
+                            type="small"
+                            style={styles.earnedPillText}>
+                            Earned
+                          </ThemedText>
+                        </View>
+                      )}
+                    </View>
 
-        <ThemedText themeColor="textSecondary">
-          {badge.description}
-        </ThemedText>
+                    <ThemedText themeColor="textSecondary">
+                      {badge.description}
+                    </ThemedText>
 
-        <View style={styles.progressTrack}>
-          <View
-            style={[
-              styles.progressFill,
-              badge.earned &&
-                styles.progressFillEarned,
-              {
-                width: progressWidth,
-              },
-            ]}
-          />
-        </View>
+                    <View style={styles.progressTrack}>
+                      <View
+                        style={[
+                          styles.progressFill,
+                          badge.earned &&
+                            styles.progressFillEarned,
+                          {
+                            width: progressWidth,
+                          },
+                        ]}
+                      />
+                    </View>
 
-        <ThemedText
-          type="small"
-          themeColor="textSecondary">
-          {badge.completedVisits} of{' '}
-          {badge.requiredVisits} locations
-        </ThemedText>
-      </ThemedView>
-    </View>
-  );
-})}
+                    <ThemedText
+                      type="small"
+                      themeColor="textSecondary">
+                      {badge.completedVisits} of{' '}
+                      {badge.requiredVisits} locations
+                    </ThemedText>
+                  </ThemedView>
+                </View>
+              );
+            })}
           </View>
 
           <View style={styles.section}>
@@ -302,7 +310,11 @@ export default function CollectionScreen() {
               accessibilityRole="header"
               accessibilityLabel={
                 `Location stamps. ${visits.length} ` +
-                `${visits.length === 1 ? 'stamp' : 'stamps'} collected.`
+                `${
+                  visits.length === 1
+                    ? 'stamp'
+                    : 'stamps'
+                } collected.`
               }
               style={styles.sectionHeading}>
               <ThemedText
@@ -347,9 +359,13 @@ export default function CollectionScreen() {
                   year: 'numeric',
                 });
 
+                const uniqueBadgeTags = [
+                  ...new Set(visit.badgeTags),
+                ];
+
                 const badgeCategoryText =
-                  visit.badgeTags.length > 0
-                    ? ` Badge categories: ${visit.badgeTags.join(', ')}.`
+                  uniqueBadgeTags.length > 0
+                    ? ` Badge categories: ${uniqueBadgeTags.join(', ')}.`
                     : '';
 
                 const stampLabel =
@@ -389,9 +405,9 @@ export default function CollectionScreen() {
                           Collected {collectedDate}
                         </ThemedText>
 
-                        {visit.badgeTags.length > 0 && (
+                        {uniqueBadgeTags.length > 0 && (
                           <View style={styles.tagList}>
-                            {visit.badgeTags.map((tag) => (
+                            {uniqueBadgeTags.map((tag) => (
                               <View
                                 key={tag}
                                 style={styles.tagChip}>

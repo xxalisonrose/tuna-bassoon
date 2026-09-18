@@ -9,8 +9,10 @@ import {
   ActivityIndicator,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -24,6 +26,9 @@ import {
 import { api } from '../../convex/_generated/api';
 
 function AuthControls() {
+  const { fontScale } = useWindowDimensions();
+  const useStackedActions = fontScale >= 1.3;
+
   const { isLoaded, isSignedIn, signOut } = useAuth();
 
   const {
@@ -124,7 +129,9 @@ function AuthControls() {
                 size="small"
               />
 
-              <ThemedText type="small">
+              <ThemedText
+                type="small"
+                style={styles.backendStatusText}>
                 Connecting secure profile...
               </ThemedText>
             </>
@@ -141,7 +148,9 @@ function AuthControls() {
                 ]}
               />
 
-              <ThemedText type="small">
+              <ThemedText
+                type="small"
+                style={styles.backendStatusText}>
                 {backendIsConnected
                   ? 'Secure profile connected'
                   : 'Profile connection needs attention'}
@@ -166,7 +175,12 @@ function AuthControls() {
           </Text>
         </Pressable>
       ) : (
-        <ThemedView style={styles.authActions}>
+        <ThemedView
+          style={[
+            styles.authActions,
+            useStackedActions &&
+              styles.authActionsStacked,
+          ]}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Sign in"
@@ -174,7 +188,8 @@ function AuthControls() {
             onPress={() => startAuth('sign-in')}
             style={({ pressed }) => [
               styles.authButton,
-              styles.authActionButton,
+              !useStackedActions &&
+                styles.authActionButton,
               pressed && styles.authButtonPressed,
             ]}>
             <Text style={styles.authButtonText}>
@@ -189,7 +204,8 @@ function AuthControls() {
             onPress={() => startAuth('sign-up')}
             style={({ pressed }) => [
               styles.authButton,
-              styles.authActionButton,
+              !useStackedActions &&
+                styles.authActionButton,
               pressed && styles.authButtonPressed,
             ]}>
             <Text style={styles.authButtonText}>
@@ -215,23 +231,27 @@ export default function HomeScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <ThemedText
-            accessibilityRole="header"
-            type="title"
-            style={styles.title}>
-            Tuna Bassoon
-          </ThemedText>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}>
+          <ThemedView style={styles.heroSection}>
+            <ThemedText
+              accessibilityRole="header"
+              type="title"
+              style={styles.title}>
+              Tuna Bassoon
+            </ThemedText>
 
-          <ThemedText
-            style={styles.subtitle}
-            themeColor="textSecondary">
-            Explore the history, landmarks, and stories of
-            Harvard through an interactive map.
-          </ThemedText>
-        </ThemedView>
+            <ThemedText
+              style={styles.subtitle}
+              themeColor="textSecondary">
+              Explore the history, landmarks, and stories of
+              Harvard through an interactive map.
+            </ThemedText>
+          </ThemedView>
 
-        <AuthControls />
+          <AuthControls />
+        </ScrollView>
       </SafeAreaView>
     </ThemedView>
   );
@@ -246,10 +266,12 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.four,
-    paddingBottom: BottomTabInset + Spacing.three,
+  },
+  scrollContent: {
     gap: Spacing.five,
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.five,
+    paddingBottom: BottomTabInset + Spacing.five,
   },
   heroSection: {
     alignItems: 'center',
@@ -261,7 +283,6 @@ const styles = StyleSheet.create({
   subtitle: {
     maxWidth: 420,
     textAlign: 'center',
-    lineHeight: 24,
   },
   authCard: {
     alignSelf: 'stretch',
@@ -273,6 +294,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: Spacing.three,
   },
+  authActionsStacked: {
+    flexDirection: 'column',
+  },
   backendStatus: {
     minHeight: 44,
     flexDirection: 'row',
@@ -281,6 +305,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     borderRadius: Spacing.two,
+  },
+  backendStatusText: {
+    flex: 1,
   },
   statusDot: {
     width: 10,
@@ -312,6 +339,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+    textAlign: 'center',
   },
   authError: {
     color: '#B42318',

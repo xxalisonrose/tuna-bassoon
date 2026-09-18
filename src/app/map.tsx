@@ -4,7 +4,10 @@ import {
   Map,
   Marker,
 } from '@maplibre/maplibre-react-native';
-import { useQuery } from 'convex/react';
+import {
+  useConvexAuth,
+  useQuery,
+} from 'convex/react';
 import * as Location from 'expo-location';
 import { type ErrorBoundaryProps } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -61,6 +64,8 @@ export function ErrorBoundary({
 export default function MapScreen() {
   const cameraRef = useRef<CameraRef>(null);
 
+  const { isAuthenticated } = useConvexAuth();
+
   const [selectedPlace, setSelectedPlace] =
     useState<Place | null>(null);
 
@@ -81,6 +86,15 @@ export default function MapScreen() {
     useState(false);
 
   const locations = useQuery(api.locations.getLocations);
+
+  const visits = useQuery(
+    api.visits.getMyVisits,
+    isAuthenticated ? {} : 'skip',
+  );
+
+  const visitedLocationIds = new Set(
+    (visits ?? []).map((visit) => visit.locationId),
+  );
 
   const locationsAreLoading = locations === undefined;
 
@@ -286,27 +300,49 @@ export default function MapScreen() {
             }}
           />
 
-          {places.map((place) => (
-            <Marker
-              key={place.id}
-              id={place.id}
-              lngLat={place.coordinates}
-              anchor="bottom"
-              onPress={() => selectPlace(place, false)}>
-              <View
-                accessible={false}
-                style={[
-                  styles.pin,
-                  selectedPlace?.id === place.id &&
-                    styles.selectedPin,
-                ]}>
+          {places.map((place) => {
+            const isVisited =
+              visitedLocationIds.has(place.id);
+
+            const isSelected =
+              selectedPlace?.id === place.id;
+
+            return (
+              <Marker
+                key={place.id}
+                id={place.id}
+                lngLat={place.coordinates}
+                anchor="bottom"
+                onPress={() =>
+                  selectPlace(place, false)
+                }>
                 <View
                   accessible={false}
-                  style={styles.pinCenter}
-                />
-              </View>
-            </Marker>
-          ))}
+                  style={[
+                    styles.pin,
+                    isVisited && styles.visitedPin,
+                    isSelected && styles.selectedPin,
+                    isVisited &&
+                      isSelected &&
+                      styles.selectedVisitedPin,
+                  ]}>
+                  {isVisited ? (
+                    <Text
+                      accessible={false}
+                      allowFontScaling={false}
+                      style={styles.visitedPinCheck}>
+                      ✓
+                    </Text>
+                  ) : (
+                    <View
+                      accessible={false}
+                      style={styles.pinCenter}
+                    />
+                  )}
+                </View>
+              </Marker>
+            );
+          })}
 
           {userCoordinates && (
             <Marker
@@ -381,24 +417,28 @@ export default function MapScreen() {
           </View>
         )}
 
-        {!locationsAreLoading && places.length > 0 && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Open location list"
-            accessibilityHint="Opens an accessible list of locations on the map"
-            accessibilityState={{
-              expanded: locationListVisible,
-            }}
-            onPress={toggleLocationList}
-            style={({ pressed }) => [
-              styles.locationListButton,
-              pressed && styles.locationListButtonPressed,
-            ]}>
-            <Text style={styles.locationListButtonText}>
-              Location list
-            </Text>
-          </Pressable>
-        )}
+        {!locationsAreLoading &&
+          places.length > 0 &&
+          !modalContentVisible && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open location list"
+              accessibilityHint="Opens an accessible list of locations on the map"
+              accessibilityState={{
+                expanded: locationListVisible,
+              }}
+              onPress={toggleLocationList}
+              style={({ pressed }) => [
+                styles.locationListButton,
+                pressed &&
+                  styles.locationListButtonPressed,
+              ]}>
+              <Text
+                style={styles.locationListButtonText}>
+                Location list
+              </Text>
+            </Pressable>
+          )}
 
         <Pressable
           accessibilityRole="button"
@@ -464,38 +504,71 @@ export default function MapScreen() {
                 styles.locationListContent
               }
               showsVerticalScrollIndicator>
-              {places.map((place) => (
-                <Pressable
-                  key={place.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    place.category
-                      ? `${place.title}, ${place.category}`
-                      : place.title
-                  }
-                  accessibilityHint="Opens location details"
-                  onPress={() => selectPlace(place, true)}
-                  style={({ pressed }) => [
-                    styles.locationListItem,
-                    selectedPlace?.id === place.id &&
-                      styles.locationListItemSelected,
-                    pressed &&
-                      styles.locationListItemPressed,
-                  ]}>
-                  <Text style={styles.locationListItemTitle}>
-                    {place.title}
-                  </Text>
+              {places.map((place) => {
+                const isVisited =
+                  visitedLocationIds.has(place.id);
 
-                  {place.category && (
-                    <Text
-                      style={
-                        styles.locationListItemCategory
-                      }>
-                      {place.category}
-                    </Text>
-                  )}
-                </Pressable>
-              ))}
+                return (
+                  <Pressable
+                    key={place.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      place.category
+                        ? `${place.title}, ${place.category}${
+                            isVisited
+                              ? ', visited'
+                              : ', not visited'
+                          }`
+                        : `${place.title}${
+                            isVisited
+                              ? ', visited'
+                              : ', not visited'
+                          }`
+                    }
+                    
+                    onPress={() =>
+                      selectPlace(place, true)
+                    }
+                    style={({ pressed }) => [
+                      styles.locationListItem,
+                      isVisited &&
+                        styles.locationListItemVisited,
+                      selectedPlace?.id === place.id &&
+                        styles.locationListItemSelected,
+                      pressed &&
+                        styles.locationListItemPressed,
+                    ]}>
+                    <View style={styles.locationListItemHeader}>
+                      <Text
+                        style={
+                          styles.locationListItemTitle
+                        }>
+                        {place.title}
+                      </Text>
+
+                      {isVisited && (
+                        <View style={styles.visitedLabel}>
+                          <Text
+                            style={
+                              styles.visitedLabelText
+                            }>
+                            Visited
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {place.category && (
+                      <Text
+                        style={
+                          styles.locationListItemCategory
+                        }>
+                        {place.category}
+                      </Text>
+                    )}
+                  </Pressable>
+                );
+              })}
             </ScrollView>
           </View>
         )}
@@ -531,11 +604,25 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderRadius: 14,
   },
+  visitedPin: {
+    backgroundColor: '#18864B',
+    borderRadius: 6,
+  },
   selectedPin: {
     width: 36,
     height: 36,
     backgroundColor: '#8b0000',
     borderRadius: 18,
+  },
+  selectedVisitedPin: {
+    backgroundColor: '#0E5A31',
+    borderRadius: 8,
+  },
+  visitedPinCheck: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '800',
+    lineHeight: 20,
   },
   pinCenter: {
     width: 7,
@@ -661,6 +748,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   locationListTitle: {
+    flex: 1,
     color: '#111111',
     fontSize: 22,
     fontWeight: '700',
@@ -703,14 +791,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 12,
   },
+  locationListItemVisited: {
+    borderColor: '#18864B',
+    borderStyle: 'dashed',
+    borderWidth: 2,
+  },
   locationListItemSelected: {
     borderColor: '#A51C30',
+    borderStyle: 'solid',
     borderWidth: 2,
   },
   locationListItemPressed: {
     opacity: 0.75,
   },
+  locationListItemHeader: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+  },
   locationListItemTitle: {
+    flexShrink: 1,
     color: '#111111',
     fontSize: 16,
     fontWeight: '700',
@@ -718,6 +819,17 @@ const styles = StyleSheet.create({
   locationListItemCategory: {
     color: '#555555',
     fontSize: 14,
+  },
+  visitedLabel: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: '#18864B',
+    borderRadius: 999,
+  },
+  visitedLabelText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   recenterButton: {
     position: 'absolute',
