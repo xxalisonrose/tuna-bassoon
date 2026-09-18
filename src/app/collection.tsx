@@ -1,21 +1,21 @@
 import {
-    useConvexAuth,
-    useQuery,
+  useConvexAuth,
+  useQuery,
 } from 'convex/react';
 import {
-    ActivityIndicator,
-    ScrollView,
-    StyleSheet,
-    View,
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
-    BottomTabInset,
-    MaxContentWidth,
-    Spacing,
+  BottomTabInset,
+  MaxContentWidth,
+  Spacing,
 } from '@/constants/theme';
 import { api } from '../../convex/_generated/api';
 
@@ -40,6 +40,7 @@ export default function CollectionScreen() {
       <ThemedView style={styles.centeredContainer}>
         <ActivityIndicator
           accessibilityLabel="Loading your collection"
+          accessibilityRole="progressbar"
           size="large"
         />
       </ThemedView>
@@ -54,6 +55,7 @@ export default function CollectionScreen() {
             type="backgroundElement"
             style={styles.signedOutCard}>
             <ThemedText
+              accessibilityRole="header"
               type="title"
               style={styles.centeredText}>
               Your Collection
@@ -78,11 +80,14 @@ export default function CollectionScreen() {
     return (
       <ThemedView style={styles.centeredContainer}>
         <ActivityIndicator
-          accessibilityLabel="Loading stamps and badges"
+          accessible={false}
+          importantForAccessibility="no"
           size="large"
         />
 
-        <ThemedText themeColor="textSecondary">
+        <ThemedText
+          accessibilityLiveRegion="polite"
+          themeColor="textSecondary">
           Loading your collection...
         </ThemedText>
       </ThemedView>
@@ -98,6 +103,11 @@ export default function CollectionScreen() {
     (badge) => badge.earned,
   ).length;
 
+  const collectionSummary =
+    `Collection summary. ${visits.length} location ` +
+    `${visits.length === 1 ? 'stamp' : 'stamps'} collected. ` +
+    `${earnedBadgeCount} of ${badgeProgress.length} badges earned.`;
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
@@ -105,7 +115,9 @@ export default function CollectionScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}>
           <View style={styles.heading}>
-            <ThemedText type="title">
+            <ThemedText
+              accessibilityRole="header"
+              type="title">
               Your Collection
             </ThemedText>
 
@@ -115,147 +127,192 @@ export default function CollectionScreen() {
             </ThemedText>
           </View>
 
-          <ThemedView
-            type="backgroundElement"
-            style={styles.summaryCard}>
-            <View style={styles.summaryItem}>
-              <ThemedText type="title">
-                {visits.length}
-              </ThemedText>
+          <View
+            accessible
+            accessibilityLabel={collectionSummary}>
+            <ThemedView
+              type="backgroundElement"
+              style={styles.summaryCard}>
+              <View
+                accessible={false}
+                importantForAccessibility="no-hide-descendants"
+                style={styles.summaryItem}>
+                <ThemedText type="title">
+                  {visits.length}
+                </ThemedText>
 
-              <ThemedText
-                type="small"
-                themeColor="textSecondary"
-                style={styles.centeredText}>
-                Stamps
-              </ThemedText>
-            </View>
+                <ThemedText
+                  type="small"
+                  themeColor="textSecondary"
+                  style={styles.centeredText}>
+                  Stamps
+                </ThemedText>
+              </View>
 
-            <View style={styles.summaryDivider} />
+              <View
+                accessible={false}
+                importantForAccessibility="no"
+                style={styles.summaryDivider}
+              />
 
-            <View style={styles.summaryItem}>
-              <ThemedText type="title">
-                {earnedBadgeCount}
-              </ThemedText>
+              <View
+                accessible={false}
+                importantForAccessibility="no-hide-descendants"
+                style={styles.summaryItem}>
+                <ThemedText type="title">
+                  {earnedBadgeCount}
+                </ThemedText>
 
-              <ThemedText
-                type="small"
-                themeColor="textSecondary"
-                style={styles.centeredText}>
-                Earned
-              </ThemedText>
-            </View>
+                <ThemedText
+                  type="small"
+                  themeColor="textSecondary"
+                  style={styles.centeredText}>
+                  Earned
+                </ThemedText>
+              </View>
 
-            <View style={styles.summaryDivider} />
+              <View
+                accessible={false}
+                importantForAccessibility="no"
+                style={styles.summaryDivider}
+              />
 
-            <View style={styles.summaryItem}>
-              <ThemedText type="title">
-                {badgeProgress.length}
-              </ThemedText>
+              <View
+                accessible={false}
+                importantForAccessibility="no-hide-descendants"
+                style={styles.summaryItem}>
+                <ThemedText type="title">
+                  {badgeProgress.length}
+                </ThemedText>
 
-              <ThemedText
-                type="small"
-                themeColor="textSecondary"
-                style={styles.centeredText}>
-                Badges
-              </ThemedText>
-            </View>
-          </ThemedView>
+                <ThemedText
+                  type="small"
+                  themeColor="textSecondary"
+                  style={styles.centeredText}>
+                  Badges
+                </ThemedText>
+              </View>
+            </ThemedView>
+          </View>
 
           <View style={styles.section}>
-            <View style={styles.sectionHeading}>
-              <ThemedText type="subtitle">
+            <View
+              accessible
+              accessibilityRole="header"
+              accessibilityLabel={
+                `Badges. ${earnedBadgeCount} of ` +
+                `${badgeProgress.length} earned.`
+              }
+              style={styles.sectionHeading}>
+              <ThemedText
+                accessible={false}
+                type="subtitle">
                 Badges
               </ThemedText>
 
               <ThemedText
+                accessible={false}
                 type="small"
                 themeColor="textSecondary">
                 {earnedBadgeCount} of {badgeProgress.length} earned
               </ThemedText>
             </View>
 
-            {badgeProgress.map((badge) => {
-              const progressWidth =
-                `${Math.round(badge.progress * 100)}%` as `${number}%`;
+{badgeProgress.map((badge) => {
+  const progressWidth =
+    `${Math.round(badge.progress * 100)}%` as `${number}%`;
 
-              return (
-                <ThemedView
-                  key={badge._id}
-                  type="backgroundElement"
-                  style={[
-                    styles.badgeCard,
-                    badge.earned && styles.earnedBadgeCard,
-                  ]}>
-                  <View style={styles.badgeHeader}>
-                    <View style={styles.badgeTitleContainer}>
-                      <ThemedText type="subtitle">
-                        {badge.name}
-                      </ThemedText>
+  const badgeAnnouncement =
+    `${badge.name}. ` +
+    `${badge.tag} badge. ` +
+    `${badge.description} ` +
+    `Progress: ${badge.completedVisits} of ` +
+    `${badge.requiredVisits} locations. ` +
+    `${badge.earned ? 'Badge earned.' : 'Not yet earned.'}`;
 
-                      <ThemedText
-                        type="small"
-                        themeColor="textSecondary">
-                        {badge.tag}
-                      </ThemedText>
-                    </View>
+  return (
+    <View
+      key={badge._id}
+      accessible
+      accessibilityLabel={badgeAnnouncement}>
+      <ThemedView
+        accessible={false}
+        importantForAccessibility="no-hide-descendants"
+        type="backgroundElement"
+        style={[
+          styles.badgeCard,
+          badge.earned && styles.earnedBadgeCard,
+        ]}>
+        <View style={styles.badgeHeader}>
+          <View style={styles.badgeTitleContainer}>
+            <ThemedText type="subtitle">
+              {badge.name}
+            </ThemedText>
 
-                    {badge.earned && (
-                      <View style={styles.earnedPill}>
-                        <ThemedText
-                          type="small"
-                          style={styles.earnedPillText}>
-                          Earned
-                        </ThemedText>
-                      </View>
-                    )}
-                  </View>
+            <ThemedText
+              type="small"
+              themeColor="textSecondary">
+              {badge.tag}
+            </ThemedText>
+          </View>
 
-                  <ThemedText themeColor="textSecondary">
-                    {badge.description}
-                  </ThemedText>
+          {badge.earned && (
+            <View style={styles.earnedPill}>
+              <ThemedText
+                type="small"
+                style={styles.earnedPillText}>
+                Earned
+              </ThemedText>
+            </View>
+          )}
+        </View>
 
-                  <View
-                    accessible
-                    accessibilityRole="progressbar"
-                    accessibilityLabel={`${badge.name} progress`}
-                    accessibilityValue={{
-                      min: 0,
-                      max: badge.requiredVisits,
-                      now: badge.completedVisits,
-                      text: `${badge.completedVisits} of ${badge.requiredVisits} locations`,
-                    }}
-                    style={styles.progressTrack}>
-                    <View
-                      style={[
-                        styles.progressFill,
-                        badge.earned &&
-                          styles.progressFillEarned,
-                        {
-                          width: progressWidth,
-                        },
-                      ]}
-                    />
-                  </View>
+        <ThemedText themeColor="textSecondary">
+          {badge.description}
+        </ThemedText>
 
-                  <ThemedText
-                    type="small"
-                    themeColor="textSecondary">
-                    {badge.completedVisits} of{' '}
-                    {badge.requiredVisits} locations
-                  </ThemedText>
-                </ThemedView>
-              );
-            })}
+        <View style={styles.progressTrack}>
+          <View
+            style={[
+              styles.progressFill,
+              badge.earned &&
+                styles.progressFillEarned,
+              {
+                width: progressWidth,
+              },
+            ]}
+          />
+        </View>
+
+        <ThemedText
+          type="small"
+          themeColor="textSecondary">
+          {badge.completedVisits} of{' '}
+          {badge.requiredVisits} locations
+        </ThemedText>
+      </ThemedView>
+    </View>
+  );
+})}
           </View>
 
           <View style={styles.section}>
-            <View style={styles.sectionHeading}>
-              <ThemedText type="subtitle">
+            <View
+              accessible
+              accessibilityRole="header"
+              accessibilityLabel={
+                `Location stamps. ${visits.length} ` +
+                `${visits.length === 1 ? 'stamp' : 'stamps'} collected.`
+              }
+              style={styles.sectionHeading}>
+              <ThemedText
+                accessible={false}
+                type="subtitle">
                 Location Stamps
               </ThemedText>
 
               <ThemedText
+                accessible={false}
                 type="small"
                 themeColor="textSecondary">
                 {visits.length} collected
@@ -267,6 +324,7 @@ export default function CollectionScreen() {
                 type="backgroundElement"
                 style={styles.emptyCard}>
                 <ThemedText
+                  accessibilityRole="header"
                   type="subtitle"
                   style={styles.centeredText}>
                   No stamps yet
@@ -280,55 +338,77 @@ export default function CollectionScreen() {
                 </ThemedText>
               </ThemedView>
             ) : (
-              sortedVisits.map((visit) => (
-                <ThemedView
-                  key={visit._id}
-                  type="backgroundElement"
-                  style={styles.stampCard}>
-                  <View style={styles.stampIcon}>
-                    <ThemedText
-                      accessible={false}
-                      style={styles.stampIconText}>
-                      ✓
-                    </ThemedText>
-                  </View>
+              sortedVisits.map((visit) => {
+                const collectedDate = new Date(
+                  visit.visitedAt,
+                ).toLocaleDateString(undefined, {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                });
 
-                  <View style={styles.stampContent}>
-                    <ThemedText type="subtitle">
-                      {visit.locationName}
-                    </ThemedText>
+                const badgeCategoryText =
+                  visit.badgeTags.length > 0
+                    ? ` Badge categories: ${visit.badgeTags.join(', ')}.`
+                    : '';
 
-                    <ThemedText
-                      type="small"
-                      themeColor="textSecondary">
-                      Collected{' '}
-                      {new Date(
-                        visit.visitedAt,
-                      ).toLocaleDateString(undefined, {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}
-                    </ThemedText>
+                const stampLabel =
+                  `${visit.locationName}. ` +
+                  `Collected ${collectedDate}.` +
+                  badgeCategoryText;
 
-                    {visit.badgeTags.length > 0 && (
-                      <View style={styles.tagList}>
-                        {visit.badgeTags.map((tag) => (
-                          <View
-                            key={tag}
-                            style={styles.tagChip}>
-                            <ThemedText
-                              type="small"
-                              style={styles.tagChipText}>
-                              {tag}
-                            </ThemedText>
-                          </View>
-                        ))}
+                return (
+                  <View
+                    key={visit._id}
+                    accessible
+                    accessibilityLabel={stampLabel}>
+                    <ThemedView
+                      type="backgroundElement"
+                      style={styles.stampCard}>
+                      <View
+                        accessible={false}
+                        importantForAccessibility="no-hide-descendants"
+                        style={styles.stampIcon}>
+                        <ThemedText
+                          style={styles.stampIconText}>
+                          ✓
+                        </ThemedText>
                       </View>
-                    )}
+
+                      <View
+                        accessible={false}
+                        importantForAccessibility="no-hide-descendants"
+                        style={styles.stampContent}>
+                        <ThemedText type="subtitle">
+                          {visit.locationName}
+                        </ThemedText>
+
+                        <ThemedText
+                          type="small"
+                          themeColor="textSecondary">
+                          Collected {collectedDate}
+                        </ThemedText>
+
+                        {visit.badgeTags.length > 0 && (
+                          <View style={styles.tagList}>
+                            {visit.badgeTags.map((tag) => (
+                              <View
+                                key={tag}
+                                style={styles.tagChip}>
+                                <ThemedText
+                                  type="small"
+                                  style={styles.tagChipText}>
+                                  {tag}
+                                </ThemedText>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+                      </View>
+                    </ThemedView>
                   </View>
-                </ThemedView>
-              ))
+                );
+              })
             )}
           </View>
         </ScrollView>
@@ -401,6 +481,7 @@ const styles = StyleSheet.create({
   },
   sectionHeading: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'baseline',
     justifyContent: 'space-between',
     gap: Spacing.three,
