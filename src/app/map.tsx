@@ -67,6 +67,9 @@ export default function MapScreen() {
   const [locationListVisible, setLocationListVisible] =
     useState(false);
 
+  const [placeOpenedFromList, setPlaceOpenedFromList] =
+    useState(false);
+
   const [userCoordinates, setUserCoordinates] =
     useState<[number, number] | null>(null);
 
@@ -113,6 +116,9 @@ export default function MapScreen() {
     locations !== undefined &&
     locations.length > 0 &&
     places.length === 0;
+
+  const modalContentVisible =
+    selectedPlace !== null || locationListVisible;
 
   useEffect(() => {
     if (!locationsAreLoading) {
@@ -219,7 +225,11 @@ export default function MapScreen() {
     );
   };
 
-  const selectPlace = (place: Place) => {
+  const selectPlace = (
+    place: Place,
+    openedFromList: boolean,
+  ) => {
+    setPlaceOpenedFromList(openedFromList);
     setSelectedPlace(place);
     setLocationListVisible(false);
 
@@ -228,123 +238,150 @@ export default function MapScreen() {
     );
   };
 
+  const closeSelectedPlace = () => {
+    const shouldReturnToList = placeOpenedFromList;
+
+    setSelectedPlace(null);
+    setPlaceOpenedFromList(false);
+
+    if (shouldReturnToList) {
+      setLocationListVisible(true);
+
+      setTimeout(() => {
+        AccessibilityInfo.announceForAccessibility(
+          'Returned to location list.',
+        );
+      }, 100);
+    }
+  };
+
   return (
     <View style={styles.container}>
-      <Map
+      <View
         accessible={false}
-        style={styles.map}
-        mapStyle="https://tiles.openfreemap.org/styles/liberty">
-        <Camera
-          ref={cameraRef}
-          key={
-            userCoordinates
-              ? 'user-location'
-              : 'harvard-yard'
-          }
-          initialViewState={{
-            center: startingCenter,
-            zoom: 15,
-          }}
-        />
-
-        {places.map((place) => (
-          <Marker
-            key={place.id}
-            id={place.id}
-            lngLat={place.coordinates}
-            anchor="bottom"
-            onPress={() => selectPlace(place)}>
-            <View
-              accessible={false}
-              style={[
-                styles.pin,
-                selectedPlace?.id === place.id &&
-                  styles.selectedPin,
-              ]}>
-              <View
-                accessible={false}
-                style={styles.pinCenter}
-              />
-            </View>
-          </Marker>
-        ))}
-
-        {userCoordinates && (
-          <Marker
-            id="current-user-location"
-            lngLat={userCoordinates}
-            anchor="center">
-            <View
-              accessible={false}
-              style={styles.userLocationOuter}>
-              <View
-                accessible={false}
-                style={styles.userLocationInner}
-              />
-            </View>
-          </Marker>
-        )}
-      </Map>
-
-      {locationMessage !== '' && (
-        <View
-          accessibilityLiveRegion="polite"
-          style={styles.locationMessage}>
-          <Text style={styles.locationMessageText}>
-            {locationMessage}
-          </Text>
-        </View>
-      )}
-
-      {locationsAreLoading && (
-        <View
-          accessibilityLiveRegion="polite"
-          style={styles.mapStatus}>
-          <ActivityIndicator
-            accessibilityLabel="Loading map locations"
-            color="#208AEF"
+        accessibilityElementsHidden={modalContentVisible}
+        importantForAccessibility={
+          modalContentVisible
+            ? 'no-hide-descendants'
+            : 'auto'
+        }
+        pointerEvents={
+          modalContentVisible ? 'none' : 'auto'
+        }
+        style={styles.mapLayer}>
+        <Map
+          accessible={false}
+          style={styles.map}
+          mapStyle="https://tiles.openfreemap.org/styles/liberty">
+          <Camera
+            ref={cameraRef}
+            key={
+              userCoordinates
+                ? 'user-location'
+                : 'harvard-yard'
+            }
+            initialViewState={{
+              center: startingCenter,
+              zoom: 15,
+            }}
           />
 
-          <Text style={styles.mapStatusText}>
-            {locationsTakingLong
-              ? 'Still connecting to location data...'
-              : 'Loading locations...'}
-          </Text>
-        </View>
-      )}
+          {places.map((place) => (
+            <Marker
+              key={place.id}
+              id={place.id}
+              lngLat={place.coordinates}
+              anchor="bottom"
+              onPress={() => selectPlace(place, false)}>
+              <View
+                accessible={false}
+                style={[
+                  styles.pin,
+                  selectedPlace?.id === place.id &&
+                    styles.selectedPin,
+                ]}>
+                <View
+                  accessible={false}
+                  style={styles.pinCenter}
+                />
+              </View>
+            </Marker>
+          ))}
 
-      {locationsAreEmpty && (
-        <View
-          accessibilityLiveRegion="polite"
-          style={styles.mapStatus}>
-          <Text style={styles.mapStatusTitle}>
-            No locations yet
-          </Text>
+          {userCoordinates && (
+            <Marker
+              id="current-user-location"
+              lngLat={userCoordinates}
+              anchor="center">
+              <View
+                accessible={false}
+                style={styles.userLocationOuter}>
+                <View
+                  accessible={false}
+                  style={styles.userLocationInner}
+                />
+              </View>
+            </Marker>
+          )}
+        </Map>
 
-          <Text style={styles.mapStatusText}>
-            New places will appear here when they are added.
-          </Text>
-        </View>
-      )}
+        {locationMessage !== '' && (
+          <View
+            accessibilityLiveRegion="polite"
+            style={styles.locationMessage}>
+            <Text style={styles.locationMessageText}>
+              {locationMessage}
+            </Text>
+          </View>
+        )}
 
-      {placesAreEmpty && (
-        <View
-          accessibilityLiveRegion="polite"
-          style={styles.mapStatus}>
-          <Text style={styles.mapStatusTitle}>
-            Locations need map information
-          </Text>
+        {locationsAreLoading && (
+          <View
+            accessibilityLiveRegion="polite"
+            style={styles.mapStatus}>
+            <ActivityIndicator
+              accessibilityLabel="Loading map locations"
+              color="#208AEF"
+            />
 
-          <Text style={styles.mapStatusText}>
-            The available locations are missing map
-            coordinates. They cannot appear on the map yet.
-          </Text>
-        </View>
-      )}
+            <Text style={styles.mapStatusText}>
+              {locationsTakingLong
+                ? 'Still connecting to location data...'
+                : 'Loading locations...'}
+            </Text>
+          </View>
+        )}
 
-      {!locationsAreLoading &&
-        places.length > 0 &&
-        !locationListVisible && (
+        {locationsAreEmpty && (
+          <View
+            accessibilityLiveRegion="polite"
+            style={styles.mapStatus}>
+            <Text style={styles.mapStatusTitle}>
+              No locations yet
+            </Text>
+
+            <Text style={styles.mapStatusText}>
+              New places will appear here when they are added.
+            </Text>
+          </View>
+        )}
+
+        {placesAreEmpty && (
+          <View
+            accessibilityLiveRegion="polite"
+            style={styles.mapStatus}>
+            <Text style={styles.mapStatusTitle}>
+              Locations need map information
+            </Text>
+
+            <Text style={styles.mapStatusText}>
+              The available locations are missing map
+              coordinates. They cannot appear on the map yet.
+            </Text>
+          </View>
+        )}
+
+        {!locationsAreLoading && places.length > 0 && (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Open location list"
@@ -362,6 +399,29 @@ export default function MapScreen() {
             </Text>
           </Pressable>
         )}
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Recenter map on my location"
+          accessibilityHint="Moves the map back to your current position"
+          accessibilityState={{
+            disabled: !userCoordinates,
+          }}
+          disabled={!userCoordinates}
+          onPress={recenterMap}
+          style={({ pressed }) => [
+            styles.recenterButton,
+            !userCoordinates &&
+              styles.recenterButtonDisabled,
+            pressed && styles.recenterButtonPressed,
+          ]}>
+          <Text
+            accessible={false}
+            style={styles.recenterButtonIcon}>
+            ◎
+          </Text>
+        </Pressable>
+      </View>
 
       {!locationsAreLoading &&
         places.length > 0 &&
@@ -414,7 +474,7 @@ export default function MapScreen() {
                       : place.title
                   }
                   accessibilityHint="Opens location details"
-                  onPress={() => selectPlace(place)}
+                  onPress={() => selectPlace(place, true)}
                   style={({ pressed }) => [
                     styles.locationListItem,
                     selectedPlace?.id === place.id &&
@@ -428,7 +488,9 @@ export default function MapScreen() {
 
                   {place.category && (
                     <Text
-                      style={styles.locationListItemCategory}>
+                      style={
+                        styles.locationListItemCategory
+                      }>
                       {place.category}
                     </Text>
                   )}
@@ -438,33 +500,11 @@ export default function MapScreen() {
           </View>
         )}
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Recenter map on my location"
-        accessibilityHint="Moves the map back to your current position"
-        accessibilityState={{
-          disabled: !userCoordinates,
-        }}
-        disabled={!userCoordinates}
-        onPress={recenterMap}
-        style={({ pressed }) => [
-          styles.recenterButton,
-          !userCoordinates &&
-            styles.recenterButtonDisabled,
-          pressed && styles.recenterButtonPressed,
-        ]}>
-        <Text
-          accessible={false}
-          style={styles.recenterButtonIcon}>
-          ◎
-        </Text>
-      </Pressable>
-
       {selectedPlace && (
         <LocationPopup
           place={selectedPlace}
           userCoordinates={userCoordinates}
-          onClose={() => setSelectedPlace(null)}
+          onClose={closeSelectedPlace}
         />
       )}
     </View>
@@ -473,6 +513,9 @@ export default function MapScreen() {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  mapLayer: {
     flex: 1,
   },
   map: {
