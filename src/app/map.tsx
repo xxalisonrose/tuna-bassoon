@@ -20,8 +20,10 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LocationPopup } from '@/components/location-popup';
+import { BottomTabInset } from '@/constants/theme';
 import type { Place } from '@/data/places';
 import { api } from '../../convex/_generated/api';
 
@@ -63,6 +65,7 @@ export function ErrorBoundary({
 
 export default function MapScreen() {
   const cameraRef = useRef<CameraRef>(null);
+  const insets = useSafeAreaInsets();
 
   const { isAuthenticated } = useConvexAuth();
 
@@ -364,7 +367,12 @@ export default function MapScreen() {
         {locationMessage !== '' && (
           <View
             accessibilityLiveRegion="polite"
-            style={styles.locationMessage}>
+            style={[
+              styles.locationMessage,
+              {
+                top: insets.top + 8,
+              },
+            ]}>
             <Text style={styles.locationMessageText}>
               {locationMessage}
             </Text>
@@ -374,7 +382,12 @@ export default function MapScreen() {
         {locationsAreLoading && (
           <View
             accessibilityLiveRegion="polite"
-            style={styles.mapStatus}>
+            style={[
+              styles.mapStatus,
+              {
+                top: insets.top + 64,
+              },
+            ]}>
             <ActivityIndicator
               accessibilityLabel="Loading map locations"
               color="#208AEF"
@@ -391,7 +404,12 @@ export default function MapScreen() {
         {locationsAreEmpty && (
           <View
             accessibilityLiveRegion="polite"
-            style={styles.mapStatus}>
+            style={[
+              styles.mapStatus,
+              {
+                top: insets.top + 64,
+              },
+            ]}>
             <Text style={styles.mapStatusTitle}>
               No locations yet
             </Text>
@@ -405,7 +423,12 @@ export default function MapScreen() {
         {placesAreEmpty && (
           <View
             accessibilityLiveRegion="polite"
-            style={styles.mapStatus}>
+            style={[
+              styles.mapStatus,
+              {
+                top: insets.top + 64,
+              },
+            ]}>
             <Text style={styles.mapStatusTitle}>
               Locations need map information
             </Text>
@@ -430,6 +453,9 @@ export default function MapScreen() {
               onPress={toggleLocationList}
               style={({ pressed }) => [
                 styles.locationListButton,
+                {
+                  bottom: BottomTabInset + 12,
+                },
                 pressed &&
                   styles.locationListButtonPressed,
               ]}>
@@ -451,6 +477,9 @@ export default function MapScreen() {
           onPress={recenterMap}
           style={({ pressed }) => [
             styles.recenterButton,
+            {
+              bottom: BottomTabInset + 12,
+            },
             !userCoordinates &&
               styles.recenterButtonDisabled,
             pressed && styles.recenterButtonPressed,
@@ -468,7 +497,13 @@ export default function MapScreen() {
         locationListVisible && (
           <View
             accessibilityViewIsModal
-            style={styles.locationListPanel}>
+            style={[
+              styles.locationListPanel,
+              {
+                top: insets.top + 8,
+                bottom: BottomTabInset + 8,
+              },
+            ]}>
             <View style={styles.locationListHeader}>
               <Text
                 accessibilityRole="header"
@@ -525,7 +560,6 @@ export default function MapScreen() {
                               : ', not visited'
                           }`
                     }
-                    
                     onPress={() =>
                       selectPlace(place, true)
                     }
@@ -538,7 +572,10 @@ export default function MapScreen() {
                       pressed &&
                         styles.locationListItemPressed,
                     ]}>
-                    <View style={styles.locationListItemHeader}>
+                    <View
+                      style={
+                        styles.locationListItemHeader
+                      }>
                       <Text
                         style={
                           styles.locationListItemTitle
@@ -648,7 +685,6 @@ const styles = StyleSheet.create({
   },
   locationMessage: {
     position: 'absolute',
-    top: 16,
     alignSelf: 'center',
     maxWidth: '90%',
     backgroundColor: 'rgba(0, 0, 0, 0.75)',
@@ -663,7 +699,6 @@ const styles = StyleSheet.create({
   },
   mapStatus: {
     position: 'absolute',
-    top: 70,
     alignSelf: 'center',
     maxWidth: '85%',
     alignItems: 'center',
@@ -695,7 +730,6 @@ const styles = StyleSheet.create({
   locationListButton: {
     position: 'absolute',
     left: 18,
-    bottom: 28,
     minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
@@ -721,9 +755,7 @@ const styles = StyleSheet.create({
   },
   locationListPanel: {
     position: 'absolute',
-    top: 24,
     right: 16,
-    bottom: 24,
     left: 16,
     overflow: 'hidden',
     backgroundColor: '#ffffff',
@@ -834,7 +866,6 @@ const styles = StyleSheet.create({
   recenterButton: {
     position: 'absolute',
     right: 18,
-    bottom: 28,
     width: 52,
     height: 52,
     alignItems: 'center',
