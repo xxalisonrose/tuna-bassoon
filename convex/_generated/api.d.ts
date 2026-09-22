@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as badgeMigration from "../badgeMigration.js";
 import type * as badges from "../badges.js";
 import type * as locationAgent from "../locationAgent.js";
 import type * as locations from "../locations.js";
@@ -22,6 +23,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  badgeMigration: typeof badgeMigration;
   badges: typeof badges;
   locationAgent: typeof locationAgent;
   locations: typeof locations;
