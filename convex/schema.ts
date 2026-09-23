@@ -64,6 +64,12 @@ export default defineSchema({
           type: v.literal('region'),
           regionKey: v.string(),
         }),
+        v.object({
+          type: v.literal('same_story'),
+        }),
+        v.object({
+          type: v.literal('same_region'),
+        }),
       ),
     ),
     retired: v.optional(v.boolean()),
@@ -89,6 +95,7 @@ export default defineSchema({
       clerkUserId: v.string(),
       badgeDefinitionId: v.id('badgeDefinitions'),
       visitedLocationIds: v.array(v.id('locations')),
+      groupKey: v.optional(v.string()),
       completedVisits: v.number(),
       updatedAt: v.number(),
     })

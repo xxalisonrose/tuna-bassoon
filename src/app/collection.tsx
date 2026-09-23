@@ -1,7 +1,9 @@
 import {
   useConvexAuth,
+  useMutation,
   useQuery,
 } from 'convex/react';
+import { useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -24,6 +26,26 @@ export default function CollectionScreen() {
     isAuthenticated,
     isLoading: isAuthenticationLoading,
   } = useConvexAuth();
+
+  const syncMyAwards = useMutation(api.badges.syncMyAwards);
+  const hasSyncedAwards = useRef(false);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      hasSyncedAwards.current = false;
+      return;
+    }
+
+    if (hasSyncedAwards.current) {
+      return;
+    }
+
+    hasSyncedAwards.current = true;
+
+    void syncMyAwards().catch(() => {
+      hasSyncedAwards.current = false;
+    });
+  }, [isAuthenticated, syncMyAwards]);
 
   const visits = useQuery(
     api.visits.getMyVisits,

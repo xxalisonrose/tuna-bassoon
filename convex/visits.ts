@@ -129,6 +129,7 @@ export const checkIn = mutation({
   },
 });
 
+
 export const getMyVisits = query({
   args: {},
 

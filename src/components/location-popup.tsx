@@ -39,6 +39,7 @@ export function LocationPopup({
   } = useConvexAuth();
 
   const checkIn = useMutation(api.visits.checkIn);
+  const syncMyAwards = useMutation(api.badges.syncMyAwards);
 
   const existingVisit = useQuery(
     api.visits.getVisitForLocation,
@@ -122,21 +123,18 @@ export function LocationPopup({
         return;
       }
 
-      const earnedBadgeTags = [
-        ...new Set(result.badgeTags),
-      ];
-
-      const badgeProgress =
-        earnedBadgeTags.length > 0
-          ? ` Progress added toward: ${earnedBadgeTags.join(', ')}.`
-          : '';
-
       showCheckInMessage({
         text:
           `Check-in successful! You collected the ` +
-          `${result.stampName} stamp.${badgeProgress}`,
+          `${result.stampName} stamp.`,
         type: 'success',
       });
+
+      try {
+        await syncMyAwards();
+      } catch {
+        // The check-in was saved; a later startup or collection sync can retry.
+      }
     } catch (checkInError) {
       showCheckInMessage({
         text:
