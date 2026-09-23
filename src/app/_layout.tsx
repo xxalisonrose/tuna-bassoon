@@ -6,6 +6,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
 import { useColorScheme } from 'react-native';
 
 import AppTabs from '@/components/app-tabs';
+import { AwardCelebrationProvider } from '@/components/award-celebration-provider';
 
 const publishableKey =
   process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
@@ -45,7 +46,9 @@ export default function TabLayout() {
               ? DarkTheme
               : DefaultTheme
           }>
-          <AppTabs />
+          <AwardCelebrationProvider>
+            <AppTabs />
+          </AwardCelebrationProvider>
         </ThemeProvider>
       </ConvexProviderWithClerk>
     </ClerkProvider>
