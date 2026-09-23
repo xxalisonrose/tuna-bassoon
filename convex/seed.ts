@@ -1,7 +1,7 @@
-import { mutation } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 
-export const seedLocations = mutation({
+export const seedLocations = internalMutation({
   args: {
     locations: v.array(
       v.object({

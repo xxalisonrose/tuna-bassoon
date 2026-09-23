@@ -1,6 +1,6 @@
 import { ConvexError, v } from 'convex/values';
 
-import { mutation, query } from './_generated/server';
+import { internalMutation, mutation, query } from './_generated/server';
 import type { Id } from './_generated/dataModel';
 import { normalizeBadgeTag } from './lib/badge_rules';
 
@@ -268,7 +268,7 @@ function getAvailableState(
   };
 }
 
-export const seedBadgeDefinitions = mutation({
+export const seedBadgeDefinitions = internalMutation({
   args: {},
 
   handler: async (ctx) => {

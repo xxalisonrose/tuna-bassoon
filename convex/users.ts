@@ -1,4 +1,5 @@
 import { query } from './_generated/server';
+import { isAdminSubject } from './lib/auth';
 
 export const getCurrentUser = query({
   args: {},
@@ -14,6 +15,7 @@ export const getCurrentUser = query({
       clerkUserId: identity.subject,
       name: identity.name,
       email: identity.email,
+      isAdmin: isAdminSubject(identity.subject),
     };
   },
 });

@@ -3,11 +3,10 @@ import { v } from 'convex/values';
 import {
   internalMutation,
   internalQuery,
-  mutation,
   query,
 } from './_generated/server';
 
-export const addLocation = mutation({
+export const addLocation = internalMutation({
   args: {
     title: v.string(),
     description: v.string(),

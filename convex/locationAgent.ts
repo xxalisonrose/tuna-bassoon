@@ -1,10 +1,11 @@
 import { google } from '@ai-sdk/google';
 import { Agent } from '@convex-dev/agent';
-import { v } from 'convex/values';
+import { ConvexError, v } from 'convex/values';
 
 import type { Doc, Id } from './_generated/dataModel';
 import { components, internal } from './_generated/api';
 import { action, mutation } from './_generated/server';
+import { requireAdmin } from './lib/auth';
 
 const LOCATION_VOICE = `
 You write location descriptions for a Harvard history and landmarks app.
@@ -23,6 +24,9 @@ const locationAgent = new Agent(components.agent, {
   name: 'Harvard Location Description Editor',
   languageModel: google('gemini-3.6-flash'),
   instructions: LOCATION_VOICE,
+  callSettings: {
+    maxRetries: 0,
+  },
 });
 
 export const generateLocationDescription = action({
@@ -35,15 +39,19 @@ export const generateLocationDescription = action({
     ctx,
     args,
   ): Promise<{
+    status: 'success';
     locationId: Id<'locations'>;
     description: string;
+  } | {
+    status: 'unavailable';
+    message: string;
   }> => {
-    const identity = await ctx.auth.getUserIdentity();
+    await requireAdmin(ctx);
 
-    if (identity === null) {
-      throw new Error(
-        'You must be signed in to rewrite a location description.',
-      );
+    const editorialNotes = args.editorialNotes?.trim();
+
+    if (editorialNotes !== undefined && editorialNotes.length > 2000) {
+      throw new ConvexError('Editorial notes must be 2,000 characters or fewer.');
     }
 
     const location: Doc<'locations'> | null =
@@ -58,20 +66,34 @@ export const generateLocationDescription = action({
 
     const { thread } = await locationAgent.createThread(ctx);
 
-    const result = await thread.generateText({
-      prompt: [
-        `Location name: ${location.name}`,
-        `Category: ${location.category ?? 'Not specified'}`,
-        `Current description: ${location.description}`,
-        args.editorialNotes
-          ? `Editorial notes: ${args.editorialNotes}`
-          : '',
-        '',
-        'Rewrite the description using the voice guide. Return only the finished description.',
-      ]
-        .filter(Boolean)
-        .join('\n'),
-    });
+    let result;
+
+    try {
+      result = await thread.generateText({
+        prompt: [
+          `Location name: ${location.name}`,
+          `Category: ${location.category ?? 'Not specified'}`,
+          `Current description: ${location.description}`,
+          editorialNotes
+            ? `Editorial notes: ${editorialNotes}`
+            : '',
+          '',
+          'Rewrite the description using the voice guide. Return only the finished description.',
+        ]
+          .filter(Boolean)
+          .join('\n'),
+      });
+    } catch (error) {
+      console.error(
+        '[locationAgent] Gemini generation failed',
+        error instanceof Error ? error.name : 'UnknownError',
+      );
+      return {
+        status: 'unavailable',
+        message:
+          'Gemini is temporarily unavailable. Please try again in a few minutes.',
+      };
+    }
 
     const description = result.text.trim();
 
@@ -82,6 +104,7 @@ export const generateLocationDescription = action({
     }
 
     return {
+      status: 'success',
       locationId: args.locationId,
       description,
     };
@@ -95,10 +118,16 @@ export const approveLocationDescription = mutation({
   },
 
   handler: async (ctx, args) => {
-    if ((await ctx.auth.getUserIdentity()) === null) {
-      throw new Error(
-        'You must be signed in to approve a location description.',
-      );
+    await requireAdmin(ctx);
+
+    const description = args.description.trim();
+
+    if (description.length === 0) {
+      throw new ConvexError('Description cannot be empty.');
+    }
+
+    if (description.length > 5000) {
+      throw new ConvexError('Description must be 5,000 characters or fewer.');
     }
 
     const location = await ctx.db.get(args.locationId);
@@ -108,7 +137,7 @@ export const approveLocationDescription = mutation({
     }
 
     await ctx.db.patch(args.locationId, {
-      description: args.description,
+      description,
     });
   },
 });

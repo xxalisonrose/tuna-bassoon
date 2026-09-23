@@ -1,4 +1,5 @@
 import {
+  useConvexAuth,
   useAction,
   useMutation,
   useQuery,
@@ -19,7 +20,31 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 
+const GENERATION_TIMEOUT_MS = 120_000;
+
+function getEditorErrorMessage(
+  error: unknown,
+  fallback: string,
+) {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'data' in error &&
+    typeof error.data === 'string'
+  ) {
+    return error.data;
+  }
+
+  return fallback;
+}
+
 export default function EditorScreen() {
+  const { isAuthenticated, isLoading: isAuthLoading } =
+    useConvexAuth();
+  const currentUser = useQuery(
+    api.users.getCurrentUser,
+    isAuthenticated ? {} : 'skip',
+  );
   const locations = useQuery(api.locations.getLocations);
 
   const generate = useAction(
@@ -65,13 +90,39 @@ export default function EditorScreen() {
     }
 
     setBusy(true);
-    setMessage(null);
+    setMessage(
+      'Gemini is drafting. This may take a moment during high demand.',
+    );
+
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     try {
-      const result = await generate({
+      const generationPromise = generate({
         locationId: selectedId,
         editorialNotes: notes.trim() || undefined,
       });
+      const result = await Promise.race([
+        generationPromise,
+        new Promise<{ status: 'timeout' }>((resolve) => {
+          timeoutId = setTimeout(() => {
+            resolve({ status: 'timeout' });
+          }, GENERATION_TIMEOUT_MS);
+        }),
+      ]);
+
+      if (result.status === 'timeout') {
+        const text =
+          'Gemini is taking too long to respond. Please wait a few minutes before trying again.';
+        setMessage(text);
+        announce(text);
+        return;
+      }
+
+      if (result.status === 'unavailable') {
+        setMessage(result.message);
+        announce(result.message);
+        return;
+      }
 
       setDraft(result.description);
 
@@ -79,14 +130,17 @@ export default function EditorScreen() {
       setMessage(text);
       announce(text);
     } catch (error) {
-      const text =
-        error instanceof Error
-          ? error.message
-          : 'Unable to generate a draft.';
+      const text = getEditorErrorMessage(
+        error,
+        'Unable to generate a draft right now. Please try again.',
+      );
 
       setMessage(text);
       announce(text);
     } finally {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
       setBusy(false);
     }
   };
@@ -111,10 +165,10 @@ export default function EditorScreen() {
       setMessage(text);
       announce(text);
     } catch (error) {
-      const text =
-        error instanceof Error
-          ? error.message
-          : 'Unable to save the description.';
+      const text = getEditorErrorMessage(
+        error,
+        'Unable to save the description.',
+      );
 
       setMessage(text);
       announce(text);
@@ -122,6 +176,95 @@ export default function EditorScreen() {
       setBusy(false);
     }
   };
+
+  if (isAuthLoading) {
+    return (
+      <ThemedView style={styles.centeredContainer}>
+        <ActivityIndicator
+          accessibilityLabel="Checking editor access"
+          accessibilityRole="progressbar"
+          size="large"
+        />
+
+        <ThemedText accessibilityLiveRegion="polite">
+          Checking editor access...
+        </ThemedText>
+      </ThemedView>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <ThemedView style={styles.centeredContainer}>
+        <ThemedText
+          accessibilityRole="header"
+          type="subtitle">
+          Sign in required
+        </ThemedText>
+
+        <ThemedText
+          accessibilityLiveRegion="polite"
+          style={styles.centeredText}
+          themeColor="textSecondary">
+          Sign in before accessing the Editor.
+        </ThemedText>
+      </ThemedView>
+    );
+  }
+
+  if (currentUser === undefined) {
+    return (
+      <ThemedView style={styles.centeredContainer}>
+        <ActivityIndicator
+          accessibilityLabel="Checking editor access"
+          accessibilityRole="progressbar"
+          size="large"
+        />
+
+        <ThemedText accessibilityLiveRegion="polite">
+          Checking editor access...
+        </ThemedText>
+      </ThemedView>
+    );
+  }
+
+  if (currentUser === null) {
+    return (
+      <ThemedView style={styles.centeredContainer}>
+        <ThemedText
+          accessibilityRole="header"
+          type="subtitle">
+          Sign in required
+        </ThemedText>
+
+        <ThemedText
+          accessibilityLiveRegion="polite"
+          style={styles.centeredText}
+          themeColor="textSecondary">
+          Sign in before accessing the Editor.
+        </ThemedText>
+      </ThemedView>
+    );
+  }
+
+  if (!currentUser.isAdmin) {
+    return (
+      <ThemedView style={styles.centeredContainer}>
+        <ThemedText
+          accessibilityRole="header"
+          type="subtitle">
+          Administrator access required
+        </ThemedText>
+
+        <ThemedText
+          accessibilityLiveRegion="polite"
+          style={styles.centeredText}
+          themeColor="textSecondary">
+          This tool is limited to authorized project editors.
+        </ThemedText>
+      </ThemedView>
+    );
+  }
 
   return (
     <ScrollView
@@ -310,6 +453,16 @@ export default function EditorScreen() {
 }
 
 const styles = StyleSheet.create({
+  centeredContainer: {
+    alignItems: 'center',
+    flex: 1,
+    gap: Spacing.three,
+    justifyContent: 'center',
+    padding: Spacing.four,
+  },
+  centeredText: {
+    textAlign: 'center',
+  },
   content: {
     flexGrow: 1,
     padding: Spacing.four,
