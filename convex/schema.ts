@@ -16,7 +16,7 @@ export default defineSchema({
     category: v.optional(v.string()),
     storyKey: v.optional(v.string()),
     regionKey: v.optional(v.string()),
-  }),
+  }).index('by_key', ['key']),
 
   visits: defineTable({
     clerkUserId: v.string(),
