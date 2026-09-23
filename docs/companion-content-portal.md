@@ -2,31 +2,23 @@
 
 ## Purpose
 
-The companion content portal will give Dan and Ali a clean web interface for managing Tuna Bassoon content.
+The companion content portal is the web interface for managing Tuna Bassoon location content. It is an administration tool, not a public-facing website.
 
-The portal will use the project’s existing Clerk authentication, Convex backend, and administrator allowlist. Changes saved through the website should appear in the mobile app without requiring a new app build.
+The portal is available at `/admin` in the Expo web app. Clerk handles sign-in, and Convex verifies administrator access server-side before portal functions run. Saved changes are read by the mobile app without requiring a new app build.
 
-This is an administration tool, not a public-facing website.
+## Completed Work
 
-## First Release
+### Access and authorization
 
-The first release will focus on location management.
+- Clerk handles sign-in.
+- Convex checks administrator access on the server.
+- Non-administrators cannot use the portal functions, even if they call Convex directly.
+- The web navigation and signed-in home screen show the portal link only to administrators.
+- The old `/editor` route redirects to `/admin`, so existing bookmarks and links continue to work.
 
-Administrators will be able to:
+### Location management
 
-- Sign in using the existing Clerk authentication flow.
-- View and search existing locations.
-- Create a location.
-- Edit an existing location.
-- Review validation errors before saving.
-- Confirm that saved changes appear in the mobile app.
-- Open the existing Gemini description Editor.
-
-Deleting locations will not be included in the first release. This avoids accidentally breaking visits, badge progress, or awards that reference an existing location.
-
-## Location Form
-
-The location form should include:
+Administrators can search and browse locations, create new locations, and edit all location fields:
 
 - Location name
 - Stable location key
@@ -35,93 +27,51 @@ The location form should include:
 - Latitude
 - Longitude
 - Badge tags
-- Story key
-- Region key
+- Optional story key
+- Optional region key
 
-Badge tags should be entered through a repeatable field or tag control rather than as raw JSON.
+The forms validate required fields, coordinate ranges, stable key format, badge tags, and optional story and region keys. Server validation remains authoritative, including duplicate stable-key protection and administrator authorization.
 
-The form should distinguish required fields from optional fields and preserve entered information when validation fails.
+### Gemini drafting
 
-## Validation
+Gemini drafting is optional and lives inside the same create/edit form. It uses the current unsaved form values for the name, category, and description as context, along with optional editorial notes.
 
-The server must validate all submitted data.
+Gemini only updates the local Description field. It never saves or publishes automatically. The administrator must explicitly create the new location or press Save changes before the draft is stored.
 
-Validation should include:
+Provider failures and 120-second client-side timeouts display safe messages in the form. Duplicate Gemini submissions are prevented while a request is active. Closing the Gemini tools does not remove a generated description.
 
-- Trimming text fields.
-- Requiring a location name.
-- Requiring a non-empty description.
-- Requiring valid latitude and longitude values.
-- Preventing duplicate stable location keys.
-- Removing empty and duplicate badge tags.
-- Limiting unreasonable text lengths.
-- Confirming that the authenticated user is an administrator.
-
-Client-side validation may provide faster feedback, but it does not replace server validation.
+Location deletion is intentionally not included. This avoids accidentally breaking visits, badge progress, or awards that reference an existing location.
 
 ## Security
 
-Every create or update operation must call `requireAdmin(ctx)` on the Convex server.
+Every create or update operation calls `requireAdmin(ctx)` on the Convex server. Hiding the portal or its navigation is not authorization.
 
-Hiding the portal or its navigation is not authorization. A non-admin user must be rejected even if they call a Convex function directly.
+The browser must not receive secret keys. Clerk publishable configuration and the Convex URL use the project’s existing client configuration. Administrator IDs, Gemini credentials, and other private values remain in the Convex environment.
 
-The browser must not receive secret keys. Clerk publishable configuration and the Convex URL may use the project’s existing client configuration. Administrator IDs, Gemini credentials, and other private values remain in the Convex environment.
+The portal follows the credential rules in `AGENTS.md`.
 
-The portal must follow the credential rules in `AGENTS.md`.
+## Current Route
 
-## Proposed Routes
+- `/admin` is the location management portal.
+- `/editor` is retained only as a compatibility redirect to `/admin`.
 
-- `/admin` for the dashboard
-- `/admin/locations` for location search and management
-- `/admin/locations/new` for creating a location
-- `/admin/locations/[locationId]` for editing a location
-- `/editor` for the existing Gemini description workflow
+There are no separate location-management routes yet. The current create and edit workflows live in the `/admin` screen.
 
-Admin navigation should appear on the web experience only. Server authorization must still protect every operation.
+## Future Work
 
-## Proposed Convex Functions
-
-A dedicated module should provide administrator functions such as:
-
-- `getLocationsForAdmin`
-- `createLocation`
-- `updateLocation`
-
-These functions should use explicit argument validators and return useful success or validation results.
-
-Existing seed and maintenance functions should remain internal.
-
-## Future Forms
-
-After location management is stable, the portal may add:
+The following work is intentionally deferred:
 
 - Badge definition management
-- Badge availability windows
-- Retirement controls
-- Image and asset management
-- Draft and publishing states
+- Badge availability-window management
+- Location retirement controls
+- Media and asset management
+- Draft and publishing states beyond the current local Gemini draft flow
 - Bulk import
-- Change history
+- Audit history and change history
+- Production deployment
 
-These are not required for the first release.
+These additions should preserve server-side authorization and the existing credential rules.
 
 ## Server Rendering
 
-Server-side rendering is not required for the first release. The portal is an authenticated, interactive form application and will rely on JavaScript.
-
-Static or server-rendered pages can be reconsidered later if Tuna Bassoon adds a public informational website.
-
-## Definition of Done
-
-The first release is complete when:
-
-1. Dan and Ali can access the portal.
-2. A non-admin account cannot view or submit the forms.
-3. An administrator can create a valid location.
-4. An administrator can edit an existing location.
-5. Invalid coordinates and missing required fields are rejected.
-6. Duplicate location keys are rejected.
-7. Saved changes appear in the mobile app.
-8. TypeScript and repository validation pass.
-9. The portal works with keyboard navigation and basic screen-reader semantics.
-10. The implementation and setup are documented and committed to Git.
+Server-side rendering is not required for the current portal. It is an authenticated, interactive form application that relies on JavaScript. Static or server-rendered pages can be reconsidered if Tuna Bassoon later adds a public informational website.

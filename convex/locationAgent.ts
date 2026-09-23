@@ -31,7 +31,14 @@ const locationAgent = new Agent(components.agent, {
 
 export const generateLocationDescription = action({
   args: {
-    locationId: v.id('locations'),
+    locationId: v.optional(v.id('locations')),
+    draftContext: v.optional(
+      v.object({
+        name: v.string(),
+        category: v.optional(v.string()),
+        description: v.optional(v.string()),
+      }),
+    ),
     editorialNotes: v.optional(v.string()),
   },
 
@@ -40,7 +47,7 @@ export const generateLocationDescription = action({
     args,
   ): Promise<{
     status: 'success';
-    locationId: Id<'locations'>;
+    locationId?: Id<'locations'>;
     description: string;
   } | {
     status: 'unavailable';
@@ -54,14 +61,60 @@ export const generateLocationDescription = action({
       throw new ConvexError('Editorial notes must be 2,000 characters or fewer.');
     }
 
-    const location: Doc<'locations'> | null =
-      await ctx.runQuery(
-        internal.locations.getLocation,
-        { locationId: args.locationId },
+    if (!args.locationId && !args.draftContext) {
+      throw new ConvexError(
+        'A location ID or draft context is required.',
       );
+    }
 
-    if (location === null) {
-      throw new Error('Location not found.');
+    let locationName: string;
+    let locationCategory: string;
+    let locationDescription: string;
+
+    if (args.draftContext) {
+      locationName = args.draftContext.name.trim();
+
+      if (locationName.length === 0) {
+        throw new ConvexError('Location name cannot be empty.');
+      }
+
+      if (locationName.length > 120) {
+        throw new ConvexError(
+          'Location name must be 120 characters or fewer.',
+        );
+      }
+
+      const category = args.draftContext.category?.trim() ?? '';
+      if (category.length > 120) {
+        throw new ConvexError(
+          'Category must be 120 characters or fewer.',
+        );
+      }
+
+      const description = args.draftContext.description?.trim() ?? '';
+      if (description.length > 5000) {
+        throw new ConvexError(
+          'Description must be 5,000 characters or fewer.',
+        );
+      }
+
+      locationCategory = category || 'Not specified';
+      locationDescription =
+        description || 'No current description provided.';
+    } else {
+      const location: Doc<'locations'> | null =
+        await ctx.runQuery(
+          internal.locations.getLocation,
+          { locationId: args.locationId as Id<'locations'> },
+        );
+
+      if (location === null) {
+        throw new Error('Location not found.');
+      }
+
+      locationName = location.name;
+      locationCategory = location.category ?? 'Not specified';
+      locationDescription = location.description;
     }
 
     const { thread } = await locationAgent.createThread(ctx);
@@ -71,9 +124,9 @@ export const generateLocationDescription = action({
     try {
       result = await thread.generateText({
         prompt: [
-          `Location name: ${location.name}`,
-          `Category: ${location.category ?? 'Not specified'}`,
-          `Current description: ${location.description}`,
+          `Location name: ${locationName}`,
+          `Category: ${locationCategory}`,
+          `Current description: ${locationDescription}`,
           editorialNotes
             ? `Editorial notes: ${editorialNotes}`
             : '',
@@ -105,7 +158,7 @@ export const generateLocationDescription = action({
 
     return {
       status: 'success',
-      locationId: args.locationId,
+      ...(args.locationId ? { locationId: args.locationId } : {}),
       description,
     };
   },

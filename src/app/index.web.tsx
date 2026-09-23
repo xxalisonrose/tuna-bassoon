@@ -6,6 +6,7 @@ import {
   SignUpButton,
 } from '@clerk/expo/web';
 import { useQuery } from 'convex/react';
+import { Link } from 'expo-router';
 import {
   ActivityIndicator,
   Pressable,
@@ -80,6 +81,18 @@ function WebAuthControls() {
                   : 'Secure profile connected'}
             </ThemedText>
           </ThemedView>
+
+          {currentUser?.isAdmin && (
+            <Link
+              href="/admin"
+              accessibilityLabel="Open content portal"
+              accessibilityHint="Opens the content portal for managing Tuna Bassoon locations."
+              style={styles.adminLink}>
+              <ThemedText type="smallBold" style={styles.linkText}>
+                Open content portal
+              </ThemedText>
+            </Link>
+          )}
 
           <SignOutButton>
   <button style={styles.webButton}>
@@ -200,4 +213,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     cursor: 'pointer',
   } as any,
+  adminLink: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#A51C30',
+  },
+  linkText: {
+    color: '#FFFFFF',
+  },
 });
