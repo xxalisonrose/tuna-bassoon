@@ -17,6 +17,7 @@ import {
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { BadgeManager } from '@/components/admin/badge-manager';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '../../convex/_generated/api';
@@ -25,6 +26,7 @@ import type { Id } from '../../convex/_generated/dataModel';
 const GENERATION_TIMEOUT_MS = 120_000;
 
 type FormMode = 'create' | 'edit';
+type PortalSection = 'locations' | 'badges';
 
 type LocationFormState = {
   name: string;
@@ -94,6 +96,7 @@ export default function AdminPortalScreen() {
 
   const theme = useTheme();
   const [search, setSearch] = useState('');
+  const [portalSection, setPortalSection] = useState<PortalSection>('locations');
   const [formMode, setFormMode] = useState<FormMode | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<LocationFormState>(emptyForm);
@@ -505,6 +508,34 @@ export default function AdminPortalScreen() {
             This website manages content used by the Tuna Bassoon app.
           </ThemedText>
         </ThemedView>
+
+        <ThemedView
+          accessibilityRole="tablist"
+          accessibilityLabel="Content portal sections"
+          type="backgroundElement"
+          style={styles.sectionTabs}>
+          {(['locations', 'badges'] as PortalSection[]).map((section) => (
+            <Pressable
+              key={section}
+              accessibilityRole="tab"
+              accessibilityLabel={section === 'locations' ? 'Locations' : 'Badges'}
+              accessibilityState={{ selected: portalSection === section }}
+              onPress={() => setPortalSection(section)}
+              style={({ pressed }) => [
+                styles.sectionTab,
+                portalSection === section && styles.sectionTabSelected,
+                pressed && styles.pressed,
+              ]}>
+              <ThemedText
+                style={portalSection === section ? styles.sectionTabTextSelected : undefined}>
+                {section === 'locations' ? 'Locations' : 'Badges'}
+              </ThemedText>
+            </Pressable>
+          ))}
+        </ThemedView>
+
+        {portalSection === 'locations' ? (
+          <>
 
         <ThemedView type="backgroundElement" style={styles.linkRow}>
           <Link
@@ -1001,6 +1032,10 @@ export default function AdminPortalScreen() {
             ))}
           </ThemedView>
         )}
+          </>
+        ) : null}
+
+        <BadgeManager visible={portalSection === 'badges'} />
       </ScrollView>
     </ThemedView>
   );
@@ -1048,6 +1083,29 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     padding: Spacing.three,
     borderRadius: Spacing.two,
+  },
+  sectionTabs: {
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    gap: Spacing.one,
+    padding: Spacing.one,
+    borderRadius: Spacing.two,
+  },
+  sectionTab: {
+    flex: 1,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Spacing.one,
+    paddingHorizontal: Spacing.three,
+  },
+  sectionTabSelected: {
+    backgroundColor: '#A51C30',
+  },
+  sectionTabTextSelected: {
+    color: '#FFFFFF',
   },
   linkButton: {
     minHeight: 48,
