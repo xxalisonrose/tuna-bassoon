@@ -326,6 +326,34 @@ export const updateBadgeDefinition = mutation({
     const normalized = normalizeBadgeInput(args);
     const rule = await normalizeRule(ctx, args.rule, normalized.tag);
 
+    if (normalized.classification !== 'seasonal') {
+      const availabilityWindows = await ctx.db
+        .query('badgeAvailabilityWindows')
+        .withIndex('by_badge', (queryBuilder) =>
+          queryBuilder.eq(
+            'badgeDefinitionId',
+            args.badgeDefinitionId,
+          ),
+        )
+        .collect();
+
+      if (
+        availabilityWindows.some(
+          (window) => window.startsAt <= Date.now(),
+        )
+      ) {
+        throw new ConvexError(
+          'Badges with started availability windows must remain seasonal.',
+        );
+      }
+
+      if (availabilityWindows.length > 0) {
+        throw new ConvexError(
+          "Remove this badge's future availability windows before changing its classification.",
+        );
+      }
+    }
+
     await ensureBadgeKeyIsUnique(
       ctx,
       normalized.key,
