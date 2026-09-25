@@ -51,7 +51,7 @@ Provider failures and 120-second client-side timeouts display safe messages near
 
 ### Badge management
 
-Administrators can search and browse badge definitions, create badges, and edit existing badges.
+Administrators can search and browse badge definitions, create badges, and edit existing badges. The badge list can be filtered by General, Seasonal, or Special place classification.
 
 Badge forms support:
 
@@ -84,7 +84,22 @@ Specific-location rules include a searchable location selector, so the content t
 
 The badge backend validates required fields, required visit counts, slug formats, unique badge keys, unique tags, and rule-specific values. Specific-location rules must reference an existing location.
 
-Seasonal badges can be created and edited. Availability dates are not yet configurable in the portal. Under the current backend rules, a seasonal badge without availability windows remains available.
+### Seasonal badge availability
+
+Administrators can schedule availability windows directly inside a seasonal badge form. When a new or existing badge is changed to Seasonal, the first availability window can be entered and saved with the badge in one action.
+
+Each window includes an event period title, local start time, and local end time. Titles are converted to lowercase stable keys, so an entry such as `Halloween 2027` is stored as `halloween-2027`.
+
+Seasonal availability follows these rules:
+
+- Availability windows can only belong to seasonal badges.
+- A seasonal badge without windows remains available year-round.
+- Windows for the same badge cannot overlap or reuse the same key.
+- Future windows can be edited or removed.
+- A window is locked after it starts to preserve progress history.
+- A badge with availability history cannot be changed away from Seasonal in a way that would invalidate that history.
+
+The portal labels windows as Upcoming, Active, or Past and uses the administrator’s local time for entry and display.
 
 ### Badge retirement
 
@@ -115,7 +130,6 @@ Badge management is part of the existing content portal rather than a separate p
 
 The following work is intentionally deferred:
 
-- Badge availability-window management
 - Location retirement controls
 - Media and asset management
 - Draft and publishing states beyond the current local Gemini draft flow

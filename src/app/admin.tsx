@@ -429,6 +429,19 @@ export default function AdminPortalScreen() {
           themeColor="textSecondary">
           Sign in before accessing the content portal.
         </ThemedText>
+
+
+        <Link
+          href="/"
+          accessibilityLabel="Go to sign in"
+          accessibilityHint="Returns to the home screen to sign in or create an account."
+          style={styles.linkButton}>
+          <ThemedText
+            type="smallBold"
+            style={styles.linkButtonText}>
+            Go to sign in
+          </ThemedText>
+        </Link>
       </ThemedView>
     );
   }
@@ -464,6 +477,19 @@ export default function AdminPortalScreen() {
           themeColor="textSecondary">
           Sign in before accessing the content portal.
         </ThemedText>
+
+
+        <Link
+          href="/"
+          accessibilityLabel="Go to sign in"
+          accessibilityHint="Returns to the home screen to sign in or create an account."
+          style={styles.linkButton}>
+          <ThemedText
+            type="smallBold"
+            style={styles.linkButtonText}>
+            Go to sign in
+          </ThemedText>
+        </Link>
       </ThemedView>
     );
   }
@@ -999,7 +1025,7 @@ export default function AdminPortalScreen() {
 
                 <ThemedView style={styles.badgeRow}>
                   {(location.badges?.length ?? 0) > 0 ? (
-                    location.badges.map((badgeTag) => (
+                    [...new Set(location.badges)].map((badgeTag) => (
                       <ThemedView
                         key={`${location._id}-${badgeTag}`}
                         style={styles.badgePill}>

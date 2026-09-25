@@ -11,6 +11,7 @@ import { useMutation, useQuery } from 'convex/react';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { AvailabilityWindowManager } from '@/components/admin/availability-window-manager';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '../../../convex/_generated/api';
@@ -19,6 +20,7 @@ import type { Id } from '../../../convex/_generated/dataModel';
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 type Classification = 'general' | 'special_place' | 'seasonal';
+type ClassificationFilter = Classification | 'all';
 type RuleType =
   | 'tag'
   | 'location'
@@ -70,6 +72,16 @@ const classificationLabels: Record<Classification, string> = {
   special_place: 'Special place',
   seasonal: 'Seasonal',
 };
+
+const classificationFilters: Array<{
+  value: ClassificationFilter;
+  label: string;
+}> = [
+  { value: 'all', label: 'All' },
+  { value: 'general', label: 'General' },
+  { value: 'seasonal', label: 'Seasonal' },
+  { value: 'special_place', label: 'Special place' },
+];
 
 const ruleLabels: Record<RuleType, string> = {
   tag: 'Tag',
@@ -149,6 +161,8 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
   const setBadgeRetired = useMutation(api.adminBadges.setBadgeRetired);
 
   const [search, setSearch] = useState('');
+  const [classificationFilter, setClassificationFilter] =
+    useState<ClassificationFilter>('all');
   const [formMode, setFormMode] = useState<'create' | 'edit' | null>(null);
   const [editingId, setEditingId] = useState<Id<'badgeDefinitions'> | null>(null);
   const [form, setForm] = useState<BadgeFormState>(emptyForm);
@@ -160,8 +174,19 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
 
   const filteredBadges = useMemo(() => {
     const value = search.trim().toLowerCase();
-    if (!badges || !value) return badges ?? [];
-    return badges.filter((badge) => {
+
+    return (badges ?? []).filter((badge) => {
+      if (
+        classificationFilter !== 'all' &&
+        badge.classification !== classificationFilter
+      ) {
+        return false;
+      }
+
+      if (!value) {
+        return true;
+      }
+
       const text = [
         badge.name,
         badge.key,
@@ -170,9 +195,10 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
         badge.rule.type,
         badge.retired ? 'retired' : 'active',
       ].join(' ').toLowerCase();
+
       return text.includes(value);
     });
-  }, [badges, search]);
+  }, [badges, classificationFilter, search]);
 
   const filteredLocations = useMemo(() => {
     const value = locationSearch.trim().toLowerCase();
@@ -257,11 +283,11 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
   };
 
   const submitForm = async () => {
-    if (saving) return;
+    if (saving) return null;
     const validation = validateForm();
     if (validation) {
       setStatusMessage(validation);
-      return;
+      return null;
     }
 
     setSaving(true);
@@ -278,16 +304,41 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
     };
 
     try {
+      let savedBadgeId = editingId;
+
       if (formMode === 'create') {
-        await createBadge(payload);
-        setStatusMessage('Badge created.');
+        savedBadgeId = await createBadge(payload);
+        setStatusMessage(
+          form.classification === 'seasonal'
+            ? 'Badge created. Seasonal availability is ready below.'
+            : 'Badge created.',
+        );
       } else if (formMode === 'edit' && editingId) {
-        await updateBadge({ ...payload, badgeDefinitionId: editingId });
-        setStatusMessage('Badge changes saved.');
+        savedBadgeId = await updateBadge({
+          ...payload,
+          badgeDefinitionId: editingId,
+        });
+        setStatusMessage(
+          form.classification === 'seasonal'
+            ? 'Badge changes saved. Seasonal availability is ready below.'
+            : 'Badge changes saved.',
+        );
       }
-      closeForm(false);
+
+      if (
+        form.classification === 'seasonal' &&
+        savedBadgeId !== null
+      ) {
+        setFormMode('edit');
+        setEditingId(savedBadgeId);
+      } else {
+        closeForm(false);
+      }
+
+      return savedBadgeId;
     } catch (error) {
       setStatusMessage(getErrorMessage(error, formMode === 'create' ? 'Unable to create this badge.' : 'Unable to save these changes.'));
+      return null;
     } finally {
       setSaving(false);
     }
@@ -309,6 +360,17 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
     }
   };
 
+  const availabilityBadgeId =
+    formMode === 'edit' &&
+    editingId !== null &&
+    badges?.some(
+      (badge) =>
+        badge._id === editingId &&
+        badge.classification === 'seasonal',
+    )
+      ? editingId
+      : null;
+
   if (!visible) return null;
 
   return (
@@ -318,6 +380,34 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
         <Pressable accessibilityRole="button" accessibilityLabel="Add new badge" onPress={openCreate} style={styles.primaryButton}>
           <ThemedText style={styles.primaryButtonText}>Add new badge</ThemedText>
         </Pressable>
+      </ThemedView>
+
+      <ThemedView
+        accessibilityLabel="Filter badges by classification"
+        accessibilityRole="radiogroup"
+        style={styles.filterRow}>
+        {classificationFilters.map((filter) => {
+          const selected = classificationFilter === filter.value;
+
+          return (
+            <Pressable
+              key={filter.value}
+              accessibilityRole="radio"
+              accessibilityState={{ selected }}
+              onPress={() => setClassificationFilter(filter.value)}
+              style={({ pressed }) => [
+                styles.filterButton,
+                selected && styles.filterButtonSelected,
+                pressed && styles.pressed,
+              ]}>
+              <ThemedText
+                type="smallBold"
+                style={selected ? styles.filterButtonTextSelected : undefined}>
+                {filter.label}
+              </ThemedText>
+            </Pressable>
+          );
+        })}
       </ThemedView>
 
       {statusMessage ? <ThemedText accessibilityRole="alert" accessibilityLiveRegion="assertive" style={styles.status}>{statusMessage}</ThemedText> : null}
@@ -342,6 +432,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
 
       {formMode ? (
         <BadgeForm
+          availabilityBadgeId={availabilityBadgeId}
           form={form}
           formMode={formMode}
           locations={filteredLocations}
@@ -351,6 +442,11 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
           onChange={updateField}
           onLocationSearch={setLocationSearch}
           onSubmit={submitForm}
+          onPrepareBadgeForAvailability={submitForm}
+          onAvailabilityWindowSaved={() => {
+            setStatusMessage('Badge and availability window saved.');
+            closeForm(false);
+          }}
           onCancel={closeForm}
         />
       ) : badges === undefined ? (
@@ -402,6 +498,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
 }
 
 function BadgeForm({
+  availabilityBadgeId,
   form,
   formMode,
   locations,
@@ -411,8 +508,11 @@ function BadgeForm({
   onChange,
   onLocationSearch,
   onSubmit,
+  onPrepareBadgeForAvailability,
+  onAvailabilityWindowSaved,
   onCancel,
 }: {
+  availabilityBadgeId: Id<'badgeDefinitions'> | null;
   form: BadgeFormState;
   formMode: 'create' | 'edit';
   locations: Array<{ _id: Id<'locations'>; name: string; key?: string }>;
@@ -422,6 +522,8 @@ function BadgeForm({
   onChange: <K extends keyof BadgeFormState>(field: K, value: BadgeFormState[K]) => void;
   onLocationSearch: (value: string) => void;
   onSubmit: () => void;
+  onPrepareBadgeForAvailability: () => Promise<Id<'badgeDefinitions'> | null>;
+  onAvailabilityWindowSaved: () => void;
   onCancel: () => void;
 }) {
   const inputStyle = (extra?: object) => [styles.input, extra, { backgroundColor: theme.background, borderColor: theme.textSecondary, color: theme.text }];
@@ -445,7 +547,23 @@ function BadgeForm({
       <ThemedView accessibilityRole="radiogroup" accessibilityLabel="Badge classification" style={styles.radioGroup}>
         {(Object.keys(classificationLabels) as Classification[]).map((value) => <RadioOption key={value} label={classificationLabels[value]} selected={form.classification === value} hint={`Use the ${classificationLabels[value].toLowerCase()} classification.`} onPress={() => onChange('classification', value)} />)}
       </ThemedView>
-      {form.classification === 'seasonal' ? <ThemedText themeColor="textSecondary">Seasonal availability windows are managed separately. Until a window is added, this badge remains available.</ThemedText> : null}
+      {availabilityBadgeId !== null && form.classification !== 'seasonal' ? (
+      <ThemedText themeColor="textSecondary">
+        This saved badge is seasonal. Remove its future windows before
+        saving another classification. A window that has started locks
+        the badge as seasonal.
+      </ThemedText>
+    ) : null}
+
+    <AvailabilityWindowManager
+      badgeDefinitionId={availabilityBadgeId}
+      visible={
+        form.classification === 'seasonal' ||
+        availabilityBadgeId !== null
+      }
+      onPrepareBadge={onPrepareBadgeForAvailability}
+      onCombinedSaveComplete={onAvailabilityWindowSaved}
+    />
 
       <ThemedText type="smallBold">Rule</ThemedText>
       <ThemedView accessibilityRole="radiogroup" accessibilityLabel="Badge rule" style={styles.radioGroup}>
@@ -466,7 +584,9 @@ function BadgeForm({
       ) : null}
 
       <ThemedView style={styles.actions}>
-        <Pressable accessibilityRole="button" accessibilityState={{ busy: saving, disabled: saving }} disabled={saving} onPress={onSubmit} style={[styles.primaryButton, saving && styles.disabled]}><ThemedText style={styles.primaryButtonText}>{saving ? 'Saving...' : formMode === 'create' ? 'Create badge' : 'Save changes'}</ThemedText></Pressable>
+        {form.classification !== 'seasonal' || availabilityBadgeId !== null ? (
+          <Pressable accessibilityRole="button" accessibilityState={{ busy: saving, disabled: saving }} disabled={saving} onPress={onSubmit} style={[styles.primaryButton, saving && styles.disabled]}><ThemedText style={styles.primaryButtonText}>{saving ? 'Saving...' : formMode === 'create' ? 'Create badge' : 'Save changes'}</ThemedText></Pressable>
+        ) : null}
         <Pressable accessibilityRole="button" disabled={saving} onPress={onCancel} style={styles.secondaryButton}><ThemedText style={styles.secondaryButtonText}>Cancel</ThemedText></Pressable>
       </ThemedView>
     </ThemedView>
@@ -476,6 +596,10 @@ function BadgeForm({
 const styles = StyleSheet.create({
   container: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', gap: Spacing.three },
   toolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  filterButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderWidth: 1, borderColor: '#A51C30', borderRadius: Spacing.two },
+  filterButtonSelected: { backgroundColor: '#A51C30' },
+  filterButtonTextSelected: { color: '#FFFFFF' },
   searchCard: { gap: Spacing.two, padding: Spacing.three, borderRadius: Spacing.two },
   input: { minHeight: 48, borderWidth: 1, borderRadius: Spacing.two, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
   textArea: { minHeight: 120, textAlignVertical: 'top' },
