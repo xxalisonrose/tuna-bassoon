@@ -75,11 +75,26 @@ export default defineSchema({
     retired: v.optional(v.boolean()),
     retiredAt: v.optional(v.number()),
     imageKey: v.optional(v.string()),
+    annualSeriesId: v.optional(v.id('badgeAnnualSeries')),
+    editionYear: v.optional(v.number()),
     })
       .index('by_tag', ['tag'])
-      .index('by_key', ['key']),
+      .index('by_key', ['key'])
+      .index('by_annual_series_and_year', [
+        'annualSeriesId',
+        'editionYear',
+      ]),
 
-    badgeAvailabilityWindows: defineTable({
+    badgeAnnualSeries: defineTable({
+    key: v.string(),
+    name: v.string(),
+    enabled: v.boolean(),
+    latestEditionYear: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index('by_key', ['key']),
+
+  badgeAvailabilityWindows: defineTable({
       badgeDefinitionId: v.id('badgeDefinitions'),
       key: v.string(),
       startsAt: v.number(),

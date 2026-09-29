@@ -11,8 +11,10 @@
 import type * as adminBadgeAvailability from "../adminBadgeAvailability.js";
 import type * as adminBadges from "../adminBadges.js";
 import type * as adminLocations from "../adminLocations.js";
+import type * as annualBadgeEditions from "../annualBadgeEditions.js";
 import type * as badgeMigration from "../badgeMigration.js";
 import type * as badges from "../badges.js";
+import type * as crons from "../crons.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_badge_rules from "../lib/badge_rules.js";
 import type * as locationAgent from "../locationAgent.js";
@@ -31,8 +33,10 @@ declare const fullApi: ApiFromModules<{
   adminBadgeAvailability: typeof adminBadgeAvailability;
   adminBadges: typeof adminBadges;
   adminLocations: typeof adminLocations;
+  annualBadgeEditions: typeof annualBadgeEditions;
   badgeMigration: typeof badgeMigration;
   badges: typeof badges;
+  crons: typeof crons;
   "lib/auth": typeof lib_auth;
   "lib/badge_rules": typeof lib_badge_rules;
   locationAgent: typeof locationAgent;

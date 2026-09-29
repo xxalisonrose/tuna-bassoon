@@ -224,13 +224,20 @@ async function ensureBadgeTagIsUnique(
   ctx: MutationCtx,
   tag: string,
   badgeDefinitionId?: Id<'badgeDefinitions'>,
+  annualSeriesId?: Id<'badgeAnnualSeries'>,
 ) {
   const definitions = await ctx.db.query('badgeDefinitions').collect();
-  const duplicate = definitions.find(
-    (definition) =>
+  const duplicate = definitions.find((definition) => {
+    const sameAnnualSeries =
+      annualSeriesId !== undefined &&
+      definition.annualSeriesId === annualSeriesId;
+
+    return (
       definition._id !== badgeDefinitionId &&
-      definition.tag.trim().toLowerCase() === tag.toLowerCase(),
-  );
+      definition.tag.trim().toLowerCase() === tag.toLowerCase() &&
+      !sameAnnualSeries
+    );
+  });
 
   if (duplicate !== undefined) {
     throw new ConvexError(`Badge tag "${tag}" is already in use.`);
@@ -363,6 +370,7 @@ export const updateBadgeDefinition = mutation({
       ctx,
       normalized.tag,
       args.badgeDefinitionId,
+      existingDefinition.annualSeriesId,
     );
 
     await ctx.db.patch(args.badgeDefinitionId, {
