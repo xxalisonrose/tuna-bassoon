@@ -19,9 +19,12 @@ const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 type AvailabilityWindowManagerProps = {
   badgeDefinitionId: Id<'badgeDefinitions'> | null;
+  prepareBadgeBeforeCreate: boolean;
   visible: boolean;
   onPrepareBadge: () => Promise<Id<'badgeDefinitions'> | null>;
-  onCombinedSaveComplete: () => void;
+  onCombinedSaveComplete: (
+    badgeDefinitionId: Id<'badgeDefinitions'>,
+  ) => Promise<void> | void;
 };
 
 type AvailabilityWindow = {
@@ -146,6 +149,7 @@ function getWindowState(window: AvailabilityWindow, now: number) {
 
 export function AvailabilityWindowManager({
   badgeDefinitionId,
+  prepareBadgeBeforeCreate,
   visible,
   onPrepareBadge,
   onCombinedSaveComplete,
@@ -180,10 +184,13 @@ export function AvailabilityWindowManager({
     useState<string | null>(null);
 
   useEffect(() => {
-    if (visible && badgeDefinitionId === null) {
+    if (
+      visible &&
+      (badgeDefinitionId === null || prepareBadgeBeforeCreate)
+    ) {
       setFormOpen(true);
     }
-  }, [badgeDefinitionId, visible]);
+  }, [badgeDefinitionId, prepareBadgeBeforeCreate, visible]);
 
   const closeForm = () => {
     if (badgeDefinitionId !== null) {
@@ -281,10 +288,14 @@ export function AvailabilityWindowManager({
     setStatusMessage(null);
 
     try {
-      const combinedSave = badgeDefinitionId === null;
+      const combinedSave =
+        badgeDefinitionId === null || prepareBadgeBeforeCreate;
       let targetBadgeDefinitionId = badgeDefinitionId;
 
-      if (targetBadgeDefinitionId === null) {
+      if (
+        prepareBadgeBeforeCreate ||
+        targetBadgeDefinitionId === null
+      ) {
         targetBadgeDefinitionId = await onPrepareBadge();
 
         if (targetBadgeDefinitionId === null) {
@@ -301,7 +312,9 @@ export function AvailabilityWindowManager({
         });
 
         if (combinedSave) {
-          onCombinedSaveComplete();
+          await onCombinedSaveComplete(
+            targetBadgeDefinitionId,
+          );
           return;
         }
 
@@ -365,7 +378,8 @@ export function AvailabilityWindowManager({
     return null;
   }
 
-  const awaitingBadgeSave = badgeDefinitionId === null;
+  const awaitingBadgeSave =
+    badgeDefinitionId === null || prepareBadgeBeforeCreate;
   const now = Date.now();
   const busy = saving || deletingId !== null;
   const inputStyle = [

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -51,6 +51,23 @@ type BadgeFormState = {
   ruleValue: string;
 };
 
+type AnnualSeriesState =
+  | {
+      _id: Id<'badgeAnnualSeries'>;
+      key: string;
+      name: string;
+      enabled: boolean;
+      editions: Array<{
+        badgeDefinitionId: Id<'badgeDefinitions'>;
+        name: string;
+        key?: string;
+        editionYear?: number;
+        retired: boolean;
+      }>;
+    }
+  | null
+  | undefined;
+
 type BadgeManagerProps = {
   visible: boolean;
 };
@@ -102,6 +119,14 @@ const ruleHelp: Record<RuleType, string> = {
   same_story: 'Visits must come from the same story group.',
   same_region: 'Visits must come from the same region group.',
 };
+
+function suggestAnnualSeriesName(name: string) {
+  return name.trim().replace(/\s+\d{4}$/, '');
+}
+
+function suggestAnnualSeriesKey(key: string) {
+  return key.trim().replace(/-\d{4}$/, '');
+}
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (
@@ -159,6 +184,12 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
   const createBadge = useMutation(api.adminBadges.createBadgeDefinition);
   const updateBadge = useMutation(api.adminBadges.updateBadgeDefinition);
   const setBadgeRetired = useMutation(api.adminBadges.setBadgeRetired);
+  const enableAnnualRepeat = useMutation(
+    api.annualBadgeEditions.enableAnnualRepeat,
+  );
+  const disableAnnualRepeat = useMutation(
+    api.annualBadgeEditions.disableAnnualRepeat,
+  );
 
   const [search, setSearch] = useState('');
   const [classificationFilter, setClassificationFilter] =
@@ -171,6 +202,33 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
   const [confirmingId, setConfirmingId] = useState<Id<'badgeDefinitions'> | null>(null);
   const [retiringId, setRetiringId] = useState<Id<'badgeDefinitions'> | null>(null);
   const [locationSearch, setLocationSearch] = useState('');
+  const [annualRepeatEnabled, setAnnualRepeatEnabled] =
+    useState(false);
+  const [annualSeriesName, setAnnualSeriesName] = useState('');
+  const [annualSeriesKey, setAnnualSeriesKey] = useState('');
+  const [annualSaving, setAnnualSaving] = useState(false);
+
+  const annualSeries = useQuery(
+    api.annualBadgeEditions.getAnnualSeriesForAdmin,
+    editingId === null ? 'skip' : { badgeDefinitionId: editingId },
+  ) as AnnualSeriesState;
+  const editingBadge = editingId === null
+    ? undefined
+    : badges?.find((badge) => badge._id === editingId);
+  const savedBadgeIsSeasonal =
+    editingBadge?.classification === 'seasonal';
+
+  useEffect(() => {
+    if (formMode !== 'edit' || annualSeries == null) {
+      return;
+    }
+
+    setAnnualRepeatEnabled(
+      annualSeries.enabled && savedBadgeIsSeasonal,
+    );
+    setAnnualSeriesName(annualSeries.name);
+    setAnnualSeriesKey(annualSeries.key);
+  }, [annualSeries, formMode, savedBadgeIsSeasonal]);
 
   const filteredBadges = useMemo(() => {
     const value = search.trim().toLowerCase();
@@ -219,6 +277,9 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
     setEditingId(null);
     setForm(emptyForm);
     setStatusMessage(null);
+    setAnnualRepeatEnabled(false);
+    setAnnualSeriesName('');
+    setAnnualSeriesKey('');
   };
 
   const openEdit = (badge: (typeof filteredBadges)[number]) => {
@@ -247,6 +308,9 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
     });
     setStatusMessage(null);
     setLocationSearch('');
+    setAnnualRepeatEnabled(badge.annualSeriesId !== undefined);
+    setAnnualSeriesName(suggestAnnualSeriesName(badge.name));
+    setAnnualSeriesKey(suggestAnnualSeriesKey(badge.key));
   };
 
   const closeForm = (clearStatus = true) => {
@@ -257,6 +321,9 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
       setStatusMessage(null);
     }
     setLocationSearch('');
+    setAnnualRepeatEnabled(false);
+    setAnnualSeriesName('');
+    setAnnualSeriesKey('');
   };
 
   const validateForm = () => {
@@ -272,6 +339,20 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
     if ((form.ruleType === 'story' || form.ruleType === 'region') && !slugPattern.test(form.ruleValue.trim())) {
       return `${ruleLabels[form.ruleType]} key must use lowercase letters, numbers, and single hyphens only.`;
     }
+    if (
+      form.classification === 'seasonal' &&
+      annualRepeatEnabled &&
+      annualSeries == null
+    ) {
+      if (!annualSeriesName.trim()) {
+        return 'Enter an annual series name.';
+      }
+
+      if (!slugPattern.test(annualSeriesKey.trim())) {
+        return 'Annual series key must use lowercase letters, numbers, and single hyphens only.';
+      }
+    }
+
     return null;
   };
 
@@ -282,7 +363,59 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
     return { type: form.ruleType } as RuleInput;
   };
 
-  const submitForm = async () => {
+  const changeAnnualRepeatEnabled = (enabled: boolean) => {
+    setAnnualRepeatEnabled(enabled);
+    setStatusMessage(null);
+
+    if (enabled) {
+      setAnnualSeriesName((current) =>
+        current || suggestAnnualSeriesName(form.name),
+      );
+      setAnnualSeriesKey((current) =>
+        current || suggestAnnualSeriesKey(form.key),
+      );
+    }
+  };
+
+  const saveAnnualRepeat = async (
+    badgeDefinitionId: Id<'badgeDefinitions'>,
+  ) => {
+    if (form.classification !== 'seasonal') {
+      return;
+    }
+
+    setAnnualSaving(true);
+
+    try {
+      if (annualSeries != null) {
+        if (annualRepeatEnabled && !annualSeries.enabled) {
+          await enableAnnualRepeat({
+            badgeDefinitionId,
+            seriesName: annualSeries.name,
+            seriesKey: annualSeries.key,
+          });
+        } else if (!annualRepeatEnabled && annualSeries.enabled) {
+          await disableAnnualRepeat({ badgeDefinitionId });
+        }
+
+        return;
+      }
+
+      if (annualRepeatEnabled) {
+        await enableAnnualRepeat({
+          badgeDefinitionId,
+          seriesName: annualSeriesName.trim(),
+          seriesKey: annualSeriesKey.trim(),
+        });
+      }
+    } finally {
+      setAnnualSaving(false);
+    }
+  };
+
+  const submitForm = async (
+    keepFormOpenForAvailability = false,
+  ) => {
     if (saving) return null;
     const validation = validateForm();
     if (validation) {
@@ -327,6 +460,15 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
 
       if (
         form.classification === 'seasonal' &&
+        savedBadgeId !== null &&
+        availabilityBadgeId !== null
+      ) {
+        await saveAnnualRepeat(savedBadgeId);
+      }
+
+      if (
+        keepFormOpenForAvailability &&
+        form.classification === 'seasonal' &&
         savedBadgeId !== null
       ) {
         setFormMode('edit');
@@ -363,13 +505,23 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
   const availabilityBadgeId =
     formMode === 'edit' &&
     editingId !== null &&
-    badges?.some(
-      (badge) =>
-        badge._id === editingId &&
-        badge.classification === 'seasonal',
+    (
+      badges?.some(
+        (badge) =>
+          badge._id === editingId &&
+          badge.classification === 'seasonal',
+      ) ||
+      (
+        form.classification === 'seasonal' &&
+        annualSeries != null
+      )
     )
       ? editingId
       : null;
+
+  const annualSeriesLoading =
+    editingId !== null && annualSeries === undefined;
+  const formBusy = saving || annualSaving || annualSeriesLoading;
 
   if (!visible) return null;
 
@@ -432,19 +584,38 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
 
       {formMode ? (
         <BadgeForm
+          annualRepeatEnabled={annualRepeatEnabled}
+          annualSeries={annualSeries}
+          annualSeriesKey={annualSeriesKey}
+          annualSeriesName={annualSeriesName}
+          savedBadgeIsSeasonal={savedBadgeIsSeasonal}
           availabilityBadgeId={availabilityBadgeId}
           form={form}
           formMode={formMode}
           locations={filteredLocations}
           locationSearch={locationSearch}
-          saving={saving}
+          saving={formBusy}
           theme={theme}
+          onAnnualRepeatChange={changeAnnualRepeatEnabled}
+          onAnnualSeriesKeyChange={(value) => {
+            setAnnualSeriesKey(value);
+            setStatusMessage(null);
+          }}
+          onAnnualSeriesNameChange={(value) => {
+            setAnnualSeriesName(value);
+            setStatusMessage(null);
+          }}
           onChange={updateField}
           onLocationSearch={setLocationSearch}
-          onSubmit={submitForm}
-          onPrepareBadgeForAvailability={submitForm}
-          onAvailabilityWindowSaved={() => {
-            setStatusMessage('Badge and availability window saved.');
+          onSubmit={() => submitForm(false)}
+          onPrepareBadgeForAvailability={() => submitForm(true)}
+          onAvailabilityWindowSaved={async (badgeDefinitionId) => {
+            await saveAnnualRepeat(badgeDefinitionId);
+            setStatusMessage(
+              annualRepeatEnabled
+                ? 'Badge, availability window, and yearly repeat saved.'
+                : 'Badge and availability window saved.',
+            );
             closeForm(false);
           }}
           onCancel={closeForm}
@@ -498,6 +669,11 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
 }
 
 function BadgeForm({
+  annualRepeatEnabled,
+  annualSeries,
+  annualSeriesKey,
+  annualSeriesName,
+  savedBadgeIsSeasonal,
   availabilityBadgeId,
   form,
   formMode,
@@ -505,6 +681,9 @@ function BadgeForm({
   locationSearch,
   saving,
   theme,
+  onAnnualRepeatChange,
+  onAnnualSeriesKeyChange,
+  onAnnualSeriesNameChange,
   onChange,
   onLocationSearch,
   onSubmit,
@@ -512,6 +691,11 @@ function BadgeForm({
   onAvailabilityWindowSaved,
   onCancel,
 }: {
+  annualRepeatEnabled: boolean;
+  annualSeries: AnnualSeriesState;
+  annualSeriesKey: string;
+  annualSeriesName: string;
+  savedBadgeIsSeasonal: boolean;
   availabilityBadgeId: Id<'badgeDefinitions'> | null;
   form: BadgeFormState;
   formMode: 'create' | 'edit';
@@ -519,11 +703,16 @@ function BadgeForm({
   locationSearch: string;
   saving: boolean;
   theme: ReturnType<typeof useTheme>;
+  onAnnualRepeatChange: (enabled: boolean) => void;
+  onAnnualSeriesKeyChange: (value: string) => void;
+  onAnnualSeriesNameChange: (value: string) => void;
   onChange: <K extends keyof BadgeFormState>(field: K, value: BadgeFormState[K]) => void;
   onLocationSearch: (value: string) => void;
   onSubmit: () => void;
   onPrepareBadgeForAvailability: () => Promise<Id<'badgeDefinitions'> | null>;
-  onAvailabilityWindowSaved: () => void;
+  onAvailabilityWindowSaved: (
+    badgeDefinitionId: Id<'badgeDefinitions'>,
+  ) => Promise<void> | void;
   onCancel: () => void;
 }) {
   const inputStyle = (extra?: object) => [styles.input, extra, { backgroundColor: theme.background, borderColor: theme.textSecondary, color: theme.text }];
@@ -555,8 +744,135 @@ function BadgeForm({
       </ThemedText>
     ) : null}
 
+    {form.classification === 'seasonal' ? (
+      <ThemedView style={styles.annualSection}>
+        <ThemedText type="smallBold">Yearly repetition</ThemedText>
+        <ThemedText themeColor="textSecondary">
+          Create a separate, independently editable badge edition for
+          each year. Previous awards and progress remain attached to
+          their original edition.
+        </ThemedText>
+
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityLabel="Repeat this seasonal badge every year"
+          accessibilityState={{
+            checked: annualRepeatEnabled,
+            disabled: saving,
+          }}
+          disabled={saving}
+          onPress={() =>
+            onAnnualRepeatChange(!annualRepeatEnabled)
+          }
+          style={({ pressed }) => [
+            styles.checkboxRow,
+            pressed && styles.pressed,
+          ]}>
+          <ThemedView
+            style={[
+              styles.checkbox,
+              annualRepeatEnabled && styles.checkboxSelected,
+            ]}>
+            <ThemedText style={styles.checkboxMark}>
+              {annualRepeatEnabled ? '✓' : ''}
+            </ThemedText>
+          </ThemedView>
+          <ThemedText>Repeat yearly</ThemedText>
+        </Pressable>
+
+        {annualRepeatEnabled && annualSeries == null ? (
+          <>
+            <ThemedView style={styles.fieldGroup}>
+              <ThemedText type="smallBold">
+                Annual series name
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                The shared name without a year, such as Christmas.
+              </ThemedText>
+              <TextInput
+                accessibilityLabel="Annual series name"
+                autoCapitalize="words"
+                editable={!saving}
+                onChangeText={onAnnualSeriesNameChange}
+                placeholder="Example: Christmas"
+                placeholderTextColor={theme.textSecondary}
+                style={inputStyle()}
+                value={annualSeriesName}
+              />
+            </ThemedView>
+
+            <ThemedView style={styles.fieldGroup}>
+              <ThemedText type="smallBold">
+                Annual series stable key
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                The shared lowercase identifier without a year, such as
+                christmas.
+              </ThemedText>
+              <TextInput
+                accessibilityLabel="Annual series stable key"
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!saving}
+                onChangeText={onAnnualSeriesKeyChange}
+                placeholder="Example: christmas"
+                placeholderTextColor={theme.textSecondary}
+                style={inputStyle()}
+                value={annualSeriesKey}
+              />
+            </ThemedView>
+          </>
+        ) : null}
+
+        {annualSeries !== undefined && annualSeries !== null ? (
+          <ThemedView style={styles.editionList}>
+            <ThemedText type="small" themeColor="textSecondary">
+              This badge was previously connected to this annual series.
+              Its identity and existing editions are retained when yearly
+              repetition is paused.
+            </ThemedText>
+            <ThemedText type="smallBold">
+              Series status:{' '}
+              {annualSeries.enabled && savedBadgeIsSeasonal
+                ? 'Repeating'
+                : 'Paused'}
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              Series name: {annualSeries.name}
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              Series stable key: {annualSeries.key}
+            </ThemedText>
+            {annualSeries.editions.map((edition) => (
+              <ThemedView
+                key={edition.badgeDefinitionId}
+                type="backgroundElement"
+                style={styles.editionCard}>
+                <ThemedText type="smallBold">
+                  {edition.name}
+                </ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {edition.editionYear ?? 'Year unavailable'} ·{' '}
+                  {edition.key ?? 'Key unavailable'}
+                  {edition.retired ? ' · Retired' : ''}
+                </ThemedText>
+              </ThemedView>
+            ))}
+            <ThemedText type="small" themeColor="textSecondary">
+              Save changes to apply a change to yearly repetition.
+            </ThemedText>
+          </ThemedView>
+        ) : null}
+      </ThemedView>
+    ) : null}
+
     <AvailabilityWindowManager
       badgeDefinitionId={availabilityBadgeId}
+      prepareBadgeBeforeCreate={
+        formMode === 'edit' &&
+        form.classification === 'seasonal' &&
+        !savedBadgeIsSeasonal
+      }
       visible={
         form.classification === 'seasonal' ||
         availabilityBadgeId !== null
@@ -617,6 +933,14 @@ const styles = StyleSheet.create({
   radioDot: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#777777' },
   radioDotSelected: { borderColor: '#A51C30', backgroundColor: '#A51C30' },
   locationPicker: { gap: Spacing.two },
+  annualSection: { gap: Spacing.two },
+  fieldGroup: { gap: Spacing.one },
+  checkboxRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  checkbox: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#777777', borderRadius: 4 },
+  checkboxSelected: { borderColor: '#A51C30', backgroundColor: '#A51C30' },
+  checkboxMark: { color: '#FFFFFF', lineHeight: 20 },
+  editionList: { gap: Spacing.one },
+  editionCard: { gap: Spacing.one, padding: Spacing.two, borderRadius: Spacing.two },
   confirmation: { gap: Spacing.two, padding: Spacing.three, borderRadius: Spacing.two },
   status: { lineHeight: 22 },
   disabled: { opacity: 0.6 },

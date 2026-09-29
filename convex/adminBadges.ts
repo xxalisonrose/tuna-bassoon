@@ -359,6 +359,19 @@ export const updateBadgeDefinition = mutation({
           "Remove this badge's future availability windows before changing its classification.",
         );
       }
+
+      if (existingDefinition.annualSeriesId !== undefined) {
+        const annualSeries = await ctx.db.get(
+          existingDefinition.annualSeriesId,
+        );
+
+        if (annualSeries !== null && annualSeries.enabled) {
+          await ctx.db.patch(annualSeries._id, {
+            enabled: false,
+            updatedAt: Date.now(),
+          });
+        }
+      }
     }
 
     await ensureBadgeKeyIsUnique(

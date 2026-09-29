@@ -101,6 +101,25 @@ Seasonal availability follows these rules:
 
 The portal labels windows as Upcoming, Active, or Past and uses the administrator’s local time for entry and display.
 
+### Annual seasonal badge editions
+
+Seasonal badges can optionally repeat yearly. Enabling Repeat yearly creates an annual series that links separate, independently earnable badge editions.
+
+The annual-edition system follows these rules:
+
+- Each year is stored as a separate badge definition with its own progress and awards.
+- The original badge becomes the first edition in the series.
+- The next edition copies the badge content and shifts its availability windows forward by one calendar year.
+- Series names and stable keys identify the recurring event across editions.
+- Existing editions remain available for separate editing, including future edition-specific artwork.
+- Pausing yearly repetition preserves the series identity, editions, progress, and awards.
+- Returning a remembered badge to Seasonal can resume its existing series.
+- Repeated saves, resumes, and scheduled maintenance runs do not create duplicate editions.
+- Automatic generation cannot advance the series more than one calendar year beyond the current year.
+- A scheduled Convex job prepares the next annual edition when it enters the configured generation period.
+
+Earned awards remain attached to their original edition. A user can therefore earn separate awards for editions such as Christmas 2026 and Christmas 2027 without rewriting prior history.
+
 ### Badge retirement
 
 Badges are retired rather than deleted. Retirement requires an explicit confirmation step.

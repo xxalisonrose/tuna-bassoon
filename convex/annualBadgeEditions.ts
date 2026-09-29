@@ -139,6 +139,17 @@ async function ensureNextEdition(
   }
 
   const nextYear = currentYear + 1;
+  const maximumGeneratedYear =
+    new Date().getUTCFullYear() + 1;
+
+  if (nextYear > maximumGeneratedYear) {
+    return {
+      created: false as const,
+      badgeDefinitionId: currentEdition._id,
+      editionYear: currentYear,
+    };
+  }
+
   const existingNextEdition = await ctx.db
     .query('badgeDefinitions')
     .withIndex('by_annual_series_and_year', (queryBuilder) =>
@@ -354,6 +365,34 @@ export const enableAnnualRepeat = mutation({
 
       if (latestEdition === null) {
         throw new ConvexError('Annual badge series has no editions.');
+      }
+
+      const latestWindows = await getEditionWindows(
+        ctx,
+        latestEdition._id,
+      );
+      const earliestStart = Math.min(
+        ...latestWindows.map((window) => window.startsAt),
+      );
+      const generationCutoff =
+        Date.now() + GENERATION_LEAD_TIME_MS;
+
+      if (
+        latestWindows.length > 0 &&
+        earliestStart > generationCutoff
+      ) {
+        if (latestEdition.editionYear === undefined) {
+          throw new ConvexError(
+            'The latest annual badge edition is missing its year.',
+          );
+        }
+
+        return {
+          annualSeriesId: existingSeries._id,
+          created: false as const,
+          badgeDefinitionId: latestEdition._id,
+          editionYear: latestEdition.editionYear,
+        };
       }
 
       const nextEdition = await ensureNextEdition(
