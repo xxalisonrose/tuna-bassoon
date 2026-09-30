@@ -25,6 +25,7 @@ export const addLocation = internalMutation({
       longitude: args.longitude,
       category: args.category,
       badges: [],
+      retired: false,
     });
   },
 });
@@ -33,7 +34,11 @@ export const getLocations = query({
   args: {},
 
   handler: async (ctx) => {
-    return await ctx.db.query('locations').collect();
+    const locations = await ctx.db.query('locations').collect();
+
+    return locations.filter(
+      (location) => location.retired !== true,
+    );
   },
 });
 

@@ -27,6 +27,7 @@ const GENERATION_TIMEOUT_MS = 120_000;
 
 type FormMode = 'create' | 'edit';
 type PortalSection = 'locations' | 'badges';
+type LocationStatusFilter = 'all' | 'active' | 'retired';
 
 type LocationFormState = {
   name: string;
@@ -50,6 +51,12 @@ const emptyForm: LocationFormState = {
   badgesText: '',
   storyKey: '',
   regionKey: '',
+};
+
+const locationStatusLabels: Record<LocationStatusFilter, string> = {
+  all: 'All',
+  active: 'Active',
+  retired: 'Retired',
 };
 
 function getErrorMessage(
@@ -99,6 +106,10 @@ export default function AdminPortalScreen() {
     api.adminLocations.updateLocation,
   );
 
+  const setLocationRetired = useMutation(
+    api.adminLocations.setLocationRetired,
+  );
+
   const generateDescriptionDraft = useAction(
     api.locationAgent.generateLocationDescription,
   );
@@ -111,6 +122,12 @@ export default function AdminPortalScreen() {
   const [form, setForm] = useState<LocationFormState>(emptyForm);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [locationStatusFilter, setLocationStatusFilter] =
+    useState<LocationStatusFilter>('all');
+  const [confirmingLocationId, setConfirmingLocationId] =
+    useState<Id<'locations'> | null>(null);
+  const [changingLocationId, setChangingLocationId] =
+    useState<Id<'locations'> | null>(null);
   const [geminiOpen, setGeminiOpen] = useState(false);
   const [geminiNotes, setGeminiNotes] = useState('');
   const [geminiBusy, setGeminiBusy] = useState(false);
@@ -136,11 +153,21 @@ export default function AdminPortalScreen() {
       return [];
     }
 
-    if (!normalizedSearch) {
-      return adminLocations;
-    }
-
     return adminLocations.filter((location) => {
+      const matchesStatus =
+        locationStatusFilter === 'all' ||
+        (locationStatusFilter === 'retired'
+          ? location.retired
+          : !location.retired);
+
+      if (!matchesStatus) {
+        return false;
+      }
+
+      if (!normalizedSearch) {
+        return true;
+      }
+
       const searchableText = [
         location.name,
         location.key,
@@ -153,13 +180,14 @@ export default function AdminPortalScreen() {
 
       return searchableText.includes(normalizedSearch);
     });
-  }, [adminLocations, search]);
+  }, [adminLocations, locationStatusFilter, search]);
 
   const openCreateForm = () => {
     setFormMode('create');
     setEditingId(null);
     setForm(emptyForm);
     setStatusMessage(null);
+    setConfirmingLocationId(null);
     resetGeminiState();
   };
 
@@ -191,6 +219,7 @@ export default function AdminPortalScreen() {
       regionKey: location.regionKey ?? '',
     });
     setStatusMessage(null);
+    setConfirmingLocationId(null);
     resetGeminiState();
   };
 
@@ -411,6 +440,40 @@ export default function AdminPortalScreen() {
     }
   };
 
+  const changeLocationRetiredState = async (
+    location: (typeof filteredLocations)[number],
+  ) => {
+    if (changingLocationId !== null) {
+      return;
+    }
+
+    setChangingLocationId(location._id);
+    setStatusMessage(null);
+
+    try {
+      await setLocationRetired({
+        locationId: location._id,
+        retired: !location.retired,
+      });
+
+      const message = location.retired
+        ? 'Location reactivated.'
+        : 'Location retired.';
+      setStatusMessage(message);
+      announce(message);
+    } catch (error) {
+      const message = getErrorMessage(
+        error,
+        "Unable to change this location's status.",
+      );
+      setStatusMessage(message);
+      announce(message);
+    } finally {
+      setChangingLocationId(null);
+      setConfirmingLocationId(null);
+    }
+  };
+
   if (isAuthLoading) {
     return (
       <ThemedView style={styles.centeredContainer}>
@@ -616,6 +679,43 @@ export default function AdminPortalScreen() {
 
         {!formMode && (
           <>
+            <ThemedView type="backgroundElement" style={styles.searchCard}>
+              <ThemedText type="smallBold">Filter locations</ThemedText>
+
+              <ThemedView
+                accessibilityRole="radiogroup"
+                accessibilityLabel="Filter locations by status"
+                style={styles.statusFilterRow}>
+                {(Object.keys(locationStatusLabels) as LocationStatusFilter[]).map(
+                  (value) => (
+                    <Pressable
+                      key={value}
+                      accessibilityRole="radio"
+                      accessibilityLabel={locationStatusLabels[value]}
+                      accessibilityState={{
+                        selected: locationStatusFilter === value,
+                      }}
+                      onPress={() => setLocationStatusFilter(value)}
+                      style={({ pressed }) => [
+                        styles.statusFilterButton,
+                        locationStatusFilter === value &&
+                          styles.statusFilterButtonSelected,
+                        pressed && styles.pressed,
+                      ]}>
+                      <ThemedText
+                        style={
+                          locationStatusFilter === value
+                            ? styles.statusFilterTextSelected
+                            : undefined
+                        }>
+                        {locationStatusLabels[value]}
+                      </ThemedText>
+                    </Pressable>
+                  ),
+                )}
+              </ThemedView>
+            </ThemedView>
+
             <ThemedView type="backgroundElement" style={styles.searchCard}>
           <ThemedText type="smallBold">Search locations</ThemedText>
 
@@ -1059,66 +1159,156 @@ export default function AdminPortalScreen() {
           </ThemedText>
         ) : filteredLocations.length === 0 ? (
           <ThemedText themeColor="textSecondary">
-            No locations match your search.
+            No locations match your search and selected status.
           </ThemedText>
         ) : (
           <ThemedView style={styles.locationList}>
-            {filteredLocations.map((location) => (
-              <ThemedView
-                key={location._id}
-                type="backgroundElement"
-                style={styles.locationCard}>
-                <ThemedText type="smallBold">
-                  {location.name}
-                </ThemedText>
+            {filteredLocations.map((location) => {
+              const retiredDate = location.retiredAt === undefined
+                ? null
+                : new Date(location.retiredAt).toLocaleDateString();
+              const confirming =
+                confirmingLocationId === location._id;
+              const changing = changingLocationId === location._id;
 
-                <ThemedText themeColor="textSecondary">
-                  {location.category}
-                </ThemedText>
-
-                <ThemedText type="small" themeColor="textSecondary">
-                  {location.key || 'No stable key'}
-                </ThemedText>
-
-                {(location.latitude != null && location.longitude != null) && (
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {`Latitude ${location.latitude}, Longitude ${location.longitude}`}
+              return (
+                <ThemedView
+                  key={location._id}
+                  type="backgroundElement"
+                  style={styles.locationCard}>
+                  <ThemedText type="smallBold">
+                    {location.name}
                   </ThemedText>
-                )}
 
-                <ThemedView style={styles.badgeRow}>
-                  {(location.badges?.length ?? 0) > 0 ? (
-                    [...new Set(location.badges)].map((badgeTag) => (
-                      <ThemedView
-                        key={`${location._id}-${badgeTag}`}
-                        style={styles.badgePill}>
-                        <ThemedText type="small" themeColor="textSecondary">
-                          {badgeTag}
-                        </ThemedText>
-                      </ThemedView>
-                    ))
-                  ) : (
+                  <ThemedText themeColor="textSecondary">
+                    {location.category}
+                  </ThemedText>
+
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {location.key || 'No stable key'}
+                  </ThemedText>
+
+                  {(location.latitude != null && location.longitude != null) && (
                     <ThemedText type="small" themeColor="textSecondary">
-                      No badge tags
+                      {`Latitude ${location.latitude}, Longitude ${location.longitude}`}
                     </ThemedText>
                   )}
-                </ThemedView>
 
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Edit ${location.name}`}
-                  accessibilityHint="Opens the location form so you can edit this location."
-                  onPress={() => openEditForm(location)}
-                  style={({ pressed }) => [
-                    styles.secondaryButton,
-                    pressed && styles.pressed,
-                  ]}>
-                  <ThemedText style={styles.secondaryButtonText}>
-                    Edit
+                  <ThemedText type="smallBold" themeColor="textSecondary">
+                    {location.retired
+                      ? `Retired${retiredDate ? ` on ${retiredDate}` : ''}`
+                      : 'Active'}
                   </ThemedText>
-                </Pressable>
-              </ThemedView>
-            ))}
+
+                  <ThemedView style={styles.badgeRow}>
+                    {(location.badges?.length ?? 0) > 0 ? (
+                      [...new Set(location.badges)].map((badgeTag) => (
+                        <ThemedView
+                          key={`${location._id}-${badgeTag}`}
+                          style={styles.badgePill}>
+                          <ThemedText type="small" themeColor="textSecondary">
+                            {badgeTag}
+                          </ThemedText>
+                        </ThemedView>
+                      ))
+                    ) : (
+                      <ThemedText type="small" themeColor="textSecondary">
+                        No badge tags
+                      </ThemedText>
+                    )}
+                  </ThemedView>
+
+                  <ThemedView style={styles.formActions}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Edit ${location.name}`}
+                      accessibilityHint="Opens the location form so you can edit this location."
+                      disabled={changingLocationId !== null}
+                      onPress={() => openEditForm(location)}
+                      style={({ pressed }) => [
+                        styles.secondaryButton,
+                        changingLocationId !== null && styles.disabledButton,
+                        pressed && styles.pressed,
+                      ]}>
+                      <ThemedText style={styles.secondaryButtonText}>
+                        Edit
+                      </ThemedText>
+                    </Pressable>
+
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        location.retired
+                          ? `Reactivate ${location.name}`
+                          : `Retire ${location.name}`
+                      }
+                      accessibilityHint="Opens a confirmation before changing this location's status."
+                      disabled={changingLocationId !== null}
+                      onPress={() => setConfirmingLocationId(location._id)}
+                      style={({ pressed }) => [
+                        styles.secondaryButton,
+                        changingLocationId !== null && styles.disabledButton,
+                        pressed && styles.pressed,
+                      ]}>
+                      <ThemedText style={styles.secondaryButtonText}>
+                        {location.retired ? 'Reactivate' : 'Retire'}
+                      </ThemedText>
+                    </Pressable>
+                  </ThemedView>
+
+                  {confirming ? (
+                    <ThemedView
+                      type="backgroundElement"
+                      style={styles.locationStatusConfirmation}>
+                      <ThemedText accessibilityLiveRegion="polite">
+                        {location.retired
+                          ? 'Reactivating this location returns it to the public map and allows new check-ins. Existing history remains unchanged.'
+                          : 'Retiring this location hides it from the public map and blocks new check-ins. Existing visits, badge progress, and awards remain.'}
+                      </ThemedText>
+
+                      <ThemedView style={styles.formActions}>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityState={{
+                            busy: changing,
+                            disabled: changing,
+                          }}
+                          disabled={changing}
+                          onPress={() => changeLocationRetiredState(location)}
+                          style={({ pressed }) => [
+                            styles.primaryButton,
+                            changing && styles.disabledButton,
+                            pressed && styles.pressed,
+                          ]}>
+                          <ThemedText style={styles.buttonText}>
+                            {changing
+                              ? 'Saving status...'
+                              : location.retired
+                                ? 'Confirm reactivation'
+                                : 'Confirm retirement'}
+                          </ThemedText>
+                        </Pressable>
+
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Cancel status change"
+                          disabled={changing}
+                          onPress={() => setConfirmingLocationId(null)}
+                          style={({ pressed }) => [
+                            styles.secondaryButton,
+                            changing && styles.disabledButton,
+                            pressed && styles.pressed,
+                          ]}>
+                          <ThemedText style={styles.secondaryButtonText}>
+                            Cancel
+                          </ThemedText>
+                        </Pressable>
+                      </ThemedView>
+                    </ThemedView>
+                  ) : null}
+                </ThemedView>
+              );
+            })}
           </ThemedView>
         )}
           </>
@@ -1260,6 +1450,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
   },
+  statusFilterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.one,
+  },
+  statusFilterButton: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    backgroundColor: '#E0E1E6',
+  },
+  statusFilterButtonSelected: {
+    backgroundColor: '#A51C30',
+  },
+  statusFilterTextSelected: {
+    color: '#FFFFFF',
+  },
   summaryCard: {
     width: '100%',
     maxWidth: MaxContentWidth,
@@ -1350,6 +1560,12 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
     padding: Spacing.three,
     borderRadius: Spacing.two,
+  },
+  locationStatusConfirmation: {
+    gap: Spacing.two,
+    padding: Spacing.three,
+    borderRadius: Spacing.two,
+    marginTop: Spacing.one,
   },
   badgeRow: {
     flexDirection: 'row',

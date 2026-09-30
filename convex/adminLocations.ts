@@ -174,9 +174,14 @@ export const getLocationsForAdmin = query({
 
     const locations = await ctx.db.query('locations').collect();
 
-    return locations.sort((left, right) =>
-      left.name.localeCompare(right.name),
-    );
+    return locations
+      .map((location) => ({
+        ...location,
+        retired: location.retired === true,
+      }))
+      .sort((left, right) =>
+        left.name.localeCompare(right.name),
+      );
   },
 });
 
@@ -219,6 +224,7 @@ export const createLocation = mutation({
       badges: normalized.badges,
       storyKey: normalized.storyKey,
       regionKey: normalized.regionKey,
+      retired: false,
     });
 
     return locationId;
@@ -278,5 +284,51 @@ export const updateLocation = mutation({
     });
 
     return args.locationId;
+  },
+});
+
+export const setLocationRetired = mutation({
+  args: {
+    locationId: v.id('locations'),
+    retired: v.boolean(),
+  },
+
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
+    const location = await ctx.db.get(args.locationId);
+
+    if (location === null) {
+      throw new ConvexError('Location not found.');
+    }
+
+    if (args.retired) {
+      if (location.retired === true) {
+        return {
+          locationId: args.locationId,
+          retired: true,
+        };
+      }
+
+      await ctx.db.patch(args.locationId, {
+        retired: true,
+        retiredAt: Date.now(),
+      });
+
+      return {
+        locationId: args.locationId,
+        retired: true,
+      };
+    }
+
+    await ctx.db.patch(args.locationId, {
+      retired: false,
+      retiredAt: undefined,
+    });
+
+    return {
+      locationId: args.locationId,
+      retired: false,
+    };
   },
 });

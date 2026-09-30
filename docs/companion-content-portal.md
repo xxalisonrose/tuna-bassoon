@@ -41,6 +41,16 @@ The forms validate required fields, coordinate ranges, stable-key format, badge 
 
 Location deletion is intentionally not included. Removing a location could break visits, badge progress, or awards that reference it.
 
+### Location retirement
+
+Administrators can filter the location list by All, Active, or Retired status. Active locations can be retired through an explicit confirmation flow, and retired locations remain visible and editable to administrators.
+
+Retiring a location records the retirement time, removes the location from the public map, and rejects new check-ins. It does not delete the location or rewrite existing history. Previous visits remain in user collections, existing badge progress remains eligible, and earned awards remain permanent.
+
+Retired locations can be reactivated through a separate confirmation flow. Reactivation returns the location to the public map and permits new check-ins again.
+
+Administrator and non-administrator retirement access tests passed. The public location query, direct check-in protection, retirement persistence, and reactivation flow were also tested.
+
 ### Gemini drafting
 
 Gemini drafting is optional and lives inside the location create/edit form. It uses the current unsaved name, category, and description as context, along with optional editorial notes.
@@ -159,7 +169,6 @@ Badge management is part of the existing content portal rather than a separate p
 
 The following work is intentionally deferred:
 
-- Location retirement controls
 - Location artwork and broader media/asset management
 - Draft and publishing states beyond the current local Gemini draft flow
 - Bulk import

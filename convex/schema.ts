@@ -16,6 +16,8 @@ export default defineSchema({
     category: v.optional(v.string()),
     storyKey: v.optional(v.string()),
     regionKey: v.optional(v.string()),
+    retired: v.optional(v.boolean()),
+    retiredAt: v.optional(v.number()),
   }).index('by_key', ['key']),
 
   visits: defineTable({

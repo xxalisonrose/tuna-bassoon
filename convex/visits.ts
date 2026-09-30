@@ -72,6 +72,12 @@ export const checkIn = mutation({
       throw new ConvexError('This location no longer exists.');
     }
 
+    if (location.retired === true) {
+      throw new ConvexError(
+        'This location is retired and no longer accepts check-ins.',
+      );
+    }
+
     if (
       location.latitude === undefined ||
       location.longitude === undefined
