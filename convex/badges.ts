@@ -619,8 +619,15 @@ export const getMyBadgeProgress = query({
               1,
             );
 
+        const imageUrl = definition.imageStorageId === undefined
+          ? undefined
+          : (await ctx.storage.getUrl(
+              definition.imageStorageId,
+            )) ?? undefined;
+
         return {
           ...definition,
+          imageUrl,
           rule: getDefinitionRule(definition),
           groupKey: progressByBadge.get(definition._id)?.groupKey,
           classification:
@@ -676,6 +683,11 @@ export const getUnannouncedAwards = query({
           name: definition?.name ?? 'Badge earned',
           description: definition?.description ?? '',
           imageKey: definition?.imageKey,
+          imageUrl: definition?.imageStorageId === undefined
+            ? undefined
+            : (await ctx.storage.getUrl(
+                definition.imageStorageId,
+              )) ?? undefined,
         };
       }),
     );

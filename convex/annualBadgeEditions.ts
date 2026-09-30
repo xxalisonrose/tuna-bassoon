@@ -239,6 +239,7 @@ async function ensureNextEdition(
       rule: currentEdition.rule,
       retired: false,
       imageKey: currentEdition.imageKey,
+      imageStorageId: currentEdition.imageStorageId,
       annualSeriesId: series._id,
       editionYear: nextYear,
     },

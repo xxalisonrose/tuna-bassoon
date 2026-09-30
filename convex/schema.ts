@@ -75,6 +75,7 @@ export default defineSchema({
     retired: v.optional(v.boolean()),
     retiredAt: v.optional(v.number()),
     imageKey: v.optional(v.string()),
+    imageStorageId: v.optional(v.id('_storage')),
     annualSeriesId: v.optional(v.id('badgeAnnualSeries')),
     editionYear: v.optional(v.number()),
     })

@@ -254,9 +254,14 @@ export const getBadgesForAdmin = query({
       .query('badgeDefinitions')
       .collect();
 
-    return definitions
-      .map((definition) => ({
+    const definitionsWithArtwork = await Promise.all(
+      definitions.map(async (definition) => ({
         ...definition,
+        imageUrl: definition.imageStorageId === undefined
+          ? undefined
+          : (await ctx.storage.getUrl(
+              definition.imageStorageId,
+            )) ?? undefined,
         key: definition.key ?? '',
         classification: definition.classification ?? 'general',
         rule: definition.rule ?? {
@@ -264,10 +269,12 @@ export const getBadgesForAdmin = query({
           normalizedTag: normalizeBadgeTag(definition.tag),
         },
         retired: definition.retired === true,
-      }))
-      .sort((first, second) =>
-        first.name.localeCompare(second.name),
-      );
+      })),
+    );
+
+    return definitionsWithArtwork.sort((first, second) =>
+      first.name.localeCompare(second.name),
+    );
   },
 });
 
