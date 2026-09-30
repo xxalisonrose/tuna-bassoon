@@ -68,6 +68,15 @@ function getErrorMessage(
   return fallback;
 }
 
+function createStableKey(value: string) {
+  return value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 export default function AdminPortalScreen() {
   const { isAuthenticated, isLoading: isAuthLoading } =
     useConvexAuth();
@@ -170,7 +179,9 @@ export default function AdminPortalScreen() {
     setEditingId(location._id);
     setForm({
       name: location.name,
-      key: location.key ?? '',
+      key:
+        location.key?.trim() ||
+        createStableKey(location.name),
       description: location.description,
       latitude: location.latitude != null ? String(location.latitude) : '',
       longitude: location.longitude != null ? String(location.longitude) : '',
@@ -293,18 +304,20 @@ export default function AdminPortalScreen() {
       .filter(Boolean);
 
   const validateForm = () => {
-    const requiredFields: Array<keyof LocationFormState> = [
-      'name',
-      'key',
-      'description',
-      'latitude',
-      'longitude',
-      'category',
+    const requiredFields: Array<
+      [keyof LocationFormState, string]
+    > = [
+      ['name', 'Name'],
+      ['key', 'Stable key'],
+      ['description', 'Description'],
+      ['latitude', 'Latitude'],
+      ['longitude', 'Longitude'],
+      ['category', 'Category'],
     ];
 
-    for (const field of requiredFields) {
+    for (const [field, label] of requiredFields) {
       if (!String(form[field]).trim()) {
-        return 'Please complete all required fields.';
+        return `${label} is required.`;
       }
     }
 
@@ -601,7 +614,9 @@ export default function AdminPortalScreen() {
           </ThemedText>
         )}
 
-        <ThemedView type="backgroundElement" style={styles.searchCard}>
+        {!formMode && (
+          <>
+            <ThemedView type="backgroundElement" style={styles.searchCard}>
           <ThemedText type="smallBold">Search locations</ThemedText>
 
           <TextInput
@@ -643,7 +658,9 @@ export default function AdminPortalScreen() {
               {`Showing ${filteredLocations.length} of ${adminLocations.length} locations`}
             </ThemedText>
           )}
-        </ThemedView>
+            </ThemedView>
+          </>
+        )}
 
         {formMode ? (
           <ThemedView type="backgroundElement" style={styles.formCard}>
@@ -687,6 +704,12 @@ export default function AdminPortalScreen() {
               ]}
               value={form.key}
             />
+
+            <ThemedText type="small" themeColor="textSecondary">
+              Stable keys use lowercase letters, numbers, and single
+              hyphens. A key is generated from the name only when a
+              legacy location does not already have one.
+            </ThemedText>
 
             <TextInput
               accessibilityLabel="Description"
