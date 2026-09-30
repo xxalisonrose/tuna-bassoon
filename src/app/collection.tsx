@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BadgeArtwork } from '@/components/badge-artwork';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
@@ -271,6 +272,12 @@ export default function CollectionScreen() {
                         styles.earnedBadgeCard,
                     ]}>
                     <View style={styles.badgeHeader}>
+                      <BadgeArtwork
+                        earned={badge.earned}
+                        imageKey={badge.imageKey}
+                        name={badge.name}
+                      />
+
                       <View
                         style={
                           styles.badgeTitleContainer

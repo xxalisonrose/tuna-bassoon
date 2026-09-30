@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BadgeArtwork } from '@/components/badge-artwork';
 import { Spacing } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -78,14 +79,12 @@ export function AwardEarnedPopup({
             accessibilityViewIsModal
             type="backgroundElement"
             style={styles.card}>
-            <View
-              accessible={false}
-              importantForAccessibility="no-hide-descendants"
-              style={styles.decorativeIcon}>
-              <Text accessible={false} style={styles.star}>
-                ★
-              </Text>
-            </View>
+            <BadgeArtwork
+              earned
+              imageKey={award.imageKey}
+              name={award.name}
+              size="celebration"
+            />
 
             <View
               ref={summaryRef}
@@ -174,19 +173,6 @@ const styles = StyleSheet.create({
     maxWidth: 520,
     padding: Spacing.five,
     width: '100%',
-  },
-  decorativeIcon: {
-    alignItems: 'center',
-    backgroundColor: '#F4C95D',
-    borderRadius: 40,
-    height: 80,
-    justifyContent: 'center',
-    marginBottom: Spacing.three,
-    width: 80,
-  },
-  star: {
-    color: '#5D4300',
-    fontSize: 42,
   },
   summary: {
     alignItems: 'center',
