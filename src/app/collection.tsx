@@ -275,6 +275,7 @@ export default function CollectionScreen() {
                       <BadgeArtwork
                         earned={badge.earned}
                         imageKey={badge.imageKey}
+                        imageUrl={badge.imageUrl}
                         name={badge.name}
                       />
 

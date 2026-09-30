@@ -22,6 +22,7 @@ export type AwardEarnedPopupAward = {
   name: string;
   description: string;
   imageKey?: string;
+  imageUrl?: string;
 };
 
 type AwardEarnedPopupProps = {
@@ -82,6 +83,7 @@ export function AwardEarnedPopup({
             <BadgeArtwork
               earned
               imageKey={award.imageKey}
+              imageUrl={award.imageUrl}
               name={award.name}
               size="celebration"
             />

@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 
 import { useMutation, useQuery } from 'convex/react';
+import * as DocumentPicker from 'expo-document-picker';
 
 import {
   BadgeArtwork,
@@ -23,6 +24,12 @@ import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const MAX_UPLOADED_ARTWORK_BYTES = 5 * 1024 * 1024;
+const ALLOWED_ARTWORK_CONTENT_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+] as const;
 
 type Classification = 'general' | 'special_place' | 'seasonal';
 type ClassificationFilter = Classification | 'all';
@@ -157,6 +164,36 @@ function formatDate(value?: number) {
   return value === undefined ? null : new Date(value).toLocaleDateString();
 }
 
+function getArtworkContentType(
+  asset: DocumentPicker.DocumentPickerAsset,
+) {
+  const declaredType = asset.mimeType?.toLowerCase();
+
+  if (
+    declaredType !== undefined &&
+    ALLOWED_ARTWORK_CONTENT_TYPES.some(
+      (contentType) => contentType === declaredType,
+    )
+  ) {
+    return declaredType;
+  }
+
+  const lowerName = asset.name.toLowerCase();
+
+  if (lowerName.endsWith('.png')) return 'image/png';
+  if (lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) {
+    return 'image/jpeg';
+  }
+  if (lowerName.endsWith('.webp')) return 'image/webp';
+
+  return undefined;
+}
+
+function formatArtworkSize(size?: number) {
+  if (size === undefined) return 'Size unavailable';
+  return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+}
+
 function RadioOption({
   label,
   selected,
@@ -189,6 +226,15 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
   const createBadge = useMutation(api.adminBadges.createBadgeDefinition);
   const updateBadge = useMutation(api.adminBadges.updateBadgeDefinition);
   const setBadgeRetired = useMutation(api.adminBadges.setBadgeRetired);
+  const generateArtworkUploadUrl = useMutation(
+    api.adminBadgeArtwork.generateArtworkUploadUrl,
+  );
+  const setBadgeArtwork = useMutation(
+    api.adminBadgeArtwork.setBadgeArtwork,
+  );
+  const removeBadgeArtwork = useMutation(
+    api.adminBadgeArtwork.removeBadgeArtwork,
+  );
   const enableAnnualRepeat = useMutation(
     api.annualBadgeEditions.enableAnnualRepeat,
   );
@@ -212,6 +258,13 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
   const [annualSeriesName, setAnnualSeriesName] = useState('');
   const [annualSeriesKey, setAnnualSeriesKey] = useState('');
   const [annualSaving, setAnnualSaving] = useState(false);
+  const [pendingArtwork, setPendingArtwork] =
+    useState<DocumentPicker.DocumentPickerAsset | null>(null);
+  const [uploadedImageUrl, setUploadedImageUrl] =
+    useState<string | undefined>(undefined);
+  const [removeUploadedArtwork, setRemoveUploadedArtwork] =
+    useState(false);
+  const [pickingArtwork, setPickingArtwork] = useState(false);
 
   const annualSeries = useQuery(
     api.annualBadgeEditions.getAnnualSeriesForAdmin,
@@ -285,6 +338,9 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
     setAnnualRepeatEnabled(false);
     setAnnualSeriesName('');
     setAnnualSeriesKey('');
+    setPendingArtwork(null);
+    setUploadedImageUrl(undefined);
+    setRemoveUploadedArtwork(false);
   };
 
   const openEdit = (badge: (typeof filteredBadges)[number]) => {
@@ -316,6 +372,9 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
     setAnnualRepeatEnabled(badge.annualSeriesId !== undefined);
     setAnnualSeriesName(suggestAnnualSeriesName(badge.name));
     setAnnualSeriesKey(suggestAnnualSeriesKey(badge.key));
+    setPendingArtwork(null);
+    setUploadedImageUrl(badge.imageUrl);
+    setRemoveUploadedArtwork(false);
   };
 
   const closeForm = (clearStatus = true) => {
@@ -329,6 +388,9 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
     setAnnualRepeatEnabled(false);
     setAnnualSeriesName('');
     setAnnualSeriesKey('');
+    setPendingArtwork(null);
+    setUploadedImageUrl(undefined);
+    setRemoveUploadedArtwork(false);
   };
 
   const validateForm = () => {
@@ -418,6 +480,100 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
     }
   };
 
+  const chooseUploadedArtwork = async () => {
+    if (saving || pickingArtwork) return;
+
+    setPickingArtwork(true);
+    setStatusMessage(null);
+
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        base64: false,
+        copyToCacheDirectory: true,
+        multiple: false,
+        type: [...ALLOWED_ARTWORK_CONTENT_TYPES],
+      });
+
+      if (result.canceled) return;
+
+      const asset = result.assets[0];
+      const contentType = getArtworkContentType(asset);
+
+      if (contentType === undefined) {
+        setStatusMessage(
+          'Choose a PNG, JPEG, or WebP image for badge artwork.',
+        );
+        return;
+      }
+
+      if (
+        asset.size !== undefined &&
+        asset.size > MAX_UPLOADED_ARTWORK_BYTES
+      ) {
+        setStatusMessage('Badge artwork must be 5 MB or smaller.');
+        return;
+      }
+
+      setPendingArtwork(asset);
+      setRemoveUploadedArtwork(false);
+    } catch (error) {
+      setStatusMessage(
+        getErrorMessage(error, 'Unable to choose badge artwork.'),
+      );
+    } finally {
+      setPickingArtwork(false);
+    }
+  };
+
+  const saveArtworkChanges = async (
+    badgeDefinitionId: Id<'badgeDefinitions'>,
+  ) => {
+    if (pendingArtwork !== null) {
+      const contentType = getArtworkContentType(pendingArtwork);
+
+      if (contentType === undefined) {
+        throw new Error('Unsupported badge artwork type.');
+      }
+
+      const uploadUrl = await generateArtworkUploadUrl();
+      const body = pendingArtwork.file ??
+        await fetch(pendingArtwork.uri).then((response) => {
+          if (!response.ok) {
+            throw new Error('Unable to read the selected artwork.');
+          }
+          return response.blob();
+        });
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': contentType },
+        body,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Unable to upload the selected artwork.');
+      }
+
+      const uploadResult = await uploadResponse.json() as {
+        storageId: Id<'_storage'>;
+      };
+      const savedArtwork = await setBadgeArtwork({
+        badgeDefinitionId,
+        storageId: uploadResult.storageId,
+      });
+
+      setUploadedImageUrl(savedArtwork.imageUrl ?? undefined);
+      setPendingArtwork(null);
+      setRemoveUploadedArtwork(false);
+      return;
+    }
+
+    if (removeUploadedArtwork && uploadedImageUrl !== undefined) {
+      await removeBadgeArtwork({ badgeDefinitionId });
+      setUploadedImageUrl(undefined);
+      setRemoveUploadedArtwork(false);
+    }
+  };
+
   const submitForm = async (
     keepFormOpenForAvailability = false,
   ) => {
@@ -440,41 +596,44 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
       rule: buildRule(),
       imageKey: form.imageKey.trim() || undefined,
     };
+    let savedBadgeId = editingId;
 
     try {
-      let savedBadgeId = editingId;
-
       if (formMode === 'create') {
         savedBadgeId = await createBadge(payload);
-        setStatusMessage(
-          form.classification === 'seasonal'
-            ? 'Badge created. Seasonal availability is ready below.'
-            : 'Badge created.',
-        );
+        setFormMode('edit');
+        setEditingId(savedBadgeId);
       } else if (formMode === 'edit' && editingId) {
         savedBadgeId = await updateBadge({
           ...payload,
           badgeDefinitionId: editingId,
         });
-        setStatusMessage(
-          form.classification === 'seasonal'
-            ? 'Badge changes saved. Seasonal availability is ready below.'
-            : 'Badge changes saved.',
-        );
       }
+
+      if (savedBadgeId === null) {
+        throw new Error('Badge definition was not saved.');
+      }
+
+      await saveArtworkChanges(savedBadgeId);
 
       if (
         form.classification === 'seasonal' &&
-        savedBadgeId !== null &&
         availabilityBadgeId !== null
       ) {
         await saveAnnualRepeat(savedBadgeId);
       }
 
+      setStatusMessage(
+        form.classification === 'seasonal'
+          ? 'Badge changes saved. Seasonal availability is ready below.'
+          : formMode === 'create'
+            ? 'Badge created.'
+            : 'Badge changes saved.',
+      );
+
       if (
         keepFormOpenForAvailability &&
-        form.classification === 'seasonal' &&
-        savedBadgeId !== null
+        form.classification === 'seasonal'
       ) {
         setFormMode('edit');
         setEditingId(savedBadgeId);
@@ -484,7 +643,14 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
 
       return savedBadgeId;
     } catch (error) {
-      setStatusMessage(getErrorMessage(error, formMode === 'create' ? 'Unable to create this badge.' : 'Unable to save these changes.'));
+      const fallback =
+        formMode === 'create' && savedBadgeId !== null
+          ? 'The badge was created, but its artwork or related settings could not be saved. Try saving again.'
+          : formMode === 'create'
+            ? 'Unable to create this badge.'
+            : 'Unable to save these changes.';
+
+      setStatusMessage(getErrorMessage(error, fallback));
       return null;
     } finally {
       setSaving(false);
@@ -526,7 +692,8 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
 
   const annualSeriesLoading =
     editingId !== null && annualSeries === undefined;
-  const formBusy = saving || annualSaving || annualSeriesLoading;
+  const formBusy =
+    saving || annualSaving || annualSeriesLoading || pickingArtwork;
 
   if (!visible) return null;
 
@@ -599,8 +766,11 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
           formMode={formMode}
           locations={filteredLocations}
           locationSearch={locationSearch}
+          pendingArtwork={pendingArtwork}
+          removeUploadedArtwork={removeUploadedArtwork}
           saving={formBusy}
           theme={theme}
+          uploadedImageUrl={uploadedImageUrl}
           onAnnualRepeatChange={changeAnnualRepeatEnabled}
           onAnnualSeriesKeyChange={(value) => {
             setAnnualSeriesKey(value);
@@ -611,7 +781,18 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
             setStatusMessage(null);
           }}
           onChange={updateField}
+          onChooseUploadedArtwork={chooseUploadedArtwork}
+          onClearPendingArtwork={() => setPendingArtwork(null)}
           onLocationSearch={setLocationSearch}
+          onRemoveUploadedArtwork={() => {
+            setPendingArtwork(null);
+            setRemoveUploadedArtwork(true);
+            setStatusMessage(null);
+          }}
+          onRestoreUploadedArtwork={() => {
+            setRemoveUploadedArtwork(false);
+            setStatusMessage(null);
+          }}
           onSubmit={() => submitForm(false)}
           onPrepareBadgeForAvailability={() => submitForm(true)}
           onAvailabilityWindowSaved={async (badgeDefinitionId) => {
@@ -640,6 +821,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
                   <BadgeArtwork
                     earned
                     imageKey={badge.imageKey}
+                    imageUrl={badge.imageUrl}
                     name={badge.name}
                   />
                   <ThemedView style={styles.badgeListCopy}>
@@ -693,13 +875,20 @@ function BadgeForm({
   formMode,
   locations,
   locationSearch,
+  pendingArtwork,
+  removeUploadedArtwork,
   saving,
   theme,
+  uploadedImageUrl,
   onAnnualRepeatChange,
   onAnnualSeriesKeyChange,
   onAnnualSeriesNameChange,
   onChange,
+  onChooseUploadedArtwork,
+  onClearPendingArtwork,
   onLocationSearch,
+  onRemoveUploadedArtwork,
+  onRestoreUploadedArtwork,
   onSubmit,
   onPrepareBadgeForAvailability,
   onAvailabilityWindowSaved,
@@ -715,13 +904,20 @@ function BadgeForm({
   formMode: 'create' | 'edit';
   locations: Array<{ _id: Id<'locations'>; name: string; key?: string }>;
   locationSearch: string;
+  pendingArtwork: DocumentPicker.DocumentPickerAsset | null;
+  removeUploadedArtwork: boolean;
   saving: boolean;
   theme: ReturnType<typeof useTheme>;
+  uploadedImageUrl?: string;
   onAnnualRepeatChange: (enabled: boolean) => void;
   onAnnualSeriesKeyChange: (value: string) => void;
   onAnnualSeriesNameChange: (value: string) => void;
   onChange: <K extends keyof BadgeFormState>(field: K, value: BadgeFormState[K]) => void;
+  onChooseUploadedArtwork: () => void;
+  onClearPendingArtwork: () => void;
   onLocationSearch: (value: string) => void;
+  onRemoveUploadedArtwork: () => void;
+  onRestoreUploadedArtwork: () => void;
   onSubmit: () => void;
   onPrepareBadgeForAvailability: () => Promise<Id<'badgeDefinitions'> | null>;
   onAvailabilityWindowSaved: (
@@ -738,6 +934,8 @@ function BadgeForm({
   const hasUnregisteredArtworkKey =
     normalizedImageKey.length > 0 &&
     !hasBadgeArtwork(normalizedImageKey);
+  const activeUploadedImageUrl = pendingArtwork?.uri ??
+    (removeUploadedArtwork ? undefined : uploadedImageUrl);
 
   return (
     <ThemedView type="backgroundElement" style={styles.formCard}>
@@ -859,20 +1057,114 @@ function BadgeForm({
 
         <ThemedView
           type="backgroundElement"
+          style={styles.artworkUploadCard}>
+          <ThemedText type="smallBold">Upload custom artwork</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            PNG, JPEG, or WebP up to 5 MB. Square artwork works best.
+            Uploaded artwork takes priority over the bundled selection.
+          </ThemedText>
+          <ThemedView style={styles.actions}>
+            <Pressable
+              accessibilityLabel={
+                activeUploadedImageUrl === undefined
+                  ? 'Choose custom badge artwork'
+                  : 'Replace custom badge artwork'
+              }
+              accessibilityRole="button"
+              disabled={saving}
+              onPress={onChooseUploadedArtwork}
+              style={[
+                styles.secondaryButton,
+                saving && styles.disabled,
+              ]}>
+              <ThemedText style={styles.secondaryButtonText}>
+                {pendingArtwork !== null
+                  ? 'Choose a different image'
+                  : uploadedImageUrl !== undefined &&
+                      !removeUploadedArtwork
+                    ? 'Replace uploaded artwork'
+                    : 'Choose image'}
+              </ThemedText>
+            </Pressable>
+
+            {pendingArtwork !== null ? (
+              <Pressable
+                accessibilityLabel="Clear selected badge artwork"
+                accessibilityRole="button"
+                disabled={saving}
+                onPress={onClearPendingArtwork}
+                style={styles.secondaryButton}>
+                <ThemedText style={styles.secondaryButtonText}>
+                  Clear selection
+                </ThemedText>
+              </Pressable>
+            ) : uploadedImageUrl !== undefined &&
+                !removeUploadedArtwork ? (
+              <Pressable
+                accessibilityLabel="Remove uploaded badge artwork"
+                accessibilityRole="button"
+                disabled={saving}
+                onPress={onRemoveUploadedArtwork}
+                style={styles.secondaryButton}>
+                <ThemedText style={styles.secondaryButtonText}>
+                  Remove uploaded artwork
+                </ThemedText>
+              </Pressable>
+            ) : removeUploadedArtwork &&
+                uploadedImageUrl !== undefined ? (
+              <Pressable
+                accessibilityLabel="Keep uploaded badge artwork"
+                accessibilityRole="button"
+                disabled={saving}
+                onPress={onRestoreUploadedArtwork}
+                style={styles.secondaryButton}>
+                <ThemedText style={styles.secondaryButtonText}>
+                  Keep uploaded artwork
+                </ThemedText>
+              </Pressable>
+            ) : null}
+          </ThemedView>
+
+          {pendingArtwork !== null ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              Selected: {pendingArtwork.name} ·{' '}
+              {formatArtworkSize(pendingArtwork.size)}. The image will
+              upload when the badge is saved.
+            </ThemedText>
+          ) : removeUploadedArtwork ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              The uploaded image will be removed when the badge is
+              saved. The bundled selection or letter fallback will be
+              used instead.
+            </ThemedText>
+          ) : uploadedImageUrl !== undefined ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              Uploaded artwork is currently active.
+            </ThemedText>
+          ) : null}
+        </ThemedView>
+
+        <ThemedView
+          type="backgroundElement"
           style={styles.artworkPreview}>
           <BadgeArtwork
             earned
             imageKey={normalizedImageKey || undefined}
+            imageUrl={activeUploadedImageUrl}
             name={form.name || 'Badge'}
           />
           <ThemedView style={styles.artworkPreviewCopy}>
             <ThemedText type="smallBold">Collection preview</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              {selectedArtwork !== undefined
-                ? `${selectedArtwork.label} artwork selected.`
-                : hasUnregisteredArtworkKey
-                  ? `The unregistered key “${normalizedImageKey}” currently uses the letter fallback.`
-                  : 'No custom artwork selected; the letter fallback will be used.'}
+              {activeUploadedImageUrl !== undefined
+                ? pendingArtwork !== null
+                  ? 'Selected upload preview. Save the badge to publish it.'
+                  : 'Uploaded artwork is active.'
+                : selectedArtwork !== undefined
+                  ? `${selectedArtwork.label} artwork selected.`
+                  : hasUnregisteredArtworkKey
+                    ? `The unregistered key “${normalizedImageKey}” currently uses the letter fallback.`
+                    : 'No custom artwork selected; the letter fallback will be used.'}
             </ThemedText>
           </ThemedView>
         </ThemedView>
@@ -1143,6 +1435,7 @@ const styles = StyleSheet.create({
   artworkOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   artworkOption: { minWidth: 148, alignItems: 'center', justifyContent: 'center', gap: Spacing.one, padding: Spacing.two, borderWidth: 1, borderColor: '#777777', borderRadius: Spacing.two },
   artworkOptionSelected: { borderColor: '#A51C30', backgroundColor: '#E0E1E6' },
+  artworkUploadCard: { gap: Spacing.one, padding: Spacing.two, borderRadius: Spacing.two },
   noArtworkPreview: { width: 72, height: 72, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderStyle: 'dashed', borderColor: '#777777', borderRadius: 36 },
   artworkPreview: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, padding: Spacing.two, borderRadius: Spacing.two },
   artworkPreviewCopy: { flex: 1, gap: Spacing.one },

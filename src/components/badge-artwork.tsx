@@ -17,6 +17,7 @@ const badgeArtworkSources = {
 type BadgeArtworkProps = {
   earned?: boolean;
   imageKey?: string;
+  imageUrl?: string;
   name: string;
   size?: 'card' | 'celebration';
 };
@@ -48,11 +49,13 @@ function getFallbackText(name: string) {
 export function BadgeArtwork({
   earned = false,
   imageKey,
+  imageUrl,
   name,
   size = 'card',
 }: BadgeArtworkProps) {
   const theme = useTheme();
-  const source = getBadgeArtworkSource(imageKey);
+  const source = imageUrl?.trim() ||
+    getBadgeArtworkSource(imageKey);
   const isCelebration = size === 'celebration';
 
   return (

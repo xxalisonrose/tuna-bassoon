@@ -61,7 +61,7 @@ Badge forms support:
 - Description
 - Required visit count
 - Classification
-- Optional image key
+- Bundled or uploaded badge artwork
 - Progress rule
 
 The supported classifications are:
@@ -83,6 +83,14 @@ The supported progress rules are:
 Specific-location rules include a searchable location selector, so the content team does not need to memorize location keys.
 
 The badge backend validates required fields, required visit counts, slug formats, unique badge keys, unique tags, and rule-specific values. Specific-location rules must reference an existing location.
+
+### Badge artwork
+
+Administrators can choose from artwork bundled with the application or upload custom artwork while creating or editing a badge. The form previews the selected artwork before saving, and the badge details and artwork are published through the same save action.
+
+Custom artwork supports PNG, JPEG, and WebP files up to 5 MB. Uploaded artwork takes priority over bundled artwork. Badges without matching artwork use a letter fallback rather than displaying a broken image.
+
+Artwork appears in the administrator badge list, the user Collection, and earned-badge celebrations. Removing uploaded artwork restores the selected bundled artwork or letter fallback. Future annual editions inherit the current edition's artwork initially, while each generated edition remains independently editable. Shared uploaded files are retained while another edition still references them.
 
 ### Seasonal badge availability
 
@@ -134,6 +142,8 @@ The portal does not delete badge definitions, progress records, or awards.
 
 Every portal create or update operation checks administrator access through `requireAdmin(ctx)` on the Convex server. Hiding a portal link or screen is not treated as authorization.
 
+Badge artwork upload URLs, attachment changes, replacements, and removals also require administrator access. Badge artwork is public application content, so its generated display URL can be returned to signed-in users without exposing private information.
+
 The browser does not receive secret keys. Clerk publishable configuration and the Convex URL use the project’s existing client configuration. Administrator IDs, Gemini credentials, and other private values remain in the Convex environment.
 
 The portal follows the credential rules in `AGENTS.md`.
@@ -150,7 +160,7 @@ Badge management is part of the existing content portal rather than a separate p
 The following work is intentionally deferred:
 
 - Location retirement controls
-- Media and asset management
+- Location artwork and broader media/asset management
 - Draft and publishing states beyond the current local Gemini draft flow
 - Bulk import
 - Audit and change history
