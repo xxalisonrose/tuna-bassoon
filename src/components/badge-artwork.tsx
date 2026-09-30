@@ -4,6 +4,11 @@ import { StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/hooks/use-theme';
 
+export const badgeArtworkOptions = [
+  { key: 'america-250', label: 'America 250' },
+  { key: 'ghost-stories', label: 'Ghost Stories' },
+] as const;
+
 const badgeArtworkSources = {
   'america-250': require('@/assets/images/badges/america-250.png'),
   'ghost-stories': require('@/assets/images/badges/ghost-stories.png'),
@@ -29,6 +34,10 @@ function getBadgeArtworkSource(imageKey?: string) {
   return badgeArtworkSources[
     normalizedKey as keyof typeof badgeArtworkSources
   ];
+}
+
+export function hasBadgeArtwork(imageKey?: string) {
+  return getBadgeArtworkSource(imageKey) !== undefined;
 }
 
 function getFallbackText(name: string) {

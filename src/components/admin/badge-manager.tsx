@@ -9,6 +9,11 @@ import {
 
 import { useMutation, useQuery } from 'convex/react';
 
+import {
+  BadgeArtwork,
+  badgeArtworkOptions,
+  hasBadgeArtwork,
+} from '@/components/badge-artwork';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AvailabilityWindowManager } from '@/components/admin/availability-window-manager';
@@ -631,8 +636,17 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
             const confirming = confirmingId === badge._id;
             return (
               <ThemedView key={badge._id} type="backgroundElement" style={styles.card}>
-                <ThemedText type="smallBold">{badge.name}</ThemedText>
-                <ThemedText themeColor="textSecondary">{badge.description}</ThemedText>
+                <ThemedView style={styles.badgeListHeader}>
+                  <BadgeArtwork
+                    earned
+                    imageKey={badge.imageKey}
+                    name={badge.name}
+                  />
+                  <ThemedView style={styles.badgeListCopy}>
+                    <ThemedText type="smallBold">{badge.name}</ThemedText>
+                    <ThemedText themeColor="textSecondary">{badge.description}</ThemedText>
+                  </ThemedView>
+                </ThemedView>
                 <ThemedText type="small">Key: {badge.key || 'Legacy key missing'}</ThemedText>
                 <ThemedText type="small">Tag: {badge.tag}</ThemedText>
                 <ThemedText type="small">Required visits: {badge.requiredVisits}</ThemedText>
@@ -717,6 +731,13 @@ function BadgeForm({
 }) {
   const inputStyle = (extra?: object) => [styles.input, extra, { backgroundColor: theme.background, borderColor: theme.textSecondary, color: theme.text }];
   const needsValue = form.ruleType === 'location' || form.ruleType === 'story' || form.ruleType === 'region';
+  const normalizedImageKey = form.imageKey.trim().toLowerCase();
+  const selectedArtwork = badgeArtworkOptions.find(
+    (option) => option.key === normalizedImageKey,
+  );
+  const hasUnregisteredArtworkKey =
+    normalizedImageKey.length > 0 &&
+    !hasBadgeArtwork(normalizedImageKey);
 
   return (
     <ThemedView type="backgroundElement" style={styles.formCard}>
@@ -725,7 +746,6 @@ function BadgeForm({
         ['name', 'Name'],
         ['key', 'Stable key'],
         ['tag', 'Tag'],
-        ['imageKey', 'Image key (optional)'],
       ].map(([field, label]) => (
         <ThemedView
           key={field as string}
@@ -751,6 +771,112 @@ function BadgeForm({
           />
         </ThemedView>
       ))}
+
+      <ThemedView style={styles.fieldGroup}>
+        <ThemedText type="smallBold">
+          Badge artwork (optional)
+        </ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          Choose bundled artwork for this badge. With no custom
+          artwork, Collection uses the badge name's first letter.
+        </ThemedText>
+
+        <ThemedView
+          accessibilityLabel="Badge artwork"
+          accessibilityRole="radiogroup"
+          style={styles.artworkOptions}>
+          <Pressable
+            accessibilityHint="Use the badge name's first letter in Collection."
+            accessibilityLabel="No custom artwork"
+            accessibilityRole="radio"
+            accessibilityState={{
+              selected: normalizedImageKey.length === 0,
+            }}
+            onPress={() => onChange('imageKey', '')}
+            style={({ pressed }) => [
+              styles.artworkOption,
+              normalizedImageKey.length === 0 &&
+                styles.artworkOptionSelected,
+              pressed && styles.pressed,
+            ]}>
+            <ThemedView style={styles.noArtworkPreview}>
+              <ThemedText type="smallBold">None</ThemedText>
+            </ThemedView>
+            <ThemedText type="smallBold">No custom artwork</ThemedText>
+          </Pressable>
+
+          {badgeArtworkOptions.map((option) => {
+            const selected = normalizedImageKey === option.key;
+
+            return (
+              <Pressable
+                key={option.key}
+                accessibilityHint={`Use ${option.label} artwork for this badge.`}
+                accessibilityLabel={option.label}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                onPress={() => onChange('imageKey', option.key)}
+                style={({ pressed }) => [
+                  styles.artworkOption,
+                  selected && styles.artworkOptionSelected,
+                  pressed && styles.pressed,
+                ]}>
+                <BadgeArtwork
+                  earned
+                  imageKey={option.key}
+                  name={option.label}
+                />
+                <ThemedText type="smallBold">
+                  {option.label}
+                </ThemedText>
+              </Pressable>
+            );
+          })}
+
+          {hasUnregisteredArtworkKey ? (
+            <Pressable
+              accessibilityHint="Keep this existing image key. Collection will use its letter fallback until matching artwork is bundled."
+              accessibilityLabel={`Keep existing image key ${normalizedImageKey}`}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: true }}
+              onPress={() => onChange('imageKey', normalizedImageKey)}
+              style={[
+                styles.artworkOption,
+                styles.artworkOptionSelected,
+              ]}>
+              <BadgeArtwork
+                earned
+                imageKey={normalizedImageKey}
+                name={form.name || 'Badge'}
+              />
+              <ThemedText type="smallBold">Existing key</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {normalizedImageKey}
+              </ThemedText>
+            </Pressable>
+          ) : null}
+        </ThemedView>
+
+        <ThemedView
+          type="backgroundElement"
+          style={styles.artworkPreview}>
+          <BadgeArtwork
+            earned
+            imageKey={normalizedImageKey || undefined}
+            name={form.name || 'Badge'}
+          />
+          <ThemedView style={styles.artworkPreviewCopy}>
+            <ThemedText type="smallBold">Collection preview</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {selectedArtwork !== undefined
+                ? `${selectedArtwork.label} artwork selected.`
+                : hasUnregisteredArtworkKey
+                  ? `The unregistered key “${normalizedImageKey}” currently uses the letter fallback.`
+                  : 'No custom artwork selected; the letter fallback will be used.'}
+            </ThemedText>
+          </ThemedView>
+        </ThemedView>
+      </ThemedView>
 
       <ThemedView style={styles.fieldGroup}>
         <ThemedText type="smallBold">
@@ -1012,6 +1138,14 @@ const styles = StyleSheet.create({
   radioOptionSelected: { backgroundColor: '#E0E1E6' },
   radioDot: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#777777' },
   radioDotSelected: { borderColor: '#A51C30', backgroundColor: '#A51C30' },
+  badgeListHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
+  badgeListCopy: { flex: 1, gap: Spacing.one },
+  artworkOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  artworkOption: { minWidth: 148, alignItems: 'center', justifyContent: 'center', gap: Spacing.one, padding: Spacing.two, borderWidth: 1, borderColor: '#777777', borderRadius: Spacing.two },
+  artworkOptionSelected: { borderColor: '#A51C30', backgroundColor: '#E0E1E6' },
+  noArtworkPreview: { width: 72, height: 72, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderStyle: 'dashed', borderColor: '#777777', borderRadius: 36 },
+  artworkPreview: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, padding: Spacing.two, borderRadius: Spacing.two },
+  artworkPreviewCopy: { flex: 1, gap: Spacing.one },
   locationPicker: { gap: Spacing.two },
   annualSection: { gap: Spacing.two },
   fieldGroup: { gap: Spacing.one },
