@@ -670,6 +670,10 @@ export default function AdminPortalScreen() {
                 : 'Edit location'}
             </ThemedText>
 
+            <ThemedText type="smallBold">
+              Location name
+            </ThemedText>
+
             <TextInput
               accessibilityLabel="Location name"
               autoCapitalize="words"
@@ -686,6 +690,10 @@ export default function AdminPortalScreen() {
               ]}
               value={form.name}
             />
+
+            <ThemedText type="smallBold">
+              Stable key
+            </ThemedText>
 
             <TextInput
               accessibilityLabel="Stable key"
@@ -709,6 +717,10 @@ export default function AdminPortalScreen() {
               Stable keys use lowercase letters, numbers, and single
               hyphens. A key is generated from the name only when a
               legacy location does not already have one.
+            </ThemedText>
+
+            <ThemedText type="smallBold">
+              Description
             </ThemedText>
 
             <TextInput
@@ -767,6 +779,10 @@ export default function AdminPortalScreen() {
                       themeColor="textSecondary"
                       style={styles.geminiHelp}>
                       Gemini uses the current form to create a draft. It does not save or publish anything automatically.
+                    </ThemedText>
+
+                    <ThemedText type="smallBold">
+                      Editorial notes (optional)
                     </ThemedText>
 
                     <TextInput
@@ -856,6 +872,10 @@ export default function AdminPortalScreen() {
               </ThemedView>
             )}
 
+            <ThemedText type="smallBold">
+              Latitude
+            </ThemedText>
+
             <TextInput
               accessibilityLabel="Latitude"
               autoCapitalize="none"
@@ -874,6 +894,10 @@ export default function AdminPortalScreen() {
               ]}
               value={form.latitude}
             />
+
+            <ThemedText type="smallBold">
+              Longitude
+            </ThemedText>
 
             <TextInput
               accessibilityLabel="Longitude"
@@ -894,6 +918,10 @@ export default function AdminPortalScreen() {
               value={form.longitude}
             />
 
+            <ThemedText type="smallBold">
+              Category
+            </ThemedText>
+
             <TextInput
               accessibilityLabel="Category"
               autoCapitalize="words"
@@ -910,6 +938,10 @@ export default function AdminPortalScreen() {
               ]}
               value={form.category}
             />
+
+            <ThemedText type="smallBold">
+              Badge tags (optional)
+            </ThemedText>
 
             <TextInput
               accessibilityLabel="Badge tags"
@@ -929,6 +961,10 @@ export default function AdminPortalScreen() {
               value={form.badgesText}
             />
 
+            <ThemedText type="smallBold">
+              Story key (optional)
+            </ThemedText>
+
             <TextInput
               accessibilityLabel="Story key"
               autoCapitalize="none"
@@ -946,6 +982,10 @@ export default function AdminPortalScreen() {
               ]}
               value={form.storyKey}
             />
+
+            <ThemedText type="smallBold">
+              Region key (optional)
+            </ThemedText>
 
             <TextInput
               accessibilityLabel="Region key"

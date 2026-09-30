@@ -722,15 +722,69 @@ function BadgeForm({
     <ThemedView type="backgroundElement" style={styles.formCard}>
       <ThemedText type="smallBold">{formMode === 'create' ? 'Add a new badge' : 'Edit badge'}</ThemedText>
       {[
-        ['name', 'Name', false],
-        ['key', 'Stable key', false],
-        ['tag', 'Tag', false],
-        ['imageKey', 'Image key (optional)', false],
+        ['name', 'Name'],
+        ['key', 'Stable key'],
+        ['tag', 'Tag'],
+        ['imageKey', 'Image key (optional)'],
       ].map(([field, label]) => (
-        <TextInput key={field as string} accessibilityLabel={label as string} autoCapitalize="none" onChangeText={(value) => onChange(field as keyof BadgeFormState, value)} placeholder={label as string} placeholderTextColor={theme.textSecondary} style={inputStyle()} value={form[field as keyof BadgeFormState] as string} />
+        <ThemedView
+          key={field as string}
+          style={styles.fieldGroup}>
+          <ThemedText type="smallBold">
+            {label as string}
+          </ThemedText>
+          <TextInput
+            accessibilityLabel={label as string}
+            autoCapitalize="none"
+            onChangeText={(value) =>
+              onChange(
+                field as keyof BadgeFormState,
+                value,
+              )
+            }
+            placeholder={label as string}
+            placeholderTextColor={theme.textSecondary}
+            style={inputStyle()}
+            value={
+              form[field as keyof BadgeFormState] as string
+            }
+          />
+        </ThemedView>
       ))}
-      <TextInput accessibilityLabel="Description" multiline onChangeText={(value) => onChange('description', value)} placeholder="Description" placeholderTextColor={theme.textSecondary} style={inputStyle(styles.textArea)} value={form.description} />
-      <TextInput accessibilityLabel="Required visits" keyboardType="number-pad" onChangeText={(value) => onChange('requiredVisits', value)} placeholder="Required visits" placeholderTextColor={theme.textSecondary} style={inputStyle()} value={form.requiredVisits} />
+
+      <ThemedView style={styles.fieldGroup}>
+        <ThemedText type="smallBold">
+          Description
+        </ThemedText>
+        <TextInput
+          accessibilityLabel="Description"
+          multiline
+          onChangeText={(value) =>
+            onChange('description', value)
+          }
+          placeholder="Description"
+          placeholderTextColor={theme.textSecondary}
+          style={inputStyle(styles.textArea)}
+          value={form.description}
+        />
+      </ThemedView>
+
+      <ThemedView style={styles.fieldGroup}>
+        <ThemedText type="smallBold">
+          Required visits
+        </ThemedText>
+        <TextInput
+          accessibilityLabel="Required visits"
+          keyboardType="number-pad"
+          onChangeText={(value) =>
+            onChange('requiredVisits', value)
+          }
+          placeholder="Required visits"
+          placeholderTextColor={theme.textSecondary}
+          style={inputStyle()}
+          value={form.requiredVisits}
+        />
+      </ThemedView>
 
       <ThemedText type="smallBold">Classification</ThemedText>
       <ThemedView accessibilityRole="radiogroup" accessibilityLabel="Badge classification" style={styles.radioGroup}>
@@ -889,14 +943,40 @@ function BadgeForm({
 
       {form.ruleType === 'location' ? (
         <ThemedView style={styles.locationPicker}>
-          <TextInput accessibilityLabel="Search locations for badge rule" onChangeText={onLocationSearch} placeholder="Search location name or key" placeholderTextColor={theme.textSecondary} style={inputStyle()} value={locationSearch} />
+          <ThemedText type="smallBold">
+            Search locations for this rule
+          </ThemedText>
+          <TextInput
+            accessibilityLabel="Search locations for badge rule"
+            onChangeText={onLocationSearch}
+            placeholder="Search location name or key"
+            placeholderTextColor={theme.textSecondary}
+            style={inputStyle()}
+            value={locationSearch}
+          />
           <ThemedView accessibilityRole="radiogroup" accessibilityLabel="Badge rule location" style={styles.radioGroup}>
             {locations.map((location) => <RadioOption key={location._id} label={`${location.name} (${location.key})`} selected={form.ruleValue === location.key} hint="Select this stable location key." onPress={() => onChange('ruleValue', location.key ?? '')} />)}
           </ThemedView>
           {form.ruleValue ? <ThemedText type="small">Selected location key: {form.ruleValue}</ThemedText> : null}
         </ThemedView>
       ) : needsValue ? (
-        <TextInput accessibilityLabel={`${ruleLabels[form.ruleType]} key`} autoCapitalize="none" autoCorrect={false} onChangeText={(value) => onChange('ruleValue', value)} placeholder={`${ruleLabels[form.ruleType]} key`} placeholderTextColor={theme.textSecondary} style={inputStyle()} value={form.ruleValue} />
+        <ThemedView style={styles.fieldGroup}>
+          <ThemedText type="smallBold">
+            {`${ruleLabels[form.ruleType]} key`}
+          </ThemedText>
+          <TextInput
+            accessibilityLabel={`${ruleLabels[form.ruleType]} key`}
+            autoCapitalize="none"
+            autoCorrect={false}
+            onChangeText={(value) =>
+              onChange('ruleValue', value)
+            }
+            placeholder={`${ruleLabels[form.ruleType]} key`}
+            placeholderTextColor={theme.textSecondary}
+            style={inputStyle()}
+            value={form.ruleValue}
+          />
+        </ThemedView>
       ) : null}
 
       <ThemedView style={styles.actions}>
