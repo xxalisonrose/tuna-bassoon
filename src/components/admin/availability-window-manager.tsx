@@ -170,6 +170,9 @@ export function AvailabilityWindowManager({
   const deleteWindow = useMutation(
     api.adminBadgeAvailability.deleteAvailabilityWindow,
   );
+  const endWindowNow = useMutation(
+    api.adminBadgeAvailability.endAvailabilityWindowNow,
+  );
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingWindowId, setEditingWindowId] =
@@ -179,6 +182,10 @@ export function AvailabilityWindowManager({
   const [deletingId, setDeletingId] =
     useState<Id<'badgeAvailabilityWindows'> | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] =
+    useState<Id<'badgeAvailabilityWindows'> | null>(null);
+  const [endingId, setEndingId] =
+    useState<Id<'badgeAvailabilityWindows'> | null>(null);
+  const [confirmingEndId, setConfirmingEndId] =
     useState<Id<'badgeAvailabilityWindows'> | null>(null);
   const [statusMessage, setStatusMessage] =
     useState<string | null>(null);
@@ -216,6 +223,7 @@ export function AvailabilityWindowManager({
     });
     setStatusMessage(null);
     setConfirmingDeleteId(null);
+    setConfirmingEndId(null);
     setFormOpen(true);
   };
 
@@ -374,6 +382,32 @@ export function AvailabilityWindowManager({
     }
   };
 
+  const confirmEndNow = async (
+    availabilityWindowId: Id<'badgeAvailabilityWindows'>,
+  ) => {
+    if (endingId !== null) {
+      return;
+    }
+
+    setEndingId(availabilityWindowId);
+    setStatusMessage(null);
+
+    try {
+      await endWindowNow({ availabilityWindowId });
+      setStatusMessage('Availability window ended.');
+    } catch (error) {
+      setStatusMessage(
+        getErrorMessage(
+          error,
+          'Unable to end this availability window.',
+        ),
+      );
+    } finally {
+      setEndingId(null);
+      setConfirmingEndId(null);
+    }
+  };
+
   if (!visible) {
     return null;
   }
@@ -381,7 +415,8 @@ export function AvailabilityWindowManager({
   const awaitingBadgeSave =
     badgeDefinitionId === null || prepareBadgeBeforeCreate;
   const now = Date.now();
-  const busy = saving || deletingId !== null;
+  const busy =
+    saving || deletingId !== null || endingId !== null;
   const inputStyle = [
     styles.input,
     {
@@ -557,8 +592,10 @@ export function AvailabilityWindowManager({
           {windows.map((window) => {
             const state = getWindowState(window, now);
             const locked = window.startsAt <= now;
+            const active = state === 'Active';
             const confirmingDelete =
               confirmingDeleteId === window._id;
+            const confirmingEnd = confirmingEndId === window._id;
 
             return (
               <ThemedView key={window._id} style={styles.windowCard}>
@@ -581,9 +618,32 @@ export function AvailabilityWindowManager({
                 </ThemedText>
 
                 {locked ? (
-                  <ThemedText type="small" themeColor="textSecondary">
-                    Locked because this window has started.
-                  </ThemedText>
+                  <>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {active
+                        ? 'Locked because this window has started. End it early only when the event is closing ahead of schedule.'
+                        : 'Locked because this window has started.'}
+                    </ThemedText>
+
+                    {active ? (
+                      <ThemedView style={styles.actions}>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`End ${window.key} now`}
+                          accessibilityHint="Stops new progress for this availability window after confirmation."
+                          disabled={busy}
+                          onPress={() => {
+                            setConfirmingDeleteId(null);
+                            setConfirmingEndId(window._id);
+                          }}
+                          style={styles.secondaryButton}>
+                          <ThemedText style={styles.secondaryButtonText}>
+                            End availability now
+                          </ThemedText>
+                        </Pressable>
+                      </ThemedView>
+                    ) : null}
+                  </>
                 ) : (
                   <ThemedView style={styles.actions}>
                     <Pressable
@@ -601,9 +661,10 @@ export function AvailabilityWindowManager({
                       accessibilityRole="button"
                       accessibilityLabel={`Remove ${window.key}`}
                       disabled={busy}
-                      onPress={() =>
-                        setConfirmingDeleteId(window._id)
-                      }
+                      onPress={() => {
+                        setConfirmingEndId(null);
+                        setConfirmingDeleteId(window._id);
+                      }}
                       style={styles.secondaryButton}>
                       <ThemedText style={styles.secondaryButtonText}>
                         Remove
@@ -611,6 +672,47 @@ export function AvailabilityWindowManager({
                     </Pressable>
                   </ThemedView>
                 )}
+
+                {confirmingEnd ? (
+                  <ThemedView style={styles.confirmation}>
+                    <ThemedText accessibilityLiveRegion="polite">
+                      End this active window now? New check-ins will stop
+                      counting toward this badge, while existing progress
+                      and the window history remain preserved.
+                    </ThemedText>
+
+                    <ThemedView style={styles.actions}>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityState={{
+                          busy: endingId === window._id,
+                          disabled: busy,
+                        }}
+                        disabled={busy}
+                        onPress={() => confirmEndNow(window._id)}
+                        style={[
+                          styles.dangerButton,
+                          busy && styles.disabled,
+                        ]}>
+                        <ThemedText style={styles.primaryButtonText}>
+                          {endingId === window._id
+                            ? 'Ending...'
+                            : 'Confirm ending'}
+                        </ThemedText>
+                      </Pressable>
+
+                      <Pressable
+                        accessibilityRole="button"
+                        disabled={busy}
+                        onPress={() => setConfirmingEndId(null)}
+                        style={styles.secondaryButton}>
+                        <ThemedText style={styles.secondaryButtonText}>
+                          Cancel
+                        </ThemedText>
+                      </Pressable>
+                    </ThemedView>
+                  </ThemedView>
+                ) : null}
 
                 {confirmingDelete ? (
                   <ThemedView style={styles.confirmation}>

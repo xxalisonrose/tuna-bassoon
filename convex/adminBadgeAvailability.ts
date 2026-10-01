@@ -290,6 +290,59 @@ export const updateAvailabilityWindow = mutation({
   },
 });
 
+export const endAvailabilityWindowNow = mutation({
+  args: {
+    availabilityWindowId: v.id('badgeAvailabilityWindows'),
+  },
+
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
+    const existingWindow = await ctx.db.get(
+      args.availabilityWindowId,
+    );
+
+    if (existingWindow === null) {
+      throw new ConvexError('Availability window not found.');
+    }
+
+    await requireSeasonalBadge(
+      ctx,
+      existingWindow.badgeDefinitionId,
+    );
+
+    const now = Date.now();
+
+    if (existingWindow.startsAt > now) {
+      throw new ConvexError(
+        'Future availability windows can be edited or removed instead.',
+      );
+    }
+
+    if (existingWindow.endsAt <= now) {
+      throw new ConvexError(
+        'This availability window has already ended.',
+      );
+    }
+
+    const endsAt = Math.max(now, existingWindow.startsAt + 1);
+
+    if (endsAt >= existingWindow.endsAt) {
+      throw new ConvexError(
+        'This availability window has already ended.',
+      );
+    }
+
+    await ctx.db.patch(args.availabilityWindowId, { endsAt });
+
+    return {
+      availabilityWindowId: args.availabilityWindowId,
+      badgeDefinitionId: existingWindow.badgeDefinitionId,
+      endsAt,
+    };
+  },
+});
+
 export const deleteAvailabilityWindow = mutation({
   args: {
     availabilityWindowId: v.id('badgeAvailabilityWindows'),

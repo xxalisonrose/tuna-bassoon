@@ -114,7 +114,9 @@ Seasonal availability follows these rules:
 - A seasonal badge without windows remains available year-round.
 - Windows for the same badge cannot overlap or reuse the same key.
 - Future windows can be edited or removed.
-- A window is locked after it starts to preserve progress history.
+- Active windows cannot be edited or deleted, but administrators can end them early through an explicit confirmation step.
+- Ending an active window records its new end time, stops new qualifying progress, and preserves existing progress and window history.
+- Past windows remain locked to preserve progress history.
 - A badge with availability history cannot be changed away from Seasonal in a way that would invalidate that history.
 
 The portal labels windows as Upcoming, Active, or Past and uses the administrator’s local time for entry and display.
