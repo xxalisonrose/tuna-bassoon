@@ -57,6 +57,8 @@ export function LocationPopup({
   const uniqueBadgeTags = [...new Set(place.badges)];
 
   useEffect(() => {
+    // A different location starts without the previous check-in result.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCheckInMessage(null);
 
     AccessibilityInfo.announceForAccessibility(

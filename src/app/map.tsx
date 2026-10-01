@@ -139,6 +139,8 @@ export default function MapScreen() {
 
   useEffect(() => {
     if (!locationsAreLoading) {
+      // Query completion intentionally resets the delayed-loading notice.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLocationsTakingLong(false);
       return;
     }

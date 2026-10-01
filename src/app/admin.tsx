@@ -333,9 +333,7 @@ export default function AdminPortalScreen() {
       .filter(Boolean);
 
   const validateForm = () => {
-    const requiredFields: Array<
-      [keyof LocationFormState, string]
-    > = [
+    const requiredFields: [keyof LocationFormState, string][] = [
       ['name', 'Name'],
       ['key', 'Stable key'],
       ['description', 'Description'],

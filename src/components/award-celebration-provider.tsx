@@ -41,10 +41,12 @@ export function AwardCelebrationProvider({
     });
   }, [isAuthenticated, syncMyAwards]);
 
+  /* eslint-disable react-hooks/set-state-in-effect -- A newly displayed award starts with fresh acknowledgement state. */
   useEffect(() => {
     setIsAcknowledging(false);
     setAcknowledgementError(null);
   }, [currentAward?._id]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const dismissCurrentAward = async () => {
     if (currentAward === null || isAcknowledging) {

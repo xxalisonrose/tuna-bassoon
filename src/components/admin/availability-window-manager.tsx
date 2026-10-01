@@ -195,6 +195,8 @@ export function AvailabilityWindowManager({
       visible &&
       (badgeDefinitionId === null || prepareBadgeBeforeCreate)
     ) {
+      // Seasonal selection intentionally opens its controlled child form.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormOpen(true);
     }
   }, [badgeDefinitionId, prepareBadgeBeforeCreate, visible]);
@@ -414,6 +416,8 @@ export function AvailabilityWindowManager({
 
   const awaitingBadgeSave =
     badgeDefinitionId === null || prepareBadgeBeforeCreate;
+  // Availability labels intentionally reflect the render-time clock.
+  // eslint-disable-next-line react-hooks/purity
   const now = Date.now();
   const busy =
     saving || deletingId !== null || endingId !== null;

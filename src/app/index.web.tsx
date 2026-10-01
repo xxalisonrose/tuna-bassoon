@@ -1,6 +1,5 @@
 import { useAuth } from '@clerk/expo';
 import {
-  Show,
   SignInButton,
   SignOutButton,
   SignUpButton,
@@ -9,9 +8,7 @@ import { useQuery } from 'convex/react';
 import { Link } from 'expo-router';
 import {
   ActivityIndicator,
-  Pressable,
   StyleSheet,
-  Text,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 

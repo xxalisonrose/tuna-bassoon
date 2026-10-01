@@ -73,13 +73,13 @@ type AnnualSeriesState =
       key: string;
       name: string;
       enabled: boolean;
-      editions: Array<{
+      editions: {
         badgeDefinitionId: Id<'badgeDefinitions'>;
         name: string;
         key?: string;
         editionYear?: number;
         retired: boolean;
-      }>;
+      }[];
     }
   | null
   | undefined;
@@ -106,10 +106,10 @@ const classificationLabels: Record<Classification, string> = {
   seasonal: 'Seasonal',
 };
 
-const classificationFilters: Array<{
+const classificationFilters: {
   value: ClassificationFilter;
   label: string;
-}> = [
+}[] = [
   { value: 'all', label: 'All' },
   { value: 'general', label: 'General' },
   { value: 'seasonal', label: 'Seasonal' },
@@ -280,6 +280,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
   const savedBadgeIsSeasonal =
     editingBadge?.classification === 'seasonal';
 
+  /* eslint-disable react-hooks/set-state-in-effect -- Annual-series query data intentionally initializes controlled form fields. */
   useEffect(() => {
     if (formMode !== 'edit' || annualSeries == null) {
       return;
@@ -291,6 +292,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
     setAnnualSeriesName(annualSeries.name);
     setAnnualSeriesKey(annualSeries.key);
   }, [annualSeries, formMode, savedBadgeIsSeasonal]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const filteredBadges = useMemo(() => {
     const value = search.trim().toLowerCase();
@@ -921,7 +923,7 @@ function BadgeForm({
   availabilityBadgeId: Id<'badgeDefinitions'> | null;
   form: BadgeFormState;
   formMode: 'create' | 'edit';
-  locations: Array<{ _id: Id<'locations'>; name: string; key?: string }>;
+  locations: { _id: Id<'locations'>; name: string; key?: string }[];
   locationSearch: string;
   pendingArtwork: BadgeArtworkAsset | null;
   removeUploadedArtwork: boolean;
@@ -995,7 +997,7 @@ function BadgeForm({
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
           Choose bundled artwork for this badge. With no custom
-          artwork, Collection uses the badge name's first letter.
+          artwork, Collection uses the badge name’s first letter.
         </ThemedText>
 
         <ThemedView
