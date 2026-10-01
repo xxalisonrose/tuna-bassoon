@@ -8,13 +8,17 @@ import {
 } from 'react-native';
 
 import { useMutation, useQuery } from 'convex/react';
-import * as DocumentPicker from 'expo-document-picker';
 
 import {
   BadgeArtwork,
   badgeArtworkOptions,
   hasBadgeArtwork,
 } from '@/components/badge-artwork';
+import {
+  badgeArtworkUploadsSupported,
+  pickBadgeArtwork,
+} from '@/components/admin/badge-artwork-picker';
+import type { BadgeArtworkAsset } from '@/components/admin/badge-artwork-picker.types';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AvailabilityWindowManager } from '@/components/admin/availability-window-manager';
@@ -165,7 +169,7 @@ function formatDate(value?: number) {
 }
 
 function getArtworkContentType(
-  asset: DocumentPicker.DocumentPickerAsset,
+  asset: BadgeArtworkAsset,
 ) {
   const declaredType = asset.mimeType?.toLowerCase();
 
@@ -259,7 +263,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
   const [annualSeriesKey, setAnnualSeriesKey] = useState('');
   const [annualSaving, setAnnualSaving] = useState(false);
   const [pendingArtwork, setPendingArtwork] =
-    useState<DocumentPicker.DocumentPickerAsset | null>(null);
+    useState<BadgeArtworkAsset | null>(null);
   const [uploadedImageUrl, setUploadedImageUrl] =
     useState<string | undefined>(undefined);
   const [removeUploadedArtwork, setRemoveUploadedArtwork] =
@@ -483,20 +487,22 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
   const chooseUploadedArtwork = async () => {
     if (saving || pickingArtwork) return;
 
+    if (!badgeArtworkUploadsSupported) {
+      setStatusMessage(
+        'Badge artwork uploads are available in the web content portal.',
+      );
+      return;
+    }
+
     setPickingArtwork(true);
     setStatusMessage(null);
 
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        base64: false,
-        copyToCacheDirectory: true,
-        multiple: false,
-        type: [...ALLOWED_ARTWORK_CONTENT_TYPES],
-      });
+      const result = await pickBadgeArtwork();
 
       if (result.canceled) return;
 
-      const asset = result.assets[0];
+      const asset = result.asset;
       const contentType = getArtworkContentType(asset);
 
       if (contentType === undefined) {
@@ -736,23 +742,36 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
 
       {statusMessage ? <ThemedText accessibilityRole="alert" accessibilityLiveRegion="assertive" style={styles.status}>{statusMessage}</ThemedText> : null}
 
-      <ThemedView type="backgroundElement" style={styles.searchCard}>
-        <ThemedText type="smallBold">Search badges</ThemedText>
-        <TextInput
-          accessibilityLabel="Search badges"
-          autoCapitalize="none"
-          autoCorrect={false}
-          onChangeText={setSearch}
-          placeholder="Name, key, tag, rule, or status"
-          placeholderTextColor={theme.textSecondary}
-          style={[styles.input, { backgroundColor: theme.background, borderColor: theme.textSecondary, color: theme.text }]}
-          value={search}
-        />
-      </ThemedView>
+      {!formMode ? (
+        <>
+          <ThemedView type="backgroundElement" style={styles.searchCard}>
+            <ThemedText type="smallBold">Search badges</ThemedText>
+            <TextInput
+              accessibilityLabel="Search badges"
+              autoCapitalize="none"
+              autoCorrect={false}
+              onChangeText={setSearch}
+              placeholder="Name, key, tag, rule, or status"
+              placeholderTextColor={theme.textSecondary}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: theme.background,
+                  borderColor: theme.textSecondary,
+                  color: theme.text,
+                },
+              ]}
+              value={search}
+            />
+          </ThemedView>
 
-      <ThemedText themeColor="textSecondary">
-        {badges === undefined ? 'Loading badge list...' : `Showing ${filteredBadges.length} of ${badges.length} badges.`}
-      </ThemedText>
+          <ThemedText themeColor="textSecondary">
+            {badges === undefined
+              ? 'Loading badge list...'
+              : `Showing ${filteredBadges.length} of ${badges.length} badges.`}
+          </ThemedText>
+        </>
+      ) : null}
 
       {formMode ? (
         <BadgeForm
@@ -904,7 +923,7 @@ function BadgeForm({
   formMode: 'create' | 'edit';
   locations: Array<{ _id: Id<'locations'>; name: string; key?: string }>;
   locationSearch: string;
-  pendingArtwork: DocumentPicker.DocumentPickerAsset | null;
+  pendingArtwork: BadgeArtworkAsset | null;
   removeUploadedArtwork: boolean;
   saving: boolean;
   theme: ReturnType<typeof useTheme>;

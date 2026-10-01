@@ -256,15 +256,24 @@ function getAvailableState(
   retired: boolean,
   windows: Array<{ startsAt: number; endsAt: number }>,
 ) {
-  const activeWindow = windows.some(
+  const activeWindowRecord = windows.find(
     (window) =>
       now >= window.startsAt && now < window.endsAt,
   );
+  const nextWindow = windows
+    .filter((window) => window.startsAt > now)
+    .sort(
+      (firstWindow, secondWindow) =>
+        firstWindow.startsAt - secondWindow.startsAt,
+    )[0];
+  const activeWindow = activeWindowRecord !== undefined;
 
   return {
     available: !retired &&
       (windows.length === 0 || activeWindow),
     activeWindow,
+    activeWindowEndsAt: activeWindowRecord?.endsAt,
+    nextWindowStartsAt: nextWindow?.startsAt,
   };
 }
 
@@ -607,7 +616,12 @@ export const getMyBadgeProgress = query({
           progressByBadge.get(definition._id)?.completedVisits ?? 0;
         const earned = awardByBadge.has(definition._id);
         const retired = definition.retired === true;
-        const { activeWindow, available } = getAvailableState(
+        const {
+          activeWindow,
+          activeWindowEndsAt,
+          available,
+          nextWindowStartsAt,
+        } = getAvailableState(
           now,
           retired,
           windows,
@@ -640,6 +654,8 @@ export const getMyBadgeProgress = query({
           available,
           locked: !available && !retired,
           activeWindow,
+          activeWindowEndsAt,
+          nextWindowStartsAt,
           progress,
           progressPercentage: Math.round(progress * 100),
         };

@@ -3,9 +3,10 @@ import {
   useMutation,
   useQuery,
 } from 'convex/react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Pressable,
   ScrollView,
   StyleSheet,
   View,
@@ -22,6 +23,68 @@ import {
 } from '@/constants/theme';
 import { api } from '../../convex/_generated/api';
 
+type BadgeFilter =
+  | 'all'
+  | 'earned'
+  | 'in_progress'
+  | 'available'
+  | 'unavailable';
+
+type BadgeClassificationFilter =
+  | 'all'
+  | 'general'
+  | 'seasonal'
+  | 'special_place';
+
+type BadgeDisplayStatus =
+  | 'earned'
+  | 'in_progress'
+  | 'available'
+  | 'locked'
+  | 'retired';
+
+const badgeFilterLabels: Record<BadgeFilter, string> = {
+  all: 'All',
+  earned: 'Earned',
+  in_progress: 'In progress',
+  available: 'Available',
+  unavailable: 'Unavailable',
+};
+
+const badgeClassificationFilterLabels: Record<
+  BadgeClassificationFilter,
+  string
+> = {
+  all: 'All types',
+  general: 'General',
+  seasonal: 'Seasonal',
+  special_place: 'Special place',
+};
+
+const badgeStatusLabels: Record<BadgeDisplayStatus, string> = {
+  earned: 'Earned',
+  in_progress: 'In progress',
+  available: 'Available',
+  locked: 'Locked',
+  retired: 'Retired',
+};
+
+const classificationLabels = {
+  general: 'General',
+  special_place: 'Special place',
+  seasonal: 'Seasonal',
+} as const;
+
+function formatAvailabilityTime(value: number) {
+  return new Date(value).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
 export default function CollectionScreen() {
   const {
     isAuthenticated,
@@ -30,6 +93,10 @@ export default function CollectionScreen() {
 
   const syncMyAwards = useMutation(api.badges.syncMyAwards);
   const hasSyncedAwards = useRef(false);
+  const [badgeFilter, setBadgeFilter] =
+    useState<BadgeFilter>('all');
+  const [badgeClassificationFilter, setBadgeClassificationFilter] =
+    useState<BadgeClassificationFilter>('all');
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -125,6 +192,51 @@ export default function CollectionScreen() {
   const earnedBadgeCount = badgeProgress.filter(
     (badge) => badge.earned,
   ).length;
+
+  const getBadgeDisplayStatus = (
+    badge: (typeof badgeProgress)[number],
+  ): BadgeDisplayStatus => {
+    if (badge.earned) return 'earned';
+    if (badge.retired) return 'retired';
+    if (badge.locked) return 'locked';
+    if (badge.inProgress) return 'in_progress';
+    return 'available';
+  };
+
+  const statusPriority: Record<BadgeDisplayStatus, number> = {
+    in_progress: 0,
+    available: 1,
+    earned: 2,
+    locked: 3,
+    retired: 4,
+  };
+
+  const visibleBadges = badgeProgress
+    .filter((badge) => {
+      if (
+        badgeClassificationFilter !== 'all' &&
+        badge.classification !== badgeClassificationFilter
+      ) {
+        return false;
+      }
+
+      const status = getBadgeDisplayStatus(badge);
+
+      if (badgeFilter === 'all') return true;
+      if (badgeFilter === 'unavailable') {
+        return status === 'locked' || status === 'retired';
+      }
+
+      return status === badgeFilter;
+    })
+    .sort((firstBadge, secondBadge) => {
+      const statusDifference =
+        statusPriority[getBadgeDisplayStatus(firstBadge)] -
+        statusPriority[getBadgeDisplayStatus(secondBadge)];
+
+      return statusDifference ||
+        firstBadge.name.localeCompare(secondBadge.name);
+    });
 
   const collectionSummary =
     `Collection summary. ${visits.length} location ` +
@@ -241,21 +353,136 @@ export default function CollectionScreen() {
               </ThemedText>
             </View>
 
-            {badgeProgress.map((badge) => {
+            <View style={styles.badgeFilterGroup}>
+              <ThemedText type="smallBold">Type</ThemedText>
+              <View
+                accessibilityRole="radiogroup"
+                accessibilityLabel="Filter badges by classification"
+                style={styles.badgeFilterRow}>
+                {(
+                  Object.keys(
+                    badgeClassificationFilterLabels,
+                  ) as BadgeClassificationFilter[]
+                ).map((value) => (
+                  <Pressable
+                    key={value}
+                    accessibilityRole="radio"
+                    accessibilityLabel={
+                      badgeClassificationFilterLabels[value]
+                    }
+                    accessibilityState={{
+                      selected: badgeClassificationFilter === value,
+                    }}
+                    onPress={() => setBadgeClassificationFilter(value)}
+                    style={({ pressed }) => [
+                      styles.badgeFilterButton,
+                      badgeClassificationFilter === value &&
+                        styles.badgeFilterButtonSelected,
+                      pressed && styles.pressed,
+                    ]}>
+                    <ThemedText
+                      type="small"
+                      style={
+                        badgeClassificationFilter === value
+                          ? styles.badgeFilterTextSelected
+                          : undefined
+                      }>
+                      {badgeClassificationFilterLabels[value]}
+                    </ThemedText>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.badgeFilterGroup}>
+              <ThemedText type="smallBold">Status</ThemedText>
+              <View
+                accessibilityRole="radiogroup"
+                accessibilityLabel="Filter badges by status"
+                style={styles.badgeFilterRow}>
+                {(Object.keys(badgeFilterLabels) as BadgeFilter[]).map(
+                  (value) => (
+                    <Pressable
+                      key={value}
+                      accessibilityRole="radio"
+                      accessibilityLabel={badgeFilterLabels[value]}
+                      accessibilityState={{
+                        selected: badgeFilter === value,
+                      }}
+                      onPress={() => setBadgeFilter(value)}
+                      style={({ pressed }) => [
+                        styles.badgeFilterButton,
+                        badgeFilter === value &&
+                          styles.badgeFilterButtonSelected,
+                        pressed && styles.pressed,
+                      ]}>
+                      <ThemedText
+                        type="small"
+                        style={
+                          badgeFilter === value
+                            ? styles.badgeFilterTextSelected
+                            : undefined
+                        }>
+                        {badgeFilterLabels[value]}
+                      </ThemedText>
+                    </Pressable>
+                  ),
+                )}
+              </View>
+            </View>
+
+            <ThemedText type="small" themeColor="textSecondary">
+              Showing {visibleBadges.length} of {badgeProgress.length} badges
+            </ThemedText>
+
+            {visibleBadges.length === 0 ? (
+              <ThemedView
+                type="backgroundElement"
+                style={styles.emptyCard}>
+                <ThemedText type="subtitle" style={styles.centeredText}>
+                  No badges in this view
+                </ThemedText>
+                <ThemedText
+                  themeColor="textSecondary"
+                  style={styles.centeredText}>
+                  Choose another type or status filter to see more badges.
+                </ThemedText>
+              </ThemedView>
+            ) : visibleBadges.map((badge) => {
+              const displayStatus = getBadgeDisplayStatus(badge);
               const progressWidth =
                 `${Math.round(badge.progress * 100)}%` as `${number}%`;
+              const classification =
+                classificationLabels[badge.classification];
+              const editionText = badge.editionYear === undefined
+                ? null
+                : `${badge.editionYear} edition`;
+              const metadata = [classification, editionText]
+                .filter(Boolean)
+                .join(' · ');
+              const availabilityMessage = badge.earned
+                ? 'Badge earned.'
+                : badge.retired
+                  ? 'No longer available. Existing progress is preserved.'
+                  : badge.activeWindowEndsAt !== undefined
+                    ? `Available now through ${formatAvailabilityTime(badge.activeWindowEndsAt)}.`
+                    : badge.locked && badge.nextWindowStartsAt !== undefined
+                      ? `Available starting ${formatAvailabilityTime(badge.nextWindowStartsAt)}.`
+                      : badge.locked
+                        ? 'Not currently available.'
+                        : badge.classification === 'seasonal'
+                          ? 'Available year-round.'
+                          : 'Available to earn.';
 
               const badgeAnnouncement =
                 `${badge.name}. ` +
+                `${metadata}. ` +
                 `${badge.tag} badge. ` +
                 `${badge.description} ` +
+                `${badgeStatusLabels[displayStatus]}. ` +
+                `${availabilityMessage} ` +
                 `Progress: ${badge.completedVisits} of ` +
-                `${badge.requiredVisits} locations. ` +
-                `${
-                  badge.earned
-                    ? 'Badge earned.'
-                    : 'Not yet earned.'
-                }`;
+                `${badge.requiredVisits} locations.`;
 
               return (
                 <View
@@ -268,8 +495,10 @@ export default function CollectionScreen() {
                     type="backgroundElement"
                     style={[
                       styles.badgeCard,
-                      badge.earned &&
-                        styles.earnedBadgeCard,
+                      displayStatus === 'earned' && styles.earnedBadgeCard,
+                      displayStatus === 'in_progress' && styles.inProgressBadgeCard,
+                      displayStatus === 'locked' && styles.lockedBadgeCard,
+                      displayStatus === 'retired' && styles.retiredBadgeCard,
                     ]}>
                     <View style={styles.badgeHeader}>
                       <BadgeArtwork
@@ -279,12 +508,15 @@ export default function CollectionScreen() {
                         name={badge.name}
                       />
 
-                      <View
-                        style={
-                          styles.badgeTitleContainer
-                        }>
+                      <View style={styles.badgeTitleContainer}>
                         <ThemedText type="subtitle">
                           {badge.name}
+                        </ThemedText>
+
+                        <ThemedText
+                          type="small"
+                          themeColor="textSecondary">
+                          {metadata}
                         </ThemedText>
 
                         <ThemedText
@@ -294,30 +526,39 @@ export default function CollectionScreen() {
                         </ThemedText>
                       </View>
 
-                      {badge.earned && (
-                        <View style={styles.earnedPill}>
-                          <ThemedText
-                            type="small"
-                            style={styles.earnedPillText}>
-                            Earned
-                          </ThemedText>
-                        </View>
-                      )}
+                      <View
+                        style={[
+                          styles.badgeStatusPill,
+                          displayStatus === 'earned' && styles.badgeStatusEarned,
+                          displayStatus === 'in_progress' && styles.badgeStatusInProgress,
+                          displayStatus === 'available' && styles.badgeStatusAvailable,
+                          displayStatus === 'locked' && styles.badgeStatusLocked,
+                          displayStatus === 'retired' && styles.badgeStatusRetired,
+                        ]}>
+                        <ThemedText
+                          type="small"
+                          style={styles.badgeStatusText}>
+                          {badgeStatusLabels[displayStatus]}
+                        </ThemedText>
+                      </View>
                     </View>
 
                     <ThemedText themeColor="textSecondary">
                       {badge.description}
                     </ThemedText>
 
+                    <ThemedText
+                      type="smallBold"
+                      themeColor="textSecondary">
+                      {availabilityMessage}
+                    </ThemedText>
+
                     <View style={styles.progressTrack}>
                       <View
                         style={[
                           styles.progressFill,
-                          badge.earned &&
-                            styles.progressFillEarned,
-                          {
-                            width: progressWidth,
-                          },
+                          badge.earned && styles.progressFillEarned,
+                          { width: progressWidth },
                         ]}
                       />
                     </View>
@@ -326,7 +567,8 @@ export default function CollectionScreen() {
                       type="small"
                       themeColor="textSecondary">
                       {badge.completedVisits} of{' '}
-                      {badge.requiredVisits} locations
+                      {badge.requiredVisits}{' '}
+                      {badge.requiredVisits === 1 ? 'location' : 'locations'}
                     </ThemedText>
                   </ThemedView>
                 </View>
@@ -542,6 +784,42 @@ const styles = StyleSheet.create({
   earnedBadgeCard: {
     borderColor: '#18864B',
   },
+  inProgressBadgeCard: {
+    borderColor: '#A51C30',
+  },
+  lockedBadgeCard: {
+    borderColor: '#667085',
+  },
+  retiredBadgeCard: {
+    borderColor: '#912018',
+  },
+  badgeFilterGroup: {
+    gap: Spacing.one,
+  },
+  badgeFilterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.one,
+  },
+  badgeFilterButton: {
+    alignItems: 'center',
+    backgroundColor: '#E0E1E6',
+    borderRadius: 999,
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one,
+  },
+  badgeFilterButtonSelected: {
+    backgroundColor: '#A51C30',
+  },
+  badgeFilterTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  pressed: {
+    opacity: 0.8,
+  },
   badgeHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -552,13 +830,28 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: Spacing.one,
   },
-  earnedPill: {
+  badgeStatusPill: {
+    borderRadius: 999,
+    flexShrink: 0,
     paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.one,
-    backgroundColor: '#18864B',
-    borderRadius: 999,
   },
-  earnedPillText: {
+  badgeStatusEarned: {
+    backgroundColor: '#18864B',
+  },
+  badgeStatusInProgress: {
+    backgroundColor: '#A51C30',
+  },
+  badgeStatusAvailable: {
+    backgroundColor: '#175CD3',
+  },
+  badgeStatusLocked: {
+    backgroundColor: '#667085',
+  },
+  badgeStatusRetired: {
+    backgroundColor: '#912018',
+  },
+  badgeStatusText: {
     color: '#FFFFFF',
     fontWeight: '700',
   },
