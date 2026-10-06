@@ -367,7 +367,10 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
       key: badge.key,
       tag: badge.tag,
       description: badge.description,
-      requiredVisits: String(badge.requiredVisits),
+      requiredVisits:
+        ruleType === 'location'
+          ? '1'
+          : String(badge.requiredVisits),
       classification: badge.classification as Classification,
       imageKey: badge.imageKey ?? '',
       ruleType,
@@ -405,6 +408,9 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
     const requiredVisits = Number(form.requiredVisits);
     if (!Number.isInteger(requiredVisits) || requiredVisits < 1 || requiredVisits > 1000) {
       return 'Required visits must be an integer from 1 through 1,000.';
+    }
+    if (form.ruleType === 'location' && requiredVisits !== 1) {
+      return 'Specific location badges must require exactly one visit.';
     }
     if (!slugPattern.test(form.key.trim())) return 'Stable key must use lowercase letters, numbers, and single hyphens only.';
     if (form.imageKey.trim() && !slugPattern.test(form.imageKey.trim())) return 'Image key must use lowercase letters, numbers, and single hyphens only.';
@@ -976,10 +982,15 @@ function BadgeForm({
     form.requiredVisits.trim().length > 0 && !requiredVisitsIsValid
       ? 'Enter a whole number from 1 through 1,000.'
       : null;
+  const locationRuleSelected = form.ruleType === 'location';
   const decrementVisitsDisabled =
-    saving || !requiredVisitsIsValid || parsedRequiredVisits <= 1;
+    saving ||
+    locationRuleSelected ||
+    !requiredVisitsIsValid ||
+    parsedRequiredVisits <= 1;
   const incrementVisitsDisabled =
     saving ||
+    locationRuleSelected ||
     (requiredVisitsIsValid && parsedRequiredVisits >= 1000);
 
   const adjustRequiredVisits = (change: number) => {
@@ -992,6 +1003,14 @@ function BadgeForm({
     );
 
     onChange('requiredVisits', String(nextValue));
+  };
+
+  const changeRuleType = (ruleType: RuleType) => {
+    onChange('ruleType', ruleType);
+
+    if (ruleType === 'location') {
+      onChange('requiredVisits', '1');
+    }
   };
 
   return (
@@ -1270,7 +1289,7 @@ function BadgeForm({
 
           <TextInput
             accessibilityLabel="Required visits"
-            editable={!saving}
+            editable={!saving && !locationRuleSelected}
             keyboardType="number-pad"
             maxLength={4}
             onChangeText={(value) =>
@@ -1307,7 +1326,9 @@ function BadgeForm({
         </ThemedView>
 
         <ThemedText type="small" themeColor="textSecondary">
-          Number of qualifying visits needed to earn this badge.
+          {locationRuleSelected
+            ? 'Specific location badges require one visit because each location can only be collected once.'
+            : 'Number of qualifying visits needed to earn this badge.'}
         </ThemedText>
 
         {requiredVisitsError ? (
@@ -1470,7 +1491,15 @@ function BadgeForm({
 
       <ThemedText type="smallBold">Rule</ThemedText>
       <ThemedView accessibilityRole="radiogroup" accessibilityLabel="Badge rule" style={styles.radioGroup}>
-        {(Object.keys(ruleLabels) as RuleType[]).map((value) => <RadioOption key={value} label={ruleLabels[value]} selected={form.ruleType === value} hint={ruleHelp[value]} onPress={() => onChange('ruleType', value)} />)}
+        {(Object.keys(ruleLabels) as RuleType[]).map((value) => (
+          <RadioOption
+            key={value}
+            hint={ruleHelp[value]}
+            label={ruleLabels[value]}
+            selected={form.ruleType === value}
+            onPress={() => changeRuleType(value)}
+          />
+        ))}
       </ThemedView>
       <ThemedText themeColor="textSecondary">{ruleHelp[form.ruleType]}</ThemedText>
 

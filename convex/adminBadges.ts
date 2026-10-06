@@ -199,6 +199,17 @@ function normalizeBadgeInput(args: {
   };
 }
 
+function ensureRequiredVisitsMatchRule(
+  requiredVisits: number,
+  rule: StoredBadgeRule,
+) {
+  if (rule.type === 'location' && requiredVisits !== 1) {
+    throw new ConvexError(
+      'Specific location badges must require exactly one visit.',
+    );
+  }
+}
+
 async function ensureBadgeKeyIsUnique(
   ctx: MutationCtx,
   key: string,
@@ -296,6 +307,11 @@ export const createBadgeDefinition = mutation({
     const normalized = normalizeBadgeInput(args);
     const rule = await normalizeRule(ctx, args.rule, normalized.tag);
 
+    ensureRequiredVisitsMatchRule(
+      normalized.requiredVisits,
+      rule,
+    );
+
     await ensureBadgeKeyIsUnique(ctx, normalized.key);
     await ensureBadgeTagIsUnique(ctx, normalized.tag);
 
@@ -339,6 +355,11 @@ export const updateBadgeDefinition = mutation({
 
     const normalized = normalizeBadgeInput(args);
     const rule = await normalizeRule(ctx, args.rule, normalized.tag);
+
+    ensureRequiredVisitsMatchRule(
+      normalized.requiredVisits,
+      rule,
+    );
 
     if (normalized.classification !== 'seasonal') {
       const availabilityWindows = await ctx.db
