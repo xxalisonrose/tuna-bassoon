@@ -37,6 +37,8 @@ export default defineSchema({
     tag: v.string(),
     key: v.optional(v.string()),
     description: v.string(),
+    funFact: v.optional(v.string()),
+    source: v.optional(v.string()),
     requiredVisits: v.number(),
     classification: v.optional(
       v.union(

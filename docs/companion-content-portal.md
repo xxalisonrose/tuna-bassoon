@@ -69,6 +69,8 @@ Badge forms support:
 - Stable badge key
 - Tag
 - Description
+- Optional fun fact
+- Optional source citation, publication, or URL
 - Required visit count
 - Classification
 - Bundled or uploaded badge artwork

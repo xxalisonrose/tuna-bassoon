@@ -60,6 +60,8 @@ type BadgeFormState = {
   key: string;
   tag: string;
   description: string;
+  funFact: string;
+  source: string;
   requiredVisits: string;
   classification: Classification;
   imageKey: string;
@@ -93,6 +95,8 @@ const emptyForm: BadgeFormState = {
   key: '',
   tag: '',
   description: '',
+  funFact: '',
+  source: '',
   requiredVisits: '1',
   classification: 'general',
   imageKey: '',
@@ -367,6 +371,8 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
       key: badge.key,
       tag: badge.tag,
       description: badge.description,
+      funFact: badge.funFact ?? '',
+      source: badge.source ?? '',
       requiredVisits:
         ruleType === 'location'
           ? '1'
@@ -405,6 +411,12 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
   const validateForm = () => {
     const required = [form.name, form.key, form.tag, form.description, form.requiredVisits];
     if (required.some((value) => !value.trim())) return 'Please complete all required badge fields.';
+    if (form.funFact.trim().length > 1000) {
+      return 'Fun fact must be 1,000 characters or fewer.';
+    }
+    if (form.source.trim().length > 2000) {
+      return 'Source must be 2,000 characters or fewer.';
+    }
     const requiredVisits = Number(form.requiredVisits);
     if (!Number.isInteger(requiredVisits) || requiredVisits < 1 || requiredVisits > 1000) {
       return 'Required visits must be an integer from 1 through 1,000.';
@@ -605,6 +617,8 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
       key: form.key.trim(),
       tag: form.tag.trim(),
       description: form.description.trim(),
+      funFact: form.funFact.trim() || undefined,
+      source: form.source.trim() || undefined,
       requiredVisits: Number(form.requiredVisits),
       classification: form.classification,
       rule: buildRule(),
@@ -1260,6 +1274,48 @@ function BadgeForm({
           placeholderTextColor={theme.textSecondary}
           style={inputStyle(styles.textArea)}
           value={form.description}
+        />
+      </ThemedView>
+
+      <ThemedView style={styles.fieldGroup}>
+        <ThemedText type="smallBold">
+          Fun fact (optional)
+        </ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          Add an interesting detail that appears with the badge in Collection.
+        </ThemedText>
+        <TextInput
+          accessibilityLabel="Fun fact"
+          maxLength={1000}
+          multiline
+          onChangeText={(value) =>
+            onChange('funFact', value)
+          }
+          placeholder="An interesting detail about this badge"
+          placeholderTextColor={theme.textSecondary}
+          style={inputStyle(styles.textArea)}
+          value={form.funFact}
+        />
+      </ThemedView>
+
+      <ThemedView style={styles.fieldGroup}>
+        <ThemedText type="smallBold">
+          Source (optional)
+        </ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          Enter a citation, publication name, or URL supporting the badge information.
+        </ThemedText>
+        <TextInput
+          accessibilityLabel="Source"
+          maxLength={2000}
+          multiline
+          onChangeText={(value) =>
+            onChange('source', value)
+          }
+          placeholder="Citation, publication, or URL"
+          placeholderTextColor={theme.textSecondary}
+          style={inputStyle(styles.textArea)}
+          value={form.source}
         />
       </ThemedView>
 
