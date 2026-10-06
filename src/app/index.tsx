@@ -7,7 +7,6 @@ import {
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -51,14 +50,7 @@ function AuthControls() {
     setError(null);
 
     try {
-      if (Platform.OS === 'web') {
-        await startHostedAuth({ mode });
-      } else {
-        await startHostedAuth({
-          mode,
-          redirectUrl: 'tunabassoonapp://callback',
-        });
-      }
+      await startHostedAuth({ mode });
     } catch (authError) {
       setError(
         authError instanceof Error
