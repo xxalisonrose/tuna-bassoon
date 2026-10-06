@@ -1,5 +1,5 @@
 import { useAuth } from '@clerk/expo';
-import { useHostedAuth } from '@clerk/expo/hosted-auth';
+import { useStartAuth } from '@/hooks/use-start-auth';
 import {
   useConvexAuth,
   useQuery,
@@ -35,7 +35,7 @@ function AuthControls() {
     isLoading: isConvexLoading,
   } = useConvexAuth();
 
-  const { startHostedAuth } = useHostedAuth();
+  const startAuthFlow = useStartAuth();
 
   const [error, setError] = useState<string | null>(null);
 
@@ -50,7 +50,7 @@ function AuthControls() {
     setError(null);
 
     try {
-      await startHostedAuth({ mode });
+      await startAuthFlow(mode);
     } catch (authError) {
       setError(
         authError instanceof Error
