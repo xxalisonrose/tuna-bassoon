@@ -93,7 +93,7 @@ const emptyForm: BadgeFormState = {
   key: '',
   tag: '',
   description: '',
-  requiredVisits: '',
+  requiredVisits: '1',
   classification: 'general',
   imageKey: '',
   ruleType: 'tag',
@@ -742,7 +742,14 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
         })}
       </ThemedView>
 
-      {statusMessage ? <ThemedText accessibilityRole="alert" accessibilityLiveRegion="assertive" style={styles.status}>{statusMessage}</ThemedText> : null}
+      {!formMode && statusMessage ? (
+        <ThemedText
+          accessibilityLiveRegion="assertive"
+          accessibilityRole="alert"
+          style={styles.status}>
+          {statusMessage}
+        </ThemedText>
+      ) : null}
 
       {!formMode ? (
         <>
@@ -790,6 +797,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
           pendingArtwork={pendingArtwork}
           removeUploadedArtwork={removeUploadedArtwork}
           saving={formBusy}
+          statusMessage={statusMessage}
           theme={theme}
           uploadedImageUrl={uploadedImageUrl}
           onAnnualRepeatChange={changeAnnualRepeatEnabled}
@@ -899,6 +907,7 @@ function BadgeForm({
   pendingArtwork,
   removeUploadedArtwork,
   saving,
+  statusMessage,
   theme,
   uploadedImageUrl,
   onAnnualRepeatChange,
@@ -928,6 +937,7 @@ function BadgeForm({
   pendingArtwork: BadgeArtworkAsset | null;
   removeUploadedArtwork: boolean;
   saving: boolean;
+  statusMessage: string | null;
   theme: ReturnType<typeof useTheme>;
   uploadedImageUrl?: string;
   onAnnualRepeatChange: (enabled: boolean) => void;
@@ -957,6 +967,32 @@ function BadgeForm({
     !hasBadgeArtwork(normalizedImageKey);
   const activeUploadedImageUrl = pendingArtwork?.uri ??
     (removeUploadedArtwork ? undefined : uploadedImageUrl);
+  const parsedRequiredVisits = Number(form.requiredVisits);
+  const requiredVisitsIsValid =
+    Number.isInteger(parsedRequiredVisits) &&
+    parsedRequiredVisits >= 1 &&
+    parsedRequiredVisits <= 1000;
+  const requiredVisitsError =
+    form.requiredVisits.trim().length > 0 && !requiredVisitsIsValid
+      ? 'Enter a whole number from 1 through 1,000.'
+      : null;
+  const decrementVisitsDisabled =
+    saving || !requiredVisitsIsValid || parsedRequiredVisits <= 1;
+  const incrementVisitsDisabled =
+    saving ||
+    (requiredVisitsIsValid && parsedRequiredVisits >= 1000);
+
+  const adjustRequiredVisits = (change: number) => {
+    const currentValue = Number.isInteger(parsedRequiredVisits)
+      ? parsedRequiredVisits
+      : 0;
+    const nextValue = Math.min(
+      1000,
+      Math.max(1, currentValue + change),
+    );
+
+    onChange('requiredVisits', String(nextValue));
+  };
 
   return (
     <ThemedView type="backgroundElement" style={styles.formCard}>
@@ -1212,17 +1248,75 @@ function BadgeForm({
         <ThemedText type="smallBold">
           Required visits
         </ThemedText>
-        <TextInput
-          accessibilityLabel="Required visits"
-          keyboardType="number-pad"
-          onChangeText={(value) =>
-            onChange('requiredVisits', value)
-          }
-          placeholder="Required visits"
-          placeholderTextColor={theme.textSecondary}
-          style={inputStyle()}
-          value={form.requiredVisits}
-        />
+        <ThemedView style={styles.stepperRow}>
+          <Pressable
+            accessibilityHint="Reduces the number of qualifying visits needed to earn this badge."
+            accessibilityLabel="Decrease required visits"
+            accessibilityRole="button"
+            accessibilityState={{
+              disabled: decrementVisitsDisabled,
+            }}
+            disabled={decrementVisitsDisabled}
+            onPress={() => adjustRequiredVisits(-1)}
+            style={[
+              styles.stepperButton,
+              { borderColor: theme.textSecondary },
+              decrementVisitsDisabled && styles.disabled,
+            ]}>
+            <ThemedText style={styles.stepperButtonText}>
+              −
+            </ThemedText>
+          </Pressable>
+
+          <TextInput
+            accessibilityLabel="Required visits"
+            editable={!saving}
+            keyboardType="number-pad"
+            maxLength={4}
+            onChangeText={(value) =>
+              onChange(
+                'requiredVisits',
+                value.replace(/[^0-9]/g, ''),
+              )
+            }
+            placeholder="1"
+            placeholderTextColor={theme.textSecondary}
+            selectTextOnFocus
+            style={inputStyle(styles.stepperInput)}
+            value={form.requiredVisits}
+          />
+
+          <Pressable
+            accessibilityHint="Increases the number of qualifying visits needed to earn this badge."
+            accessibilityLabel="Increase required visits"
+            accessibilityRole="button"
+            accessibilityState={{
+              disabled: incrementVisitsDisabled,
+            }}
+            disabled={incrementVisitsDisabled}
+            onPress={() => adjustRequiredVisits(1)}
+            style={[
+              styles.stepperButton,
+              { borderColor: theme.textSecondary },
+              incrementVisitsDisabled && styles.disabled,
+            ]}>
+            <ThemedText style={styles.stepperButtonText}>
+              +
+            </ThemedText>
+          </Pressable>
+        </ThemedView>
+
+        <ThemedText type="small" themeColor="textSecondary">
+          Number of qualifying visits needed to earn this badge.
+        </ThemedText>
+
+        {requiredVisitsError ? (
+          <ThemedText
+            accessibilityLiveRegion="polite"
+            style={styles.validationError}>
+            {requiredVisitsError}
+          </ThemedText>
+        ) : null}
       </ThemedView>
 
       <ThemedText type="smallBold">Classification</ThemedText>
@@ -1418,6 +1512,15 @@ function BadgeForm({
         </ThemedView>
       ) : null}
 
+      {statusMessage ? (
+        <ThemedText
+          accessibilityLiveRegion="assertive"
+          accessibilityRole="alert"
+          style={styles.validationError}>
+          {statusMessage}
+        </ThemedText>
+      ) : null}
+
       <ThemedView style={styles.actions}>
         {form.classification !== 'seasonal' || availabilityBadgeId !== null ? (
           <Pressable accessibilityRole="button" accessibilityState={{ busy: saving, disabled: saving }} disabled={saving} onPress={onSubmit} style={[styles.primaryButton, saving && styles.disabled]}><ThemedText style={styles.primaryButtonText}>{saving ? 'Saving...' : formMode === 'create' ? 'Create badge' : 'Save changes'}</ThemedText></Pressable>
@@ -1463,6 +1566,10 @@ const styles = StyleSheet.create({
   locationPicker: { gap: Spacing.two },
   annualSection: { gap: Spacing.two },
   fieldGroup: { gap: Spacing.one },
+  stepperRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  stepperButton: { minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderRadius: Spacing.two },
+  stepperButtonText: { fontSize: 24, lineHeight: 28 },
+  stepperInput: { flex: 1, textAlign: 'center' },
   checkboxRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   checkbox: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#777777', borderRadius: 4 },
   checkboxSelected: { borderColor: '#A51C30', backgroundColor: '#A51C30' },
@@ -1471,6 +1578,7 @@ const styles = StyleSheet.create({
   editionCard: { gap: Spacing.one, padding: Spacing.two, borderRadius: Spacing.two },
   confirmation: { gap: Spacing.two, padding: Spacing.three, borderRadius: Spacing.two },
   status: { lineHeight: 22 },
+  validationError: { color: '#A51C30', lineHeight: 22 },
   disabled: { opacity: 0.6 },
   pressed: { opacity: 0.8 },
 });
