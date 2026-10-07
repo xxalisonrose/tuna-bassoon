@@ -103,6 +103,18 @@ function normalizeSlug(value: string, fieldName: string) {
   return normalized;
 }
 
+function normalizeTag(value: string) {
+  const normalized = normalizeBadgeTag(
+    normalizeRequiredString(value, 'tag', MAX_TAG_LENGTH),
+  );
+
+  if (!normalized) {
+    throw new ConvexError('tag is required.');
+  }
+
+  return normalized;
+}
+
 function normalizeOptionalImageKey(value: string | undefined) {
   if (value === undefined || value.trim().length === 0) {
     return undefined;
@@ -187,7 +199,7 @@ function normalizeBadgeInput(args: {
   return {
     name: normalizeRequiredString(args.name, 'name', MAX_NAME_LENGTH),
     key: normalizeSlug(args.key, 'key'),
-    tag: normalizeRequiredString(args.tag, 'tag', MAX_TAG_LENGTH),
+    tag: normalizeTag(args.tag),
     description: normalizeRequiredString(
       args.description,
       'description',
@@ -245,7 +257,7 @@ async function ensureBadgeTagIsUnique(
 
     return (
       definition._id !== badgeDefinitionId &&
-      definition.tag.trim().toLowerCase() === tag.toLowerCase() &&
+      normalizeBadgeTag(definition.tag) === normalizeBadgeTag(tag) &&
       !sameAnnualSeries
     );
   });

@@ -41,6 +41,10 @@ Administrators can search and browse locations, create new locations, and edit a
 
 The forms validate required fields, coordinate ranges, stable-key format, badge tags, optional story and region keys, and the length of optional fun facts and sources. Server validation remains authoritative, including duplicate-key protection and administrator authorization.
 
+Locations and badges share a searchable badge-tag dropdown populated from the location and badge content already loaded in the portal. Administrators can reuse an existing tag or add a new lowercase, hyphenated tag. Locations support multiple selected tags, while each badge selects one tag.
+
+Removing a selected tag requires an explicit confirmation and only changes the location or badge currently being edited. Other locations, badges, progress, and awards are not changed.
+
 Optional fun facts and sources appear in the mobile map's location details when present. Blank fields remain hidden.
 
 Location deletion is intentionally not included. Removing a location could break visits, badge progress, or awards that reference it.

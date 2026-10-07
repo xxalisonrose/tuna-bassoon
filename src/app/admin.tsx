@@ -15,6 +15,10 @@ import {
   TextInput,
 } from 'react-native';
 
+import {
+  BadgeTagPicker,
+  normalizeBadgeTagValue,
+} from '@/components/admin/badge-tag-picker';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BadgeManager } from '@/components/admin/badge-manager';
@@ -24,6 +28,7 @@ import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 
 const GENERATION_TIMEOUT_MS = 120_000;
+const MAX_LOCATION_BADGE_TAGS = 25;
 
 type FormMode = 'create' | 'edit';
 type PortalSection = 'locations' | 'badges';
@@ -86,6 +91,22 @@ function createStableKey(value: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
+}
+
+function parseBadgeTags(value: string) {
+  const seen = new Set<string>();
+
+  return value
+    .split(/[\n,]+/)
+    .map(normalizeBadgeTagValue)
+    .filter((tag) => {
+      if (!tag || seen.has(tag)) {
+        return false;
+      }
+
+      seen.add(tag);
+      return true;
+    });
 }
 
 export default function AdminPortalScreen() {
@@ -188,6 +209,29 @@ export default function AdminPortalScreen() {
     });
   }, [adminLocations, locationStatusFilter, search]);
 
+  const selectedBadgeTags = useMemo(
+    () => parseBadgeTags(form.badgesText),
+    [form.badgesText],
+  );
+
+  const availableBadgeTags = useMemo(() => {
+    const tags = new Set<string>();
+
+    for (const location of adminLocations ?? []) {
+      for (const tag of location.badges ?? []) {
+        const normalizedTag = normalizeBadgeTagValue(tag);
+
+        if (normalizedTag) {
+          tags.add(normalizedTag);
+        }
+      }
+    }
+
+    return [...tags].sort((left, right) =>
+      left.localeCompare(right),
+    );
+  }, [adminLocations]);
+
   const openCreateForm = () => {
     setFormMode('create');
     setEditingId(null);
@@ -224,7 +268,9 @@ export default function AdminPortalScreen() {
       latitude: location.latitude != null ? String(location.latitude) : '',
       longitude: location.longitude != null ? String(location.longitude) : '',
       category: location.category ?? '',
-      badgesText: (location.badges ?? []).join(', '),
+      badgesText: parseBadgeTags(
+        (location.badges ?? []).join(', '),
+      ).join(', '),
       storyKey: location.storyKey ?? '',
       regionKey: location.regionKey ?? '',
     });
@@ -336,12 +382,6 @@ export default function AdminPortalScreen() {
     }
   };
 
-  const parseBadgeTags = (value: string) =>
-    value
-      .split(/[\n,]+/)
-      .map((tag) => tag.trim())
-      .filter(Boolean);
-
   const validateForm = () => {
     const requiredFields: [keyof LocationFormState, string][] = [
       ['name', 'Name'],
@@ -386,6 +426,10 @@ export default function AdminPortalScreen() {
 
     if (form.source.trim().length > 2000) {
       return 'Source must be 2,000 characters or fewer.';
+    }
+
+    if (selectedBadgeTags.length > MAX_LOCATION_BADGE_TAGS) {
+      return `Locations can have no more than ${MAX_LOCATION_BADGE_TAGS} badge tags.`;
     }
 
     return null;
@@ -1119,22 +1163,20 @@ export default function AdminPortalScreen() {
               Badge tags (optional)
             </ThemedText>
 
-            <TextInput
-              accessibilityLabel="Badge tags"
-              autoCapitalize="none"
-              autoCorrect={false}
-              onChangeText={(value) => updateField('badgesText', value)}
-              placeholder="Badge tags, comma or newline separated"
-              placeholderTextColor={theme.textSecondary}
-              style={[
-                styles.formInput,
-                {
-                  backgroundColor: theme.background,
-                  borderColor: theme.textSecondary,
-                  color: theme.text,
-                },
-              ]}
-              value={form.badgesText}
+            <ThemedText type="small" themeColor="textSecondary">
+              Reuse existing tags to keep badge progress consistent, or
+              add a new tag when needed.
+            </ThemedText>
+
+            <BadgeTagPicker
+              availableTags={availableBadgeTags}
+              disabled={saving}
+              maxSelected={MAX_LOCATION_BADGE_TAGS}
+              mode="multiple"
+              onChange={(tags) =>
+                updateField('badgesText', tags.join(', '))
+              }
+              selectedTags={selectedBadgeTags}
             />
 
             <ThemedText type="smallBold">

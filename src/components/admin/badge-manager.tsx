@@ -19,6 +19,10 @@ import {
   pickBadgeArtwork,
 } from '@/components/admin/badge-artwork-picker';
 import type { BadgeArtworkAsset } from '@/components/admin/badge-artwork-picker.types';
+import {
+  BadgeTagPicker,
+  normalizeBadgeTagValue,
+} from '@/components/admin/badge-tag-picker';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AvailabilityWindowManager } from '@/components/admin/availability-window-manager';
@@ -331,6 +335,32 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
     });
   }, [locations, locationSearch]);
 
+  const availableBadgeTags = useMemo(() => {
+    const tags = new Set<string>();
+
+    for (const location of locations ?? []) {
+      for (const tag of location.badges ?? []) {
+        const normalizedTag = normalizeBadgeTagValue(tag);
+
+        if (normalizedTag) {
+          tags.add(normalizedTag);
+        }
+      }
+    }
+
+    for (const badge of badges ?? []) {
+      const normalizedTag = normalizeBadgeTagValue(badge.tag);
+
+      if (normalizedTag) {
+        tags.add(normalizedTag);
+      }
+    }
+
+    return [...tags].sort((left, right) =>
+      left.localeCompare(right),
+    );
+  }, [badges, locations]);
+
   const updateField = <K extends keyof BadgeFormState>(field: K, value: BadgeFormState[K]) => {
     setForm((current) => ({ ...current, [field]: value }));
     setStatusMessage(null);
@@ -365,7 +395,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
     setForm({
       name: badge.name,
       key: badge.key,
-      tag: badge.tag,
+      tag: normalizeBadgeTagValue(badge.tag),
       description: badge.description,
       requiredVisits:
         ruleType === 'location'
@@ -405,6 +435,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
   const validateForm = () => {
     const required = [form.name, form.key, form.tag, form.description, form.requiredVisits];
     if (required.some((value) => !value.trim())) return 'Please complete all required badge fields.';
+    if (!slugPattern.test(form.tag.trim())) return 'Tag must use lowercase letters, numbers, and single hyphens only.';
     const requiredVisits = Number(form.requiredVisits);
     if (!Number.isInteger(requiredVisits) || requiredVisits < 1 || requiredVisits > 1000) {
       return 'Required visits must be an integer from 1 through 1,000.';
@@ -603,7 +634,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
     const payload = {
       name: form.name.trim(),
       key: form.key.trim(),
-      tag: form.tag.trim(),
+      tag: normalizeBadgeTagValue(form.tag),
       description: form.description.trim(),
       requiredVisits: Number(form.requiredVisits),
       classification: form.classification,
@@ -792,6 +823,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
         <BadgeForm
           annualRepeatEnabled={annualRepeatEnabled}
           annualSeries={annualSeries}
+          availableBadgeTags={availableBadgeTags}
           annualSeriesKey={annualSeriesKey}
           annualSeriesName={annualSeriesName}
           savedBadgeIsSeasonal={savedBadgeIsSeasonal}
@@ -902,6 +934,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
 function BadgeForm({
   annualRepeatEnabled,
   annualSeries,
+  availableBadgeTags,
   annualSeriesKey,
   annualSeriesName,
   savedBadgeIsSeasonal,
@@ -932,6 +965,7 @@ function BadgeForm({
 }: {
   annualRepeatEnabled: boolean;
   annualSeries: AnnualSeriesState;
+  availableBadgeTags: string[];
   annualSeriesKey: string;
   annualSeriesName: string;
   savedBadgeIsSeasonal: boolean;
@@ -1019,7 +1053,6 @@ function BadgeForm({
       {[
         ['name', 'Name'],
         ['key', 'Stable key'],
-        ['tag', 'Tag'],
       ].map(([field, label]) => (
         <ThemedView
           key={field as string}
@@ -1045,6 +1078,22 @@ function BadgeForm({
           />
         </ThemedView>
       ))}
+
+      <ThemedView style={styles.fieldGroup}>
+        <ThemedText type="smallBold">Tag</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          Choose from the shared location tags or add a new tag.
+        </ThemedText>
+        <BadgeTagPicker
+          availableTags={availableBadgeTags}
+          disabled={saving}
+          mode="single"
+          onChange={(tags) =>
+            onChange('tag', tags[0] ?? '')
+          }
+          selectedTags={form.tag ? [form.tag] : []}
+        />
+      </ThemedView>
 
       <ThemedView style={styles.fieldGroup}>
         <ThemedText type="smallBold">
