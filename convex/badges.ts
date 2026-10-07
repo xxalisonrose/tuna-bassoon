@@ -2,6 +2,9 @@ import { ConvexError, v } from 'convex/values';
 
 import { internalMutation, mutation, query } from './_generated/server';
 import type { Id } from './_generated/dataModel';
+import {
+  getActiveBadgeCongratulations,
+} from './lib/badge_congratulations';
 import { normalizeBadgeTag } from './lib/badge_rules';
 
 const BADGE_DEFINITIONS = [
@@ -140,31 +143,6 @@ function getEarnedLevel(
   }
 
   return completedVisits >= requiredVisits ? 1 : 0;
-}
-
-function getLevelCelebration(
-  definition: {
-    description: string;
-    levelCelebrations?: {
-      maximumLevel: number;
-      title: string;
-      message: string;
-    }[];
-  },
-  level: number,
-) {
-  if (level > 50) {
-    return {
-      title: `Level ${level} and counting!`,
-      message: definition.description,
-    };
-  }
-
-  const maximumLevel = Math.ceil(level / 5) * 5;
-  return definition.levelCelebrations?.find(
-    (celebration) =>
-      celebration.maximumLevel === maximumLevel,
-  );
 }
 
 function getDefinitionRule(definition: {
@@ -815,12 +793,24 @@ export const getUnannouncedAwards = query({
       return [];
     }
 
-    const awards = await ctx.db
-      .query('badgeAwards')
-      .withIndex('by_user', (queryBuilder) =>
-        queryBuilder.eq('clerkUserId', identity.subject),
-      )
-      .collect();
+    const [awards, congratulationsSettings] = await Promise.all([
+      ctx.db
+        .query('badgeAwards')
+        .withIndex('by_user', (queryBuilder) =>
+          queryBuilder.eq('clerkUserId', identity.subject),
+        )
+        .collect(),
+      ctx.db
+        .query('badgeCongratulations')
+        .withIndex('by_key', (queryBuilder) =>
+          queryBuilder.eq('key', 'shared'),
+        )
+        .unique(),
+    ]);
+    const congratulationsMessages =
+      getActiveBadgeCongratulations(
+        congratulationsSettings?.messages,
+      );
     const unannouncedAwards = awards
       .filter((award) => award.announcedAt === undefined)
       .sort(
@@ -839,19 +829,13 @@ export const getUnannouncedAwards = query({
         const levelsEnabled = definition === null
           ? level > 1
           : definitionUsesLevels(definition) || level > 1;
-        const levelCelebration =
-          levelsEnabled && definition !== null
-            ? getLevelCelebration(definition, level)
-            : undefined;
-
         return {
           _id: award._id,
           name: definition?.name ?? 'Badge earned',
           description: definition?.description ?? '',
           level,
           levelsEnabled,
-          levelCelebrationTitle: levelCelebration?.title,
-          levelCelebrationMessage: levelCelebration?.message,
+          congratulationsMessages,
           imageKey: definition?.imageKey,
           imageUrl: definition?.imageStorageId === undefined
             ? undefined

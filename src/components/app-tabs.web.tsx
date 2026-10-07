@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { PortalContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '../../convex/_generated/api';
 
@@ -20,6 +20,7 @@ function NavLink({
   isActive?: boolean;
 }) {
   const [isFocused, setIsFocused] = useState(false);
+  const theme = useTheme();
 
   return (
     <Link
@@ -33,9 +34,15 @@ function NavLink({
         onBlur={() => setIsFocused(false)}
         style={({ pressed }) => [
           styles.navLink,
-          isActive && styles.navLinkActive,
+          isActive && { backgroundColor: theme.accentSoft },
           pressed && styles.navLinkPressed,
-          isFocused && styles.navLinkFocused,
+          isFocused && [
+            styles.navLinkFocused,
+            {
+              borderColor: theme.accent,
+              shadowColor: theme.accent,
+            },
+          ],
         ]}>
         <ThemedText
           type="smallBold"
@@ -58,8 +65,10 @@ export default function AppTabsWeb() {
   const theme = useTheme();
 
   return (
-    <ThemedView style={styles.shell}>
-      <ThemedView type="backgroundElement" style={styles.header}>
+    <ThemedView style={[styles.shell, { backgroundColor: theme.background }]}>
+      <ThemedView
+        type="backgroundElement"
+        style={[styles.header, { borderBottomColor: theme.border }]}>
         <View style={styles.navRow}>
           <ThemedText
             type="smallBold"
@@ -89,18 +98,16 @@ export default function AppTabsWeb() {
 const styles = StyleSheet.create({
   shell: {
     flex: 1,
-    backgroundColor: '#000000',
   },
   header: {
     width: '100%',
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
     borderBottomWidth: 1,
-    borderBottomColor: '#D0D5DD',
   },
   navRow: {
     width: '100%',
-    maxWidth: MaxContentWidth,
+    maxWidth: PortalContentWidth,
     alignSelf: 'center',
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -122,15 +129,10 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
     backgroundColor: 'transparent',
   },
-  navLinkActive: {
-    backgroundColor: '#E0E1E6',
-  },
   navLinkPressed: {
     opacity: 0.72,
   },
   navLinkFocused: {
-    borderColor: '#A51C30',
-    shadowColor: '#A51C30',
     shadowOpacity: 0.35,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 0 },

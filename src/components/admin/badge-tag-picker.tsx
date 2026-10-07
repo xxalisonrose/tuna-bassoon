@@ -8,7 +8,7 @@ import {
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Palette, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type BadgeTagPickerProps = {
@@ -246,7 +246,7 @@ export function BadgeTagPicker({
           type="backgroundElement"
           style={[
             styles.dropdown,
-            { borderColor: theme.textSecondary },
+            { borderColor: theme.border },
           ]}>
           <TextInput
             accessibilityLabel="Search or add a badge tag"
@@ -264,7 +264,7 @@ export function BadgeTagPicker({
               styles.input,
               {
                 backgroundColor: theme.background,
-                borderColor: theme.textSecondary,
+                borderColor: theme.borderStrong,
                 color: theme.text,
               },
             ]}
@@ -292,12 +292,18 @@ export function BadgeTagPicker({
                     onPress={() => selectTag(tag)}
                     style={({ pressed }) => [
                       styles.tagButton,
-                      { borderColor: theme.textSecondary },
+                      { borderColor: theme.borderStrong },
                       selected && styles.tagButtonSelected,
                       (disabled || selected) && styles.disabled,
                       pressed && styles.pressed,
                     ]}>
-                    <ThemedText type="smallBold">
+                    <ThemedText
+                      type="smallBold"
+                      style={
+                        selected
+                          ? styles.tagButtonTextSelected
+                          : undefined
+                      }>
                       {tag}
                       {selected ? ' · Selected' : ''}
                     </ThemedText>
@@ -375,10 +381,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.one,
     borderRadius: 999,
-    backgroundColor: '#E0E1E6',
+    backgroundColor: Palette.teaGreen,
   },
   selectedTagText: {
-    color: '#111111',
+    color: Palette.ink,
   },
   confirmation: {
     gap: Spacing.two,
@@ -418,8 +424,11 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
   },
   tagButtonSelected: {
-    borderColor: '#A51C30',
-    backgroundColor: '#E0E1E6',
+    borderColor: Palette.lightBronze,
+    backgroundColor: Palette.teaGreen,
+  },
+  tagButtonTextSelected: {
+    color: Palette.ink,
   },
   primaryButton: {
     minHeight: 48,
@@ -428,10 +437,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.two,
     borderRadius: Spacing.two,
-    backgroundColor: '#A51C30',
+    backgroundColor: Palette.lightBronze,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
+    color: Palette.ink,
     textAlign: 'center',
   },
   secondaryButton: {
@@ -441,10 +450,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.two,
     borderRadius: Spacing.two,
-    backgroundColor: '#E0E1E6',
+    backgroundColor: Palette.teaGreen,
   },
   secondaryButtonText: {
-    color: '#111111',
+    color: Palette.ink,
     textAlign: 'center',
   },
   destructiveButton: {
@@ -454,10 +463,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.two,
     borderRadius: Spacing.two,
-    backgroundColor: '#A51C30',
+    backgroundColor: Palette.danger,
   },
   destructiveButtonText: {
-    color: '#FFFFFF',
+    color: Palette.onDanger,
     textAlign: 'center',
   },
   statusText: {

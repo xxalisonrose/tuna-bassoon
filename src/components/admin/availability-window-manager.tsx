@@ -10,7 +10,7 @@ import { useMutation, useQuery } from 'convex/react';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Palette, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
@@ -425,7 +425,7 @@ export function AvailabilityWindowManager({
     styles.input,
     {
       backgroundColor: theme.background,
-      borderColor: theme.textSecondary,
+      borderColor: theme.borderStrong,
       color: theme.text,
     },
   ];
@@ -434,7 +434,7 @@ export function AvailabilityWindowManager({
     <ThemedView
       accessibilityLabel="Seasonal availability windows"
       type="backgroundElement"
-      style={styles.container}>
+      style={[styles.container, { borderColor: theme.border }]}>
       <ThemedView style={styles.header}>
         <ThemedView style={styles.headingCopy}>
           <ThemedText type="smallBold">
@@ -698,7 +698,7 @@ export function AvailabilityWindowManager({
                           styles.dangerButton,
                           busy && styles.disabled,
                         ]}>
-                        <ThemedText style={styles.primaryButtonText}>
+                        <ThemedText style={styles.dangerButtonText}>
                           {endingId === window._id
                             ? 'Ending...'
                             : 'Confirm ending'}
@@ -739,7 +739,7 @@ export function AvailabilityWindowManager({
                           styles.dangerButton,
                           busy && styles.disabled,
                         ]}>
-                        <ThemedText style={styles.primaryButtonText}>
+                        <ThemedText style={styles.dangerButtonText}>
                           {deletingId === window._id
                             ? 'Removing...'
                             : 'Confirm removal'}
@@ -771,6 +771,7 @@ const styles = StyleSheet.create({
   container: {
     gap: Spacing.three,
     padding: Spacing.three,
+    borderWidth: 1,
     borderRadius: Spacing.two,
   },
   header: {
@@ -802,7 +803,7 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
     padding: Spacing.three,
     borderWidth: 1,
-    borderColor: '#D0D5DD',
+    borderColor: Palette.border,
     borderRadius: Spacing.two,
   },
   windowHeading: {
@@ -824,7 +825,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     borderRadius: Spacing.two,
-    backgroundColor: '#A51C30',
+    backgroundColor: Palette.lightBronze,
   },
   dangerButton: {
     minHeight: 48,
@@ -833,10 +834,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     borderRadius: Spacing.two,
-    backgroundColor: '#B42318',
+    backgroundColor: Palette.danger,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
+    color: Palette.ink,
+    textAlign: 'center',
+  },
+  dangerButtonText: {
+    color: Palette.onDanger,
     textAlign: 'center',
   },
   secondaryButton: {
@@ -846,10 +851,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     borderRadius: Spacing.two,
-    backgroundColor: '#E0E1E6',
+    backgroundColor: Palette.teaGreen,
   },
   secondaryButtonText: {
-    color: '#111111',
+    color: Palette.ink,
     textAlign: 'center',
   },
   confirmation: {

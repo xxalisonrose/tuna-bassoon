@@ -7,20 +7,57 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
+export const Palette = {
+  teaGreen: '#CCD5AE',
+  beige: '#E9EDC9',
+  cornsilk: '#FEFAE0',
+  paper: '#FFFDF2',
+  papayaWhip: '#FAEDCD',
+  lightBronze: '#D4A373',
+  bronzeDeep: '#855B38',
+  ink: '#2E2D25',
+  mutedInk: '#625F50',
+  border: '#C8BF9A',
+  borderStrong: '#8A8068',
+  darkBackground: '#1D231B',
+  darkSurface: '#293126',
+  darkSelected: '#394334',
+  danger: '#A43C32',
+  onDanger: '#FFFFFF',
+} as const;
+
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    text: Palette.ink,
+    background: Palette.cornsilk,
+    backgroundElement: Palette.paper,
+    backgroundSelected: Palette.beige,
+    textSecondary: Palette.mutedInk,
+    border: Palette.border,
+    borderStrong: Palette.borderStrong,
+    accent: Palette.lightBronze,
+    accentSoft: Palette.teaGreen,
+    surfaceWarm: Palette.papayaWhip,
+    onAccent: Palette.ink,
+    link: Palette.bronzeDeep,
+    danger: Palette.danger,
+    onDanger: Palette.onDanger,
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    text: Palette.cornsilk,
+    background: Palette.darkBackground,
+    backgroundElement: Palette.darkSurface,
+    backgroundSelected: Palette.darkSelected,
+    textSecondary: Palette.teaGreen,
+    border: '#5A654F',
+    borderStrong: Palette.teaGreen,
+    accent: Palette.lightBronze,
+    accentSoft: '#55634A',
+    surfaceWarm: '#443A2D',
+    onAccent: Palette.ink,
+    link: Palette.lightBronze,
+    danger: '#C95A50',
+    onDanger: Palette.onDanger,
   },
 } as const;
 
@@ -63,3 +100,4 @@ export const Spacing = {
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
+export const PortalContentWidth = 1040;

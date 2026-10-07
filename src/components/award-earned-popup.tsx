@@ -23,8 +23,7 @@ export type AwardEarnedPopupAward = {
   description: string;
   level: number;
   levelsEnabled: boolean;
-  levelCelebrationTitle?: string;
-  levelCelebrationMessage?: string;
+  congratulationsMessages: string[];
   imageKey?: string;
   imageUrl?: string;
 };
@@ -35,6 +34,23 @@ type AwardEarnedPopupProps = {
   error: string | null;
   onDismiss: () => void;
 };
+
+function selectCongratulationsMessage(
+  messages: string[],
+  awardId: string,
+) {
+  if (messages.length === 0) {
+    return 'Great job!';
+  }
+
+  let hash = 0;
+
+  for (const character of awardId) {
+    hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  }
+
+  return messages[hash % messages.length];
+}
 
 export function AwardEarnedPopup({
   award,
@@ -47,18 +63,16 @@ export function AwardEarnedPopup({
   const heading = award.levelsEnabled
     ? 'Badge level earned'
     : 'Badge earned';
-  const celebrationTitle = award.levelsEnabled
-    ? award.levelCelebrationTitle
-    : undefined;
-  const celebrationMessage = award.levelsEnabled
-    ? award.levelCelebrationMessage ?? award.description
-    : award.description;
+  const congratulationsMessage = selectCongratulationsMessage(
+    award.congratulationsMessages,
+    award._id,
+  );
   const summaryLabel = [
     heading + '.',
     award.name + '.',
     award.levelsEnabled ? `Level ${award.level}.` : '',
-    celebrationTitle,
-    celebrationMessage,
+    congratulationsMessage,
+    award.description,
   ]
     .filter(Boolean)
     .join(' ');
@@ -129,22 +143,20 @@ export function AwardEarnedPopup({
                   Level {award.level}
                 </ThemedText>
               ) : null}
-              {celebrationTitle ? (
-                <ThemedText
-                  style={[
-                    styles.celebrationTitle,
-                    { color: theme.text },
-                  ]}>
-                  {celebrationTitle}
-                </ThemedText>
-              ) : null}
-              {celebrationMessage ? (
+              <ThemedText
+                style={[
+                  styles.celebrationTitle,
+                  { color: theme.text },
+                ]}>
+                {congratulationsMessage}
+              </ThemedText>
+              {award.description ? (
                 <ThemedText
                   style={[
                     styles.description,
                     { color: theme.textSecondary },
                   ]}>
-                  {celebrationMessage}
+                  {award.description}
                 </ThemedText>
               ) : null}
             </View>

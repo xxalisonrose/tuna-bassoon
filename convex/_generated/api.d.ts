@@ -10,6 +10,7 @@
 
 import type * as adminBadgeArtwork from "../adminBadgeArtwork.js";
 import type * as adminBadgeAvailability from "../adminBadgeAvailability.js";
+import type * as adminBadgeCongratulations from "../adminBadgeCongratulations.js";
 import type * as adminBadges from "../adminBadges.js";
 import type * as adminLocations from "../adminLocations.js";
 import type * as annualBadgeEditions from "../annualBadgeEditions.js";
@@ -17,6 +18,7 @@ import type * as badgeMigration from "../badgeMigration.js";
 import type * as badges from "../badges.js";
 import type * as crons from "../crons.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_badge_congratulations from "../lib/badge_congratulations.js";
 import type * as lib_badge_rules from "../lib/badge_rules.js";
 import type * as locationAgent from "../locationAgent.js";
 import type * as locations from "../locations.js";
@@ -33,6 +35,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   adminBadgeArtwork: typeof adminBadgeArtwork;
   adminBadgeAvailability: typeof adminBadgeAvailability;
+  adminBadgeCongratulations: typeof adminBadgeCongratulations;
   adminBadges: typeof adminBadges;
   adminLocations: typeof adminLocations;
   annualBadgeEditions: typeof annualBadgeEditions;
@@ -40,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   badges: typeof badges;
   crons: typeof crons;
   "lib/auth": typeof lib_auth;
+  "lib/badge_congratulations": typeof lib_badge_congratulations;
   "lib/badge_rules": typeof lib_badge_rules;
   locationAgent: typeof locationAgent;
   locations: typeof locations;

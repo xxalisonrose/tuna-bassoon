@@ -85,6 +85,7 @@ export default defineSchema({
     annualSeriesId: v.optional(v.id('badgeAnnualSeries')),
     editionYear: v.optional(v.number()),
     levelsEnabled: v.optional(v.boolean()),
+    // Legacy per-badge entries remain valid while the shared bank replaces them.
     levelCelebrations: v.optional(
       v.array(
         v.object({
@@ -154,4 +155,16 @@ export default defineSchema({
         'badgeDefinitionId',
         'level',
       ]),
+
+    badgeCongratulations: defineTable({
+      key: v.literal('shared'),
+      messages: v.array(
+        v.object({
+          message: v.string(),
+          retired: v.boolean(),
+        }),
+      ),
+      updatedAt: v.number(),
+      updatedByClerkUserId: v.string(),
+    }).index('by_key', ['key']),
 });

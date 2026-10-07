@@ -109,7 +109,9 @@ General and Special place badges can optionally use repeatable levels. When enab
 
 Levels have no configured maximum. Progress uses distinct qualifying locations, and each earned level is stored as a separate permanent award. Existing one-time awards are treated as Level 1 when leveling is enabled, so prior history is preserved. Disabling leveling stops additional levels without deleting levels that were already earned.
 
-Each repeatable badge can optionally define its own level-earned celebration title and message for Levels 1–5, 6–10, and each following five-level band through Levels 46–50. The portal includes a curiosity-themed template that fills all ten bands and remains fully editable before saving. An empty band falls back to the badge description. Levels above 50 use the badge description with a dynamic level title, so celebrations continue even though badges have no maximum level.
+The Badges section includes one shared bank of congratulations messages. Its contents stay tucked behind the Manage Badge Congratulations button so the main badge list remains compact. An administrator can add messages, edit them, and delete messages with confirmation. The portal starts with ten general congratulations messages, and at least one message must remain in the bank.
+
+Whenever a badge is first earned or a repeatable badge reaches another level, its in-app celebration popup randomly chooses one message from the shared bank. The selected message is only used for that popup and is not stored with the award after dismissal. Adding or deleting messages therefore changes future popup choices without rewriting existing awards. Badge levels remain unlimited and do not need level-specific message ranges.
 
 Specific-location badges remain one-time awards because each location can only be collected once. Seasonal badges also remain one-time awards and cannot enable levels.
 

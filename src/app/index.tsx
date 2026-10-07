@@ -20,6 +20,7 @@ import { ThemedView } from '@/components/themed-view';
 import {
   BottomTabInset,
   MaxContentWidth,
+  Palette,
   Spacing,
 } from '@/constants/theme';
 import { api } from '../../convex/_generated/api';
@@ -316,7 +317,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#A51C30',
+    backgroundColor: Palette.lightBronze,
     borderRadius: Spacing.two,
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.three,
@@ -328,7 +329,7 @@ const styles = StyleSheet.create({
     opacity: 0.75,
   },
   authButtonText: {
-    color: '#FFFFFF',
+    color: Palette.ink,
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',

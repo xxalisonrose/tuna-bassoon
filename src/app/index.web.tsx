@@ -17,6 +17,7 @@ import { ThemedView } from '@/components/themed-view';
 import {
   BottomTabInset,
   MaxContentWidth,
+  Palette,
   Spacing,
 } from '@/constants/theme';
 import { api } from '../../convex/_generated/api';
@@ -202,8 +203,8 @@ const styles = StyleSheet.create({
     minHeight: 48,
     paddingHorizontal: 20,
     paddingVertical: 12,
-    color: '#FFFFFF',
-    backgroundColor: '#A51C30',
+    color: Palette.ink,
+    backgroundColor: Palette.lightBronze,
     border: 'none',
     borderRadius: 8,
     fontSize: 16,
@@ -217,9 +218,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 8,
-    backgroundColor: '#A51C30',
+    backgroundColor: Palette.lightBronze,
   },
   linkText: {
-    color: '#FFFFFF',
+    color: Palette.ink,
   },
 });
