@@ -479,8 +479,6 @@ export default function CollectionScreen() {
                 `${metadata}. ` +
                 `${badge.tag} badge. ` +
                 `${badge.description} ` +
-                `${badge.funFact ? `Fun fact: ${badge.funFact}. ` : ''}` +
-                `${badge.source ? `Source: ${badge.source}. ` : ''}` +
                 `${badgeStatusLabels[displayStatus]}. ` +
                 `${availabilityMessage} ` +
                 `Progress: ${badge.completedVisits} of ` +
@@ -548,30 +546,6 @@ export default function CollectionScreen() {
                     <ThemedText themeColor="textSecondary">
                       {badge.description}
                     </ThemedText>
-
-                    {badge.funFact ? (
-                      <View>
-                        <ThemedText type="smallBold">
-                          Fun fact
-                        </ThemedText>
-                        <ThemedText themeColor="textSecondary">
-                          {badge.funFact}
-                        </ThemedText>
-                      </View>
-                    ) : null}
-
-                    {badge.source ? (
-                      <View>
-                        <ThemedText type="smallBold">
-                          Source
-                        </ThemedText>
-                        <ThemedText
-                          type="small"
-                          themeColor="textSecondary">
-                          {badge.source}
-                        </ThemedText>
-                      </View>
-                    ) : null}
 
                     <ThemedText
                       type="smallBold"

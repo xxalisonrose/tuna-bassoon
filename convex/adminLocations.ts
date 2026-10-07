@@ -5,6 +5,8 @@ import { requireAdmin } from './lib/auth';
 
 const MAX_STRING_LENGTH = 120;
 const MAX_DESCRIPTION_LENGTH = 5000;
+const MAX_LOCATION_FUN_FACT_LENGTH = 1000;
+const MAX_LOCATION_SOURCE_LENGTH = 2000;
 const MAX_BADGE_TAGS = 25;
 const MAX_BADGE_TAG_LENGTH = 80;
 
@@ -17,6 +19,26 @@ function normalizeRequiredString(
 
   if (trimmed.length === 0) {
     throw new ConvexError(`${fieldName} is required.`);
+  }
+
+  if (trimmed.length > maxLength) {
+    throw new ConvexError(
+      `${fieldName} must be ${maxLength} characters or fewer.`,
+    );
+  }
+
+  return trimmed;
+}
+
+function normalizeOptionalText(
+  value: string | undefined,
+  fieldName: string,
+  maxLength: number,
+): string | undefined {
+  const trimmed = value?.trim();
+
+  if (!trimmed) {
+    return undefined;
   }
 
   if (trimmed.length > maxLength) {
@@ -121,6 +143,8 @@ function normalizeLocationInput(args: {
   name: string;
   key: string;
   description: string;
+  funFact?: string;
+  source?: string;
   latitude: number;
   longitude: number;
   category: string;
@@ -140,6 +164,16 @@ function normalizeLocationInput(args: {
     'category',
     MAX_STRING_LENGTH,
   );
+  const funFact = normalizeOptionalText(
+    args.funFact,
+    'Fun fact',
+    MAX_LOCATION_FUN_FACT_LENGTH,
+  );
+  const source = normalizeOptionalText(
+    args.source,
+    'Source',
+    MAX_LOCATION_SOURCE_LENGTH,
+  );
 
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(key)) {
     throw new ConvexError(
@@ -157,6 +191,8 @@ function normalizeLocationInput(args: {
     name,
     key,
     description,
+    funFact,
+    source,
     latitude,
     longitude,
     category,
@@ -190,6 +226,8 @@ export const createLocation = mutation({
     name: v.string(),
     key: v.string(),
     description: v.string(),
+    funFact: v.optional(v.string()),
+    source: v.optional(v.string()),
     latitude: v.number(),
     longitude: v.number(),
     category: v.string(),
@@ -218,6 +256,8 @@ export const createLocation = mutation({
       name: normalized.name,
       key: normalized.key,
       description: normalized.description,
+      funFact: normalized.funFact,
+      source: normalized.source,
       latitude: normalized.latitude,
       longitude: normalized.longitude,
       category: normalized.category,
@@ -237,6 +277,8 @@ export const updateLocation = mutation({
     name: v.string(),
     key: v.string(),
     description: v.string(),
+    funFact: v.optional(v.string()),
+    source: v.optional(v.string()),
     latitude: v.number(),
     longitude: v.number(),
     category: v.string(),
@@ -275,6 +317,8 @@ export const updateLocation = mutation({
       name: normalized.name,
       key: normalized.key,
       description: normalized.description,
+      funFact: normalized.funFact,
+      source: normalized.source,
       latitude: normalized.latitude,
       longitude: normalized.longitude,
       category: normalized.category,

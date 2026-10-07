@@ -4,6 +4,8 @@ export type Place = {
   id: Id<'locations'>;
   title: string;
   description: string;
+  funFact?: string;
+  source?: string;
   coordinates: [number, number];
   category?: string;
   badges: string[];

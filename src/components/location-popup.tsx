@@ -229,6 +229,36 @@ export function LocationPopup({
           {place.description}
         </Text>
 
+        {place.funFact ? (
+          <View
+            accessibilityLabel={`Fun fact: ${place.funFact}`}
+            style={styles.editorialSection}>
+            <Text
+              accessibilityRole="header"
+              style={styles.editorialHeading}>
+              Fun fact
+            </Text>
+            <Text style={styles.editorialText}>
+              {place.funFact}
+            </Text>
+          </View>
+        ) : null}
+
+        {place.source ? (
+          <View
+            accessibilityLabel={`Source: ${place.source}`}
+            style={styles.editorialSection}>
+            <Text
+              accessibilityRole="header"
+              style={styles.editorialHeading}>
+              Source
+            </Text>
+            <Text style={styles.sourceText}>
+              {place.source}
+            </Text>
+          </View>
+        ) : null}
+
         {uniqueBadgeTags.length > 0 && (
           <View style={styles.badgeSection}>
             <Text
@@ -374,6 +404,28 @@ const styles = StyleSheet.create({
     color: '#444444',
     fontSize: 16,
     lineHeight: 24,
+  },
+  editorialSection: {
+    alignSelf: 'stretch',
+    gap: 4,
+    padding: 12,
+    backgroundColor: '#F5F7FA',
+    borderRadius: 12,
+  },
+  editorialHeading: {
+    color: '#222222',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  editorialText: {
+    color: '#444444',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  sourceText: {
+    color: '#174E80',
+    fontSize: 14,
+    lineHeight: 20,
   },
   badgeSection: {
     alignSelf: 'stretch',

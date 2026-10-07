@@ -234,8 +234,6 @@ async function ensureNextEdition(
       key: nextKey,
       tag: currentEdition.tag,
       description: currentEdition.description,
-      funFact: currentEdition.funFact,
-      source: currentEdition.source,
       requiredVisits: currentEdition.requiredVisits,
       classification: 'seasonal',
       rule: currentEdition.rule,

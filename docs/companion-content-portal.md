@@ -30,6 +30,8 @@ Administrators can search and browse locations, create new locations, and edit a
 - Location name
 - Stable location key
 - Description
+- Optional fun fact
+- Optional source citation, publication, or URL
 - Category
 - Latitude
 - Longitude
@@ -37,7 +39,9 @@ Administrators can search and browse locations, create new locations, and edit a
 - Optional story key
 - Optional region key
 
-The forms validate required fields, coordinate ranges, stable-key format, badge tags, and optional story and region keys. Server validation remains authoritative, including duplicate-key protection and administrator authorization.
+The forms validate required fields, coordinate ranges, stable-key format, badge tags, optional story and region keys, and the length of optional fun facts and sources. Server validation remains authoritative, including duplicate-key protection and administrator authorization.
+
+Optional fun facts and sources appear in the mobile map's location details when present. Blank fields remain hidden.
 
 Location deletion is intentionally not included. Removing a location could break visits, badge progress, or awards that reference it.
 
@@ -69,8 +73,6 @@ Badge forms support:
 - Stable badge key
 - Tag
 - Description
-- Optional fun fact
-- Optional source citation, publication, or URL
 - Required visit count
 - Classification
 - Bundled or uploaded badge artwork

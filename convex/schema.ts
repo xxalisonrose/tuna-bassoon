@@ -10,6 +10,8 @@ export default defineSchema({
     longitude: v.optional(v.number()),
 
     description: v.string(),
+    funFact: v.optional(v.string()),
+    source: v.optional(v.string()),
 
     badges: v.array(v.string()),
 

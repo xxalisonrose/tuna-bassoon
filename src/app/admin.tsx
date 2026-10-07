@@ -33,6 +33,8 @@ type LocationFormState = {
   name: string;
   key: string;
   description: string;
+  funFact: string;
+  source: string;
   latitude: string;
   longitude: string;
   category: string;
@@ -45,6 +47,8 @@ const emptyForm: LocationFormState = {
   name: '',
   key: '',
   description: '',
+  funFact: '',
+  source: '',
   latitude: '',
   longitude: '',
   category: '',
@@ -172,6 +176,8 @@ export default function AdminPortalScreen() {
         location.name,
         location.key,
         location.category,
+        location.funFact,
+        location.source,
         ...(location.badges ?? []),
       ]
         .filter(Boolean)
@@ -196,6 +202,8 @@ export default function AdminPortalScreen() {
     name: string;
     key?: string;
     description: string;
+    funFact?: string;
+    source?: string;
     latitude?: number;
     longitude?: number;
     category?: string;
@@ -211,6 +219,8 @@ export default function AdminPortalScreen() {
         location.key?.trim() ||
         createStableKey(location.name),
       description: location.description,
+      funFact: location.funFact ?? '',
+      source: location.source ?? '',
       latitude: location.latitude != null ? String(location.latitude) : '',
       longitude: location.longitude != null ? String(location.longitude) : '',
       category: location.category ?? '',
@@ -370,6 +380,14 @@ export default function AdminPortalScreen() {
       return 'Stable key must use lowercase letters, numbers, and single hyphens only.';
     }
 
+    if (form.funFact.trim().length > 1000) {
+      return 'Fun fact must be 1,000 characters or fewer.';
+    }
+
+    if (form.source.trim().length > 2000) {
+      return 'Source must be 2,000 characters or fewer.';
+    }
+
     return null;
   };
 
@@ -399,6 +417,8 @@ export default function AdminPortalScreen() {
           name: form.name.trim(),
           key: trimmedKey,
           description: form.description.trim(),
+          funFact: form.funFact.trim() || undefined,
+          source: form.source.trim() || undefined,
           latitude: Number(form.latitude),
           longitude: Number(form.longitude),
           category: form.category.trim(),
@@ -414,6 +434,8 @@ export default function AdminPortalScreen() {
           name: form.name.trim(),
           key: trimmedKey,
           description: form.description.trim(),
+          funFact: form.funFact.trim() || undefined,
+          source: form.source.trim() || undefined,
           latitude: Number(form.latitude),
           longitude: Number(form.longitude),
           category: form.category.trim(),
@@ -969,6 +991,62 @@ export default function AdminPortalScreen() {
                 )}
               </ThemedView>
             )}
+
+            <ThemedText type="smallBold">
+              Fun fact (optional)
+            </ThemedText>
+
+            <ThemedText type="small" themeColor="textSecondary">
+              Add an interesting detail that appears in the location
+              details.
+            </ThemedText>
+
+            <TextInput
+              accessibilityLabel="Fun fact"
+              autoCapitalize="sentences"
+              maxLength={1000}
+              multiline
+              onChangeText={(value) => updateField('funFact', value)}
+              placeholder="An interesting detail about this location"
+              placeholderTextColor={theme.textSecondary}
+              style={[
+                styles.formTextArea,
+                {
+                  backgroundColor: theme.background,
+                  borderColor: theme.textSecondary,
+                  color: theme.text,
+                },
+              ]}
+              value={form.funFact}
+            />
+
+            <ThemedText type="smallBold">
+              Source (optional)
+            </ThemedText>
+
+            <ThemedText type="small" themeColor="textSecondary">
+              Enter a citation, publication name, or URL supporting the
+              location information.
+            </ThemedText>
+
+            <TextInput
+              accessibilityLabel="Source"
+              autoCapitalize="sentences"
+              maxLength={2000}
+              multiline
+              onChangeText={(value) => updateField('source', value)}
+              placeholder="Citation, publication, or URL"
+              placeholderTextColor={theme.textSecondary}
+              style={[
+                styles.formTextArea,
+                {
+                  backgroundColor: theme.background,
+                  borderColor: theme.textSecondary,
+                  color: theme.text,
+                },
+              ]}
+              value={form.source}
+            />
 
             <ThemedText type="smallBold">
               Latitude

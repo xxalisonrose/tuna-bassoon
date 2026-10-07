@@ -175,33 +175,11 @@ async function normalizeRule(
   }
 }
 
-function normalizeOptionalBadgeText(
-  value: string | undefined,
-  label: string,
-  maxLength: number,
-) {
-  const normalized = value?.trim();
-
-  if (!normalized) {
-    return undefined;
-  }
-
-  if (normalized.length > maxLength) {
-    throw new ConvexError(
-      `${label} must be ${maxLength} characters or fewer.`,
-    );
-  }
-
-  return normalized;
-}
-
 function normalizeBadgeInput(args: {
   name: string;
   key: string;
   tag: string;
   description: string;
-  funFact?: string;
-  source?: string;
   requiredVisits: number;
   classification: BadgeClassification;
   imageKey?: string;
@@ -214,16 +192,6 @@ function normalizeBadgeInput(args: {
       args.description,
       'description',
       MAX_DESCRIPTION_LENGTH,
-    ),
-    funFact: normalizeOptionalBadgeText(
-      args.funFact,
-      'Fun fact',
-      1000,
-    ),
-    source: normalizeOptionalBadgeText(
-      args.source,
-      'Source',
-      2000,
     ),
     requiredVisits: normalizeRequiredVisits(args.requiredVisits),
     classification: normalizeClassification(args.classification),
@@ -327,8 +295,6 @@ export const createBadgeDefinition = mutation({
     key: v.string(),
     tag: v.string(),
     description: v.string(),
-    funFact: v.optional(v.string()),
-    source: v.optional(v.string()),
     requiredVisits: v.number(),
     classification: classificationValidator,
     rule: badgeRuleValidator,
@@ -354,8 +320,6 @@ export const createBadgeDefinition = mutation({
       key: normalized.key,
       tag: normalized.tag,
       description: normalized.description,
-      funFact: normalized.funFact,
-      source: normalized.source,
       requiredVisits: normalized.requiredVisits,
       classification: normalized.classification,
       rule,
@@ -372,8 +336,6 @@ export const updateBadgeDefinition = mutation({
     key: v.string(),
     tag: v.string(),
     description: v.string(),
-    funFact: v.optional(v.string()),
-    source: v.optional(v.string()),
     requiredVisits: v.number(),
     classification: classificationValidator,
     rule: badgeRuleValidator,
@@ -457,8 +419,6 @@ export const updateBadgeDefinition = mutation({
       key: normalized.key,
       tag: normalized.tag,
       description: normalized.description,
-      funFact: normalized.funFact,
-      source: normalized.source,
       requiredVisits: normalized.requiredVisits,
       classification: normalized.classification,
       rule,
