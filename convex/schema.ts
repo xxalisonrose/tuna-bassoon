@@ -85,6 +85,15 @@ export default defineSchema({
     annualSeriesId: v.optional(v.id('badgeAnnualSeries')),
     editionYear: v.optional(v.number()),
     levelsEnabled: v.optional(v.boolean()),
+    levelCelebrations: v.optional(
+      v.array(
+        v.object({
+          maximumLevel: v.number(),
+          title: v.string(),
+          message: v.string(),
+        }),
+      ),
+    ),
     })
       .index('by_tag', ['tag'])
       .index('by_key', ['key'])

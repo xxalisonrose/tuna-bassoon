@@ -59,6 +59,12 @@ type RuleInput =
   | { type: 'same_story' }
   | { type: 'same_region' };
 
+type LevelCelebrationForm = {
+  maximumLevel: number;
+  title: string;
+  message: string;
+};
+
 type BadgeFormState = {
   name: string;
   key: string;
@@ -67,6 +73,7 @@ type BadgeFormState = {
   requiredVisits: string;
   classification: Classification;
   levelsEnabled: boolean;
+  levelCelebrations: LevelCelebrationForm[];
   imageKey: string;
   ruleType: RuleType;
   ruleValue: string;
@@ -93,6 +100,85 @@ type BadgeManagerProps = {
   visible: boolean;
 };
 
+const levelCelebrationRanges = Array.from(
+  { length: 10 },
+  (_, index) => ({
+    minimumLevel: index * 5 + 1,
+    maximumLevel: (index + 1) * 5,
+  }),
+);
+
+const curiosityLevelCelebrations: LevelCelebrationForm[] = [
+  {
+    maximumLevel: 5,
+    title: 'Curiosity led somewhere!',
+    message:
+      'You’ve discovered someone who helped expand what we know or change what we can do. Pretty cool, right? Keep exploring.',
+  },
+  {
+    maximumLevel: 10,
+    title: 'You’re getting curious!',
+    message:
+      'You’ve found another inventor or scientist with a story worth knowing. Who knows what you’ll stumble across next?',
+  },
+  {
+    maximumLevel: 15,
+    title: 'Look what curiosity found!',
+    message:
+      'You’ve discovered another person who asked questions, tried something new, and helped change the world along the way.',
+  },
+  {
+    maximumLevel: 20,
+    title: 'Keep asking questions!',
+    message:
+      'You’ve found another curious mind who helped us understand something a little better or do something we couldn’t do before.',
+  },
+  {
+    maximumLevel: 25,
+    title: 'You’re on a roll!',
+    message:
+      'You’ve discovered another inventor or scientist whose ideas left their mark. There’s a lot more out there to learn.',
+  },
+  {
+    maximumLevel: 30,
+    title: 'Curiosity pays off!',
+    message:
+      'You’ve uncovered another story about someone who wondered “what if?” and helped turn that question into something real.',
+  },
+  {
+    maximumLevel: 35,
+    title: 'That’s a lot of curiosity!',
+    message:
+      'You’ve discovered another person who pushed past what was already known. Keep looking—you might find your next favorite story.',
+  },
+  {
+    maximumLevel: 40,
+    title: 'Still curious? Good.',
+    message:
+      'You’ve found another inventor or scientist who changed the way we understand or experience the world. There’s always another story waiting.',
+  },
+  {
+    maximumLevel: 45,
+    title: 'You’ve come a long way!',
+    message:
+      'You’ve discovered some pretty curious people along the way. And somehow, there are still plenty more to find.',
+  },
+  {
+    maximumLevel: 50,
+    title: '50 discoveries and counting!',
+    message:
+      'You’ve uncovered the stories of people who asked questions, followed their curiosity, and changed what we know. Keep wondering what’s next.',
+  },
+];
+
+function createEmptyLevelCelebrations() {
+  return levelCelebrationRanges.map(({ maximumLevel }) => ({
+    maximumLevel,
+    title: '',
+    message: '',
+  }));
+}
+
 const emptyForm: BadgeFormState = {
   name: '',
   key: '',
@@ -101,6 +187,7 @@ const emptyForm: BadgeFormState = {
   requiredVisits: '1',
   classification: 'general',
   levelsEnabled: false,
+  levelCelebrations: createEmptyLevelCelebrations(),
   imageKey: '',
   ruleType: 'tag',
   ruleValue: '',
@@ -408,6 +495,20 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
       levelsEnabled:
         badge.classification !== 'seasonal' &&
         badge.levelsEnabled === true,
+      levelCelebrations: levelCelebrationRanges.map(
+        ({ maximumLevel }) => {
+          const savedCelebration = badge.levelCelebrations?.find(
+            (celebration) =>
+              celebration.maximumLevel === maximumLevel,
+          );
+
+          return {
+            maximumLevel,
+            title: savedCelebration?.title ?? '',
+            message: savedCelebration?.message ?? '',
+          };
+        },
+      ),
       imageKey: badge.imageKey ?? '',
       ruleType,
       ruleValue,
@@ -454,6 +555,17 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
     }
     if (form.classification === 'seasonal' && form.levelsEnabled) {
       return 'Seasonal badge editions cannot use repeatable levels.';
+    }
+    for (const celebration of form.levelCelebrations) {
+      const title = celebration.title.trim();
+      const message = celebration.message.trim();
+
+      if ((title.length === 0) !== (message.length === 0)) {
+        return (
+          `Complete both celebration fields for Levels ` +
+          `${celebration.maximumLevel - 4}–${celebration.maximumLevel}.`
+        );
+      }
     }
     if (!slugPattern.test(form.key.trim())) return 'Stable key must use lowercase letters, numbers, and single hyphens only.';
     if (form.imageKey.trim() && !slugPattern.test(form.imageKey.trim())) return 'Image key must use lowercase letters, numbers, and single hyphens only.';
@@ -654,6 +766,17 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
         form.classification !== 'seasonal' &&
         form.ruleType !== 'location' &&
         form.levelsEnabled,
+      levelCelebrations: form.levelCelebrations
+        .filter(
+          (celebration) =>
+            celebration.title.trim().length > 0 &&
+            celebration.message.trim().length > 0,
+        )
+        .map((celebration) => ({
+          maximumLevel: celebration.maximumLevel,
+          title: celebration.title.trim(),
+          message: celebration.message.trim(),
+        })),
       rule: buildRule(),
       imageKey: form.imageKey.trim() || undefined,
     };
@@ -924,6 +1047,12 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
                       ? 'Repeatable levels enabled'
                       : 'One-time badge'}
                 </ThemedText>
+                {badge.levelsEnabled ? (
+                  <ThemedText type="small">
+                    Custom celebration bands:{' '}
+                    {badge.levelCelebrations?.length ?? 0} of 10
+                  </ThemedText>
+                ) : null}
                 <ThemedText type="small">Rule: {formatRule(badge.rule)}</ThemedText>
                 {badge.imageKey ? <ThemedText type="small">Image key: {badge.imageKey}</ThemedText> : null}
                 <ThemedText type="smallBold" themeColor="textSecondary">{badge.retired ? `Retired${retiredDate ? ` on ${retiredDate}` : ''}` : 'Active'}</ThemedText>
@@ -1061,6 +1190,30 @@ function BadgeForm({
     );
 
     onChange('requiredVisits', String(nextValue));
+  };
+
+  const updateLevelCelebration = (
+    maximumLevel: number,
+    field: 'title' | 'message',
+    value: string,
+  ) => {
+    onChange(
+      'levelCelebrations',
+      form.levelCelebrations.map((celebration) =>
+        celebration.maximumLevel === maximumLevel
+          ? { ...celebration, [field]: value }
+          : celebration,
+      ),
+    );
+  };
+
+  const useCuriosityTemplate = () => {
+    onChange(
+      'levelCelebrations',
+      curiosityLevelCelebrations.map((celebration) => ({
+        ...celebration,
+      })),
+    );
   };
 
   const changeRuleType = (ruleType: RuleType) => {
@@ -1451,32 +1604,144 @@ function BadgeForm({
             location can only be collected once.
           </ThemedText>
         ) : (
-          <Pressable
-            accessibilityRole="checkbox"
-            accessibilityLabel="Allow repeatable badge levels"
-            accessibilityState={{
-              checked: form.levelsEnabled,
-              disabled: saving,
-            }}
-            disabled={saving}
-            onPress={() =>
-              onChange('levelsEnabled', !form.levelsEnabled)
-            }
-            style={({ pressed }) => [
-              styles.checkboxRow,
-              pressed && styles.pressed,
-            ]}>
-            <ThemedView
-              style={[
-                styles.checkbox,
-                form.levelsEnabled && styles.checkboxSelected,
+          <>
+            <Pressable
+              accessibilityRole="checkbox"
+              accessibilityLabel="Allow repeatable badge levels"
+              accessibilityState={{
+                checked: form.levelsEnabled,
+                disabled: saving,
+              }}
+              disabled={saving}
+              onPress={() =>
+                onChange('levelsEnabled', !form.levelsEnabled)
+              }
+              style={({ pressed }) => [
+                styles.checkboxRow,
+                pressed && styles.pressed,
               ]}>
-              <ThemedText style={styles.checkboxMark}>
-                {form.levelsEnabled ? '✓' : ''}
-              </ThemedText>
-            </ThemedView>
-            <ThemedText>Allow repeatable levels</ThemedText>
-          </Pressable>
+              <ThemedView
+                style={[
+                  styles.checkbox,
+                  form.levelsEnabled && styles.checkboxSelected,
+                ]}>
+                <ThemedText style={styles.checkboxMark}>
+                  {form.levelsEnabled ? '✓' : ''}
+                </ThemedText>
+              </ThemedView>
+              <ThemedText>Allow repeatable levels</ThemedText>
+            </Pressable>
+
+            {form.levelsEnabled ? (
+              <ThemedView style={styles.levelCelebrationList}>
+                <ThemedText type="smallBold">
+                  Level-up celebration messages (optional)
+                </ThemedText>
+                <ThemedText
+                  type="small"
+                  themeColor="textSecondary">
+                  Each title and message applies to five levels. Leave
+                  a pair empty to use the badge description for that
+                  range. Levels above 50 automatically use a dynamic
+                  title and the badge description.
+                </ThemedText>
+
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityHint="Fills all ten ranges and replaces any level celebration text currently in this form."
+                  disabled={saving}
+                  onPress={useCuriosityTemplate}
+                  style={({ pressed }) => [
+                    styles.secondaryButton,
+                    saving && styles.disabled,
+                    pressed && styles.pressed,
+                  ]}>
+                  <ThemedText style={styles.secondaryButtonText}>
+                    Use curiosity message template
+                  </ThemedText>
+                </Pressable>
+                <ThemedText
+                  type="small"
+                  themeColor="textSecondary">
+                  The template fills all ten ranges with Ali’s
+                  curiosity copy and replaces any celebration text
+                  currently entered in this form.
+                </ThemedText>
+
+                {levelCelebrationRanges.map((range) => {
+                  const celebration =
+                    form.levelCelebrations.find(
+                      (candidate) =>
+                        candidate.maximumLevel ===
+                        range.maximumLevel,
+                    );
+
+                  if (celebration === undefined) {
+                    return null;
+                  }
+
+                  const rangeLabel =
+                    `Levels ${range.minimumLevel}–` +
+                    `${range.maximumLevel}`;
+
+                  return (
+                    <ThemedView
+                      key={range.maximumLevel}
+                      type="backgroundElement"
+                      style={styles.levelCelebrationCard}>
+                      <ThemedText type="smallBold">
+                        {rangeLabel}
+                      </ThemedText>
+
+                      <ThemedText type="smallBold">
+                        Celebration title
+                      </ThemedText>
+                      <TextInput
+                        accessibilityLabel={
+                          `${rangeLabel} celebration title`
+                        }
+                        editable={!saving}
+                        onChangeText={(value) =>
+                          updateLevelCelebration(
+                            range.maximumLevel,
+                            'title',
+                            value,
+                          )
+                        }
+                        placeholder="Example: Curiosity led somewhere!"
+                        placeholderTextColor={theme.textSecondary}
+                        style={inputStyle()}
+                        value={celebration.title}
+                      />
+
+                      <ThemedText type="smallBold">
+                        Celebration message
+                      </ThemedText>
+                      <TextInput
+                        accessibilityLabel={
+                          `${rangeLabel} celebration message`
+                        }
+                        editable={!saving}
+                        multiline
+                        numberOfLines={4}
+                        onChangeText={(value) =>
+                          updateLevelCelebration(
+                            range.maximumLevel,
+                            'message',
+                            value,
+                          )
+                        }
+                        placeholder="Message shown when this level range is earned"
+                        placeholderTextColor={theme.textSecondary}
+                        style={inputStyle(styles.textArea)}
+                        value={celebration.message}
+                      />
+                    </ThemedView>
+                  );
+                })}
+              </ThemedView>
+            ) : null}
+          </>
         )}
       </ThemedView>
     ) : null}
@@ -1728,6 +1993,8 @@ const styles = StyleSheet.create({
   artworkPreviewCopy: { flex: 1, gap: Spacing.one },
   locationPicker: { gap: Spacing.two },
   annualSection: { gap: Spacing.two },
+  levelCelebrationList: { gap: Spacing.two },
+  levelCelebrationCard: { gap: Spacing.one, padding: Spacing.two, borderRadius: Spacing.two },
   fieldGroup: { gap: Spacing.one },
   stepperRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   stepperButton: { minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderRadius: Spacing.two },

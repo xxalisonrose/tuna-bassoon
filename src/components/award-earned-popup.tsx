@@ -23,6 +23,8 @@ export type AwardEarnedPopupAward = {
   description: string;
   level: number;
   levelsEnabled: boolean;
+  levelCelebrationTitle?: string;
+  levelCelebrationMessage?: string;
   imageKey?: string;
   imageUrl?: string;
 };
@@ -45,11 +47,18 @@ export function AwardEarnedPopup({
   const heading = award.levelsEnabled
     ? 'Badge level earned'
     : 'Badge earned';
+  const celebrationTitle = award.levelsEnabled
+    ? award.levelCelebrationTitle
+    : undefined;
+  const celebrationMessage = award.levelsEnabled
+    ? award.levelCelebrationMessage ?? award.description
+    : award.description;
   const summaryLabel = [
     heading + '.',
     award.name + '.',
     award.levelsEnabled ? `Level ${award.level}.` : '',
-    award.description,
+    celebrationTitle,
+    celebrationMessage,
   ]
     .filter(Boolean)
     .join(' ');
@@ -120,13 +129,22 @@ export function AwardEarnedPopup({
                   Level {award.level}
                 </ThemedText>
               ) : null}
-              {award.description ? (
+              {celebrationTitle ? (
+                <ThemedText
+                  style={[
+                    styles.celebrationTitle,
+                    { color: theme.text },
+                  ]}>
+                  {celebrationTitle}
+                </ThemedText>
+              ) : null}
+              {celebrationMessage ? (
                 <ThemedText
                   style={[
                     styles.description,
                     { color: theme.textSecondary },
                   ]}>
-                  {award.description}
+                  {celebrationMessage}
                 </ThemedText>
               ) : null}
             </View>
@@ -213,6 +231,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 30,
     marginTop: Spacing.one,
+    textAlign: 'center',
+  },
+  celebrationTitle: {
+    fontSize: 19,
+    fontWeight: '700',
+    lineHeight: 26,
+    marginTop: Spacing.two,
     textAlign: 'center',
   },
   description: {

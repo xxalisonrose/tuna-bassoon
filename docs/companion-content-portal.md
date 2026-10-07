@@ -109,6 +109,8 @@ General and Special place badges can optionally use repeatable levels. When enab
 
 Levels have no configured maximum. Progress uses distinct qualifying locations, and each earned level is stored as a separate permanent award. Existing one-time awards are treated as Level 1 when leveling is enabled, so prior history is preserved. Disabling leveling stops additional levels without deleting levels that were already earned.
 
+Each repeatable badge can optionally define its own level-earned celebration title and message for Levels 1–5, 6–10, and each following five-level band through Levels 46–50. The portal includes a curiosity-themed template that fills all ten bands and remains fully editable before saving. An empty band falls back to the badge description. Levels above 50 use the badge description with a dynamic level title, so celebrations continue even though badges have no maximum level.
+
 Specific-location badges remain one-time awards because each location can only be collected once. Seasonal badges also remain one-time awards and cannot enable levels.
 
 ### Badge artwork

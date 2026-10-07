@@ -10,6 +10,8 @@ const MAX_NAME_LENGTH = 120;
 const MAX_KEY_LENGTH = 120;
 const MAX_TAG_LENGTH = 120;
 const MAX_DESCRIPTION_LENGTH = 5000;
+const MAX_LEVEL_CELEBRATION_TITLE_LENGTH = 160;
+const MAX_LEVEL_CELEBRATION_MESSAGE_LENGTH = 1000;
 
 const badgeRuleValidator = v.union(
   v.object({
@@ -44,6 +46,12 @@ const classificationValidator = v.union(
   v.literal('seasonal'),
 );
 
+const levelCelebrationValidator = v.object({
+  maximumLevel: v.number(),
+  title: v.string(),
+  message: v.string(),
+});
+
 type BadgeRuleInput =
   | { type: 'tag' }
   | { type: 'location'; locationKey: string }
@@ -66,6 +74,12 @@ type BadgeClassification =
   | 'general'
   | 'special_place'
   | 'seasonal';
+
+type LevelCelebrationInput = {
+  maximumLevel: number;
+  title: string;
+  message: string;
+};
 
 function normalizeRequiredString(
   value: string,
@@ -137,6 +151,57 @@ function normalizeRequiredVisits(value: number) {
   return value;
 }
 
+function normalizeLevelCelebrations(
+  values: LevelCelebrationInput[],
+) {
+  if (values.length > 10) {
+    throw new ConvexError(
+      'A badge can have no more than ten level celebration bands.',
+    );
+  }
+
+  const maximumLevels = new Set<number>();
+
+  const normalized = values.map((value) => {
+    if (
+      !Number.isInteger(value.maximumLevel) ||
+      value.maximumLevel < 5 ||
+      value.maximumLevel > 50 ||
+      value.maximumLevel % 5 !== 0
+    ) {
+      throw new ConvexError(
+        'Level celebration bands must end at a multiple of five from 5 through 50.',
+      );
+    }
+
+    if (maximumLevels.has(value.maximumLevel)) {
+      throw new ConvexError(
+        `Only one celebration can be saved for Levels ${value.maximumLevel - 4}–${value.maximumLevel}.`,
+      );
+    }
+
+    maximumLevels.add(value.maximumLevel);
+
+    return {
+      maximumLevel: value.maximumLevel,
+      title: normalizeRequiredString(
+        value.title,
+        'Level celebration title',
+        MAX_LEVEL_CELEBRATION_TITLE_LENGTH,
+      ),
+      message: normalizeRequiredString(
+        value.message,
+        'Level celebration message',
+        MAX_LEVEL_CELEBRATION_MESSAGE_LENGTH,
+      ),
+    };
+  });
+
+  return normalized.sort(
+    (first, second) => first.maximumLevel - second.maximumLevel,
+  );
+}
+
 async function normalizeRule(
   ctx: MutationCtx,
   rule: BadgeRuleInput,
@@ -195,6 +260,7 @@ function normalizeBadgeInput(args: {
   requiredVisits: number;
   classification: BadgeClassification;
   levelsEnabled: boolean;
+  levelCelebrations: LevelCelebrationInput[];
   imageKey?: string;
 }) {
   return {
@@ -210,6 +276,10 @@ function normalizeBadgeInput(args: {
     classification: normalizeClassification(args.classification),
     levelsEnabled:
       args.classification !== 'seasonal' && args.levelsEnabled,
+    levelCelebrations:
+      args.classification === 'seasonal'
+        ? []
+        : normalizeLevelCelebrations(args.levelCelebrations),
     imageKey: normalizeOptionalImageKey(args.imageKey),
   };
 }
@@ -327,6 +397,7 @@ export const createBadgeDefinition = mutation({
     requiredVisits: v.number(),
     classification: classificationValidator,
     levelsEnabled: v.boolean(),
+    levelCelebrations: v.array(levelCelebrationValidator),
     rule: badgeRuleValidator,
     imageKey: v.optional(v.string()),
   },
@@ -354,6 +425,7 @@ export const createBadgeDefinition = mutation({
       requiredVisits: normalized.requiredVisits,
       classification: normalized.classification,
       levelsEnabled: normalized.levelsEnabled,
+      levelCelebrations: normalized.levelCelebrations,
       rule,
       retired: false,
       imageKey: normalized.imageKey,
@@ -371,6 +443,7 @@ export const updateBadgeDefinition = mutation({
     requiredVisits: v.number(),
     classification: classificationValidator,
     levelsEnabled: v.boolean(),
+    levelCelebrations: v.array(levelCelebrationValidator),
     rule: badgeRuleValidator,
     imageKey: v.optional(v.string()),
   },
@@ -456,6 +529,7 @@ export const updateBadgeDefinition = mutation({
       requiredVisits: normalized.requiredVisits,
       classification: normalized.classification,
       levelsEnabled: normalized.levelsEnabled,
+      levelCelebrations: normalized.levelCelebrations,
       rule,
       imageKey: normalized.imageKey,
     });

@@ -142,6 +142,31 @@ function getEarnedLevel(
   return completedVisits >= requiredVisits ? 1 : 0;
 }
 
+function getLevelCelebration(
+  definition: {
+    description: string;
+    levelCelebrations?: {
+      maximumLevel: number;
+      title: string;
+      message: string;
+    }[];
+  },
+  level: number,
+) {
+  if (level > 50) {
+    return {
+      title: `Level ${level} and counting!`,
+      message: definition.description,
+    };
+  }
+
+  const maximumLevel = Math.ceil(level / 5) * 5;
+  return definition.levelCelebrations?.find(
+    (celebration) =>
+      celebration.maximumLevel === maximumLevel,
+  );
+}
+
 function getDefinitionRule(definition: {
   rule?: BadgeRule;
   tag: string;
@@ -810,17 +835,23 @@ export const getUnannouncedAwards = query({
         const definition = await ctx.db.get(
           award.badgeDefinitionId,
         );
+        const level = award.level ?? 1;
+        const levelsEnabled = definition === null
+          ? level > 1
+          : definitionUsesLevels(definition) || level > 1;
+        const levelCelebration =
+          levelsEnabled && definition !== null
+            ? getLevelCelebration(definition, level)
+            : undefined;
 
         return {
           _id: award._id,
           name: definition?.name ?? 'Badge earned',
           description: definition?.description ?? '',
-          level: award.level ?? 1,
-          levelsEnabled:
-            definition === null
-              ? (award.level ?? 1) > 1
-              : definitionUsesLevels(definition) ||
-                (award.level ?? 1) > 1,
+          level,
+          levelsEnabled,
+          levelCelebrationTitle: levelCelebration?.title,
+          levelCelebrationMessage: levelCelebration?.message,
           imageKey: definition?.imageKey,
           imageUrl: definition?.imageStorageId === undefined
             ? undefined
