@@ -19,7 +19,10 @@ import {
   pickBadgeArtwork,
 } from '@/components/admin/badge-artwork-picker';
 import type { BadgeArtworkAsset } from '@/components/admin/badge-artwork-picker.types';
-import { BadgeCongratulationsManager } from '@/components/admin/badge-congratulations-manager';
+import {
+  BadgeCongratulationsManager,
+  defaultBadgeCongratulations,
+} from '@/components/admin/badge-congratulations-manager';
 import {
   BadgeTagPicker,
   normalizeBadgeTagValue,
@@ -72,6 +75,7 @@ type BadgeFormState = {
   requiredVisits: string;
   classification: Classification;
   levelsEnabled: boolean;
+  congratulationsMessages: string[];
   imageKey: string;
   ruleType: RuleType;
   ruleValue: string;
@@ -106,6 +110,7 @@ const emptyForm: BadgeFormState = {
   requiredVisits: '1',
   classification: 'general',
   levelsEnabled: false,
+  congratulationsMessages: [...defaultBadgeCongratulations],
   imageKey: '',
   ruleType: 'tag',
   ruleValue: '',
@@ -418,6 +423,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
       levelsEnabled:
         badge.classification !== 'seasonal' &&
         badge.levelsEnabled === true,
+      congratulationsMessages: [...badge.congratulationsMessages],
       imageKey: badge.imageKey ?? '',
       ruleType,
       ruleValue,
@@ -464,6 +470,27 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
     }
     if (form.classification === 'seasonal' && form.levelsEnabled) {
       return 'Seasonal badge editions cannot use repeatable levels.';
+    }
+    if (form.congratulationsMessages.length === 0) {
+      return 'Add at least one badge congratulations message.';
+    }
+    if (form.congratulationsMessages.length > 100) {
+      return 'A badge can contain no more than 100 congratulations messages.';
+    }
+    const normalizedCongratulations = form.congratulationsMessages.map(
+      (message) => message.trim(),
+    );
+    if (normalizedCongratulations.some((message) => !message)) {
+      return 'Badge congratulations messages cannot be blank.';
+    }
+    if (
+      new Set(
+        normalizedCongratulations.map((message) =>
+          message.toLowerCase(),
+        ),
+      ).size !== normalizedCongratulations.length
+    ) {
+      return 'Badge congratulations messages cannot be duplicated.';
     }
     if (!slugPattern.test(form.key.trim())) return 'Stable key must use lowercase letters, numbers, and single hyphens only.';
     if (form.imageKey.trim() && !slugPattern.test(form.imageKey.trim())) return 'Image key must use lowercase letters, numbers, and single hyphens only.';
@@ -664,6 +691,9 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
         form.classification !== 'seasonal' &&
         form.ruleType !== 'location' &&
         form.levelsEnabled,
+      congratulationsMessages: form.congratulationsMessages.map(
+        (message) => message.trim(),
+      ),
       rule: buildRule(),
       imageKey: form.imageKey.trim() || undefined,
     };
@@ -805,8 +835,6 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
           {statusMessage}
         </ThemedText>
       ) : null}
-
-      {!formMode ? <BadgeCongratulationsManager /> : null}
 
       {!formMode ? (
         <ThemedView
@@ -982,6 +1010,12 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
                     : badge.levelsEnabled
                       ? 'Repeatable levels enabled'
                       : 'One-time badge'}
+                </ThemedText>
+                <ThemedText type="small">
+                  Congratulations: {badge.congratulationsMessages.length}{' '}
+                  {badge.congratulationsMessages.length === 1
+                    ? 'message'
+                    : 'messages'}
                 </ThemedText>
                 <ThemedText type="small">Rule: {formatRule(badge.rule)}</ThemedText>
                 {badge.imageKey ? <ThemedText type="small">Image key: {badge.imageKey}</ThemedText> : null}
@@ -1446,6 +1480,19 @@ function BadgeForm({
           value={form.description}
         />
       </ThemedView>
+
+      <ThemedView type="backgroundSelected" style={styles.formSectionHeading}>
+        <ThemedText type="smallBold">CELEBRATION POPUP</ThemedText>
+      </ThemedView>
+
+      <BadgeCongratulationsManager
+        badgeName={form.name}
+        disabled={saving}
+        messages={form.congratulationsMessages}
+        onChange={(messages) =>
+          onChange('congratulationsMessages', messages)
+        }
+      />
 
       <ThemedView style={styles.fieldGroup}>
         <ThemedText type="smallBold">

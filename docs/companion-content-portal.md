@@ -109,9 +109,9 @@ General and Special place badges can optionally use repeatable levels. When enab
 
 Levels have no configured maximum. Progress uses distinct qualifying locations, and each earned level is stored as a separate permanent award. Existing one-time awards are treated as Level 1 when leveling is enabled, so prior history is preserved. Disabling leveling stops additional levels without deleting levels that were already earned.
 
-The Badges section includes one shared bank of congratulations messages. Its contents stay tucked behind the Manage Badge Congratulations button so the main badge list remains compact. An administrator can add messages, edit them, and delete messages with confirmation. The portal starts with ten general congratulations messages, and at least one message must remain in the bank.
+Each badge has its own pool of congratulations messages. The pool stays tucked behind Manage congratulations inside that badge's create or edit form. An administrator can add messages, edit them, and delete messages with confirmation. New badges start with ten general messages that can be replaced with badge-specific wording, and at least one message must remain in each pool.
 
-Whenever a badge is first earned or a repeatable badge reaches another level, its in-app celebration popup randomly chooses one message from the shared bank. The selected message is only used for that popup and is not stored with the award after dismissal. Adding or deleting messages therefore changes future popup choices without rewriting existing awards. Badge levels remain unlimited and do not need level-specific message ranges.
+Whenever a badge is first earned or a repeatable badge reaches another level, its in-app celebration popup randomly chooses one message from that badge's pool. The selected message is only used for that popup and is not stored with the award after dismissal. Adding or deleting messages therefore changes future popup choices without rewriting existing awards. Badge levels remain unlimited and do not need level-specific message ranges. New annual seasonal editions inherit the preceding edition's message pool and can then be edited independently.
 
 Specific-location badges remain one-time awards because each location can only be collected once. Seasonal badges also remain one-time awards and cannot enable levels.
 

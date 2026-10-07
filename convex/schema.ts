@@ -85,7 +85,8 @@ export default defineSchema({
     annualSeriesId: v.optional(v.id('badgeAnnualSeries')),
     editionYear: v.optional(v.number()),
     levelsEnabled: v.optional(v.boolean()),
-    // Legacy per-badge entries remain valid while the shared bank replaces them.
+    congratulationsMessages: v.optional(v.array(v.string())),
+    // Legacy level-range entries remain valid but are no longer used.
     levelCelebrations: v.optional(
       v.array(
         v.object({
@@ -156,6 +157,8 @@ export default defineSchema({
         'level',
       ]),
 
+    // Kept temporarily so an existing development shared-bank row remains
+    // schema-valid while badge-specific pools replace it.
     badgeCongratulations: defineTable({
       key: v.literal('shared'),
       messages: v.array(

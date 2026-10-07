@@ -3,6 +3,9 @@ import { ConvexError, v } from 'convex/values';
 import type { MutationCtx } from './_generated/server';
 import { mutation, query } from './_generated/server';
 import type { Id } from './_generated/dataModel';
+import {
+  getBadgeCongratulations,
+} from './lib/badge_congratulations';
 import { normalizeBadgeTag } from './lib/badge_rules';
 import { requireAdmin } from './lib/auth';
 
@@ -10,6 +13,8 @@ const MAX_NAME_LENGTH = 120;
 const MAX_KEY_LENGTH = 120;
 const MAX_TAG_LENGTH = 120;
 const MAX_DESCRIPTION_LENGTH = 5000;
+const MAX_CONGRATULATIONS_MESSAGES = 100;
+const MAX_CONGRATULATIONS_MESSAGE_LENGTH = 160;
 
 const badgeRuleValidator = v.union(
   v.object({
@@ -137,6 +142,49 @@ function normalizeRequiredVisits(value: number) {
   return value;
 }
 
+function normalizeCongratulationsMessages(values: string[]) {
+  if (values.length === 0) {
+    throw new ConvexError(
+      'Add at least one badge congratulations message.',
+    );
+  }
+
+  if (values.length > MAX_CONGRATULATIONS_MESSAGES) {
+    throw new ConvexError(
+      `A badge can contain no more than ${MAX_CONGRATULATIONS_MESSAGES} congratulations messages.`,
+    );
+  }
+
+  const seenMessages = new Set<string>();
+
+  return values.map((value) => {
+    const message = value.trim();
+
+    if (message.length === 0) {
+      throw new ConvexError(
+        'Badge congratulations messages cannot be blank.',
+      );
+    }
+
+    if (message.length > MAX_CONGRATULATIONS_MESSAGE_LENGTH) {
+      throw new ConvexError(
+        `Badge congratulations messages must be ${MAX_CONGRATULATIONS_MESSAGE_LENGTH} characters or fewer.`,
+      );
+    }
+
+    const duplicateKey = message.toLowerCase();
+
+    if (seenMessages.has(duplicateKey)) {
+      throw new ConvexError(
+        `The congratulations message "${message}" appears more than once.`,
+      );
+    }
+
+    seenMessages.add(duplicateKey);
+    return message;
+  });
+}
+
 async function normalizeRule(
   ctx: MutationCtx,
   rule: BadgeRuleInput,
@@ -195,6 +243,7 @@ function normalizeBadgeInput(args: {
   requiredVisits: number;
   classification: BadgeClassification;
   levelsEnabled: boolean;
+  congratulationsMessages: string[];
   imageKey?: string;
 }) {
   return {
@@ -210,6 +259,9 @@ function normalizeBadgeInput(args: {
     classification: normalizeClassification(args.classification),
     levelsEnabled:
       args.classification !== 'seasonal' && args.levelsEnabled,
+    congratulationsMessages: normalizeCongratulationsMessages(
+      args.congratulationsMessages,
+    ),
     imageKey: normalizeOptionalImageKey(args.imageKey),
   };
 }
@@ -308,6 +360,9 @@ export const getBadgesForAdmin = query({
         levelsEnabled:
           definition.classification !== 'seasonal' &&
           definition.levelsEnabled === true,
+        congratulationsMessages: getBadgeCongratulations(
+          definition.congratulationsMessages,
+        ),
         retired: definition.retired === true,
       })),
     );
@@ -327,6 +382,7 @@ export const createBadgeDefinition = mutation({
     requiredVisits: v.number(),
     classification: classificationValidator,
     levelsEnabled: v.boolean(),
+    congratulationsMessages: v.array(v.string()),
     rule: badgeRuleValidator,
     imageKey: v.optional(v.string()),
   },
@@ -354,6 +410,7 @@ export const createBadgeDefinition = mutation({
       requiredVisits: normalized.requiredVisits,
       classification: normalized.classification,
       levelsEnabled: normalized.levelsEnabled,
+      congratulationsMessages: normalized.congratulationsMessages,
       rule,
       retired: false,
       imageKey: normalized.imageKey,
@@ -371,6 +428,7 @@ export const updateBadgeDefinition = mutation({
     requiredVisits: v.number(),
     classification: classificationValidator,
     levelsEnabled: v.boolean(),
+    congratulationsMessages: v.array(v.string()),
     rule: badgeRuleValidator,
     imageKey: v.optional(v.string()),
   },
@@ -456,6 +514,7 @@ export const updateBadgeDefinition = mutation({
       requiredVisits: normalized.requiredVisits,
       classification: normalized.classification,
       levelsEnabled: normalized.levelsEnabled,
+      congratulationsMessages: normalized.congratulationsMessages,
       rule,
       imageKey: normalized.imageKey,
     });

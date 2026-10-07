@@ -1,53 +1,76 @@
 import { useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   StyleSheet,
   TextInput,
 } from 'react-native';
 
-import { useMutation, useQuery } from 'convex/react';
-
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Palette, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { api } from '../../../convex/_generated/api';
 
-function getErrorMessage(error: unknown) {
-  if (
-    typeof error === 'object' &&
-    error !== null &&
-    'data' in error &&
-    typeof error.data === 'string'
-  ) {
-    return error.data;
+export const defaultBadgeCongratulations = [
+  'Great job!',
+  'Super sleuth!',
+  'Awesome job!',
+  'Fantastic find!',
+  'Way to explore!',
+  'You did it!',
+  'Another achievement unlocked!',
+  'Keep up the great work!',
+  'Curiosity pays off!',
+  'What a discovery!',
+] as const;
+
+type BadgeCongratulationsManagerProps = {
+  badgeName: string;
+  disabled: boolean;
+  messages: string[];
+  onChange: (messages: string[]) => void;
+};
+
+function validateMessages(messages: string[]) {
+  if (messages.length === 0) {
+    return 'Add at least one congratulations message.';
   }
 
-  return 'Unable to save the congratulations messages.';
+  const seenMessages = new Set<string>();
+
+  for (const value of messages) {
+    const message = value.trim();
+
+    if (!message) {
+      return 'Congratulations messages cannot be blank.';
+    }
+
+    const duplicateKey = message.toLowerCase();
+
+    if (seenMessages.has(duplicateKey)) {
+      return `The message “${message}” appears more than once.`;
+    }
+
+    seenMessages.add(duplicateKey);
+  }
+
+  return null;
 }
 
-export function BadgeCongratulationsManager() {
+export function BadgeCongratulationsManager({
+  badgeName,
+  disabled,
+  messages,
+  onChange,
+}: BadgeCongratulationsManagerProps) {
   const theme = useTheme();
-  const messages = useQuery(
-    api.adminBadgeCongratulations.getMessagesForAdmin,
-  );
-  const saveMessages = useMutation(
-    api.adminBadgeCongratulations.saveMessages,
-  );
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<string[]>([]);
-  const [saving, setSaving] = useState(false);
   const [confirmingDeleteIndex, setConfirmingDeleteIndex] =
     useState<number | null>(null);
   const [statusMessage, setStatusMessage] =
     useState<string | null>(null);
 
   const beginEditing = () => {
-    if (messages === undefined) {
-      return;
-    }
-
     setDraft([...messages]);
     setConfirmingDeleteIndex(null);
     setStatusMessage(null);
@@ -78,28 +101,25 @@ export function BadgeCongratulationsManager() {
     setStatusMessage(null);
   };
 
-  const save = async () => {
-    if (saving) {
+  const applyChanges = () => {
+    const validation = validateMessages(draft);
+
+    if (validation !== null) {
+      setStatusMessage(validation);
       return;
     }
 
-    setSaving(true);
-    setStatusMessage(null);
-
-    try {
-      await saveMessages({ messages: draft });
-      setEditing(false);
-      setDraft([]);
-      setConfirmingDeleteIndex(null);
-      setStatusMessage('Congratulations message bank saved.');
-    } catch (error) {
-      setStatusMessage(getErrorMessage(error));
-    } finally {
-      setSaving(false);
-    }
+    onChange(draft.map((message) => message.trim()));
+    setEditing(false);
+    setDraft([]);
+    setConfirmingDeleteIndex(null);
+    setStatusMessage(
+      'Message pool updated. Save the badge to apply these changes.',
+    );
   };
 
-  const messageCount = editing ? draft.length : messages?.length ?? 0;
+  const messageCount = editing ? draft.length : messages.length;
+  const displayName = badgeName.trim() || 'this badge';
   const inputStyle = [
     styles.input,
     {
@@ -111,33 +131,36 @@ export function BadgeCongratulationsManager() {
 
   return (
     <ThemedView
-      accessibilityLabel="Badge congratulations message bank"
+      accessibilityLabel={`Congratulations message pool for ${displayName}`}
       type="backgroundElement"
       style={[styles.container, { borderColor: theme.border }]}>
       <ThemedView style={styles.header}>
         <ThemedView style={styles.headingCopy}>
           <ThemedText type="smallBold">
-            Badge congratulations
+            Badge-specific congratulations
           </ThemedText>
           <ThemedText themeColor="textSecondary">
-            The app chooses one message for the in-app popup
-            whenever a badge is earned or a repeatable badge levels up.
-            The choice is not stored after the popup is dismissed.
+            When {displayName} is earned or levels up, its popup
+            randomly chooses one message from this pool. The choice is
+            not stored after the popup is dismissed.
           </ThemedText>
-          {messages !== undefined ? (
-            <ThemedText type="small">
-              {messageCount} available messages
-            </ThemedText>
-          ) : null}
+          <ThemedText type="small">
+            {messageCount} available {messageCount === 1 ? 'message' : 'messages'}
+          </ThemedText>
         </ThemedView>
 
-        {!editing && messages !== undefined ? (
+        {!editing ? (
           <Pressable
             accessibilityRole="button"
+            accessibilityState={{ disabled }}
+            disabled={disabled}
             onPress={beginEditing}
-            style={styles.secondaryButton}>
+            style={[
+              styles.secondaryButton,
+              disabled && styles.disabled,
+            ]}>
             <ThemedText style={styles.secondaryButtonText}>
-              Manage Badge Congratulations
+              Manage congratulations
             </ThemedText>
           </Pressable>
         ) : null}
@@ -152,12 +175,7 @@ export function BadgeCongratulationsManager() {
         </ThemedText>
       ) : null}
 
-      {messages === undefined ? (
-        <ActivityIndicator
-          accessibilityLabel="Loading congratulations messages"
-          accessibilityRole="progressbar"
-        />
-      ) : editing ? (
+      {editing ? (
         <ThemedView style={styles.editor}>
           {draft.map((message, index) => (
             <ThemedView
@@ -169,10 +187,10 @@ export function BadgeCongratulationsManager() {
               </ThemedText>
               <TextInput
                 accessibilityLabel={`Congratulations message ${index + 1}`}
-                editable={!saving}
+                editable={!disabled}
                 maxLength={160}
                 onChangeText={(value) => updateMessage(index, value)}
-                placeholder="Example: Awesome job!"
+                placeholder="Example: You found another layer!"
                 placeholderTextColor={theme.textSecondary}
                 style={inputStyle}
                 value={message}
@@ -181,13 +199,13 @@ export function BadgeCongratulationsManager() {
               {confirmingDeleteIndex === index ? (
                 <ThemedView style={styles.confirmation}>
                   <ThemedText accessibilityLiveRegion="polite">
-                    Delete this message from the bank? It will stop
-                    appearing in future popups after you save.
+                    Delete this message from {displayName}&apos;s pool?
+                    It will stop appearing after you save the badge.
                   </ThemedText>
                   <ThemedView style={styles.actions}>
                     <Pressable
                       accessibilityRole="button"
-                      disabled={saving}
+                      disabled={disabled}
                       onPress={() => deleteMessage(index)}
                       style={styles.dangerButton}>
                       <ThemedText style={styles.dangerButtonText}>
@@ -196,7 +214,7 @@ export function BadgeCongratulationsManager() {
                     </Pressable>
                     <Pressable
                       accessibilityRole="button"
-                      disabled={saving}
+                      disabled={disabled}
                       onPress={() => setConfirmingDeleteIndex(null)}
                       style={styles.secondaryButton}>
                       <ThemedText style={styles.secondaryButtonText}>
@@ -211,16 +229,16 @@ export function BadgeCongratulationsManager() {
                   accessibilityHint={
                     draft.length === 1
                       ? 'At least one congratulations message is required.'
-                      : 'Removes this message after confirmation and saving.'
+                      : 'Removes this message after confirmation.'
                   }
                   accessibilityState={{
-                    disabled: saving || draft.length === 1,
+                    disabled: disabled || draft.length === 1,
                   }}
-                  disabled={saving || draft.length === 1}
+                  disabled={disabled || draft.length === 1}
                   onPress={() => setConfirmingDeleteIndex(index)}
                   style={[
                     styles.secondaryButton,
-                    (saving || draft.length === 1) && styles.disabled,
+                    (disabled || draft.length === 1) && styles.disabled,
                   ]}>
                   <ThemedText style={styles.secondaryButtonText}>
                     Delete message
@@ -232,17 +250,18 @@ export function BadgeCongratulationsManager() {
 
           <Pressable
             accessibilityRole="button"
-            disabled={saving || draft.length >= 100}
+            accessibilityState={{
+              disabled: disabled || draft.length >= 100,
+            }}
+            disabled={disabled || draft.length >= 100}
             onPress={() => {
-              setDraft((current) => [
-                ...current,
-                '',
-              ]);
+              setDraft((current) => [...current, '']);
+              setConfirmingDeleteIndex(null);
               setStatusMessage(null);
             }}
             style={[
               styles.secondaryButton,
-              (saving || draft.length >= 100) && styles.disabled,
+              (disabled || draft.length >= 100) && styles.disabled,
             ]}>
             <ThemedText style={styles.secondaryButtonText}>
               Add message
@@ -252,17 +271,20 @@ export function BadgeCongratulationsManager() {
           <ThemedView style={styles.actions}>
             <Pressable
               accessibilityRole="button"
-              accessibilityState={{ busy: saving, disabled: saving }}
-              disabled={saving}
-              onPress={save}
-              style={[styles.primaryButton, saving && styles.disabled]}>
+              accessibilityState={{ disabled }}
+              disabled={disabled}
+              onPress={applyChanges}
+              style={[
+                styles.primaryButton,
+                disabled && styles.disabled,
+              ]}>
               <ThemedText style={styles.primaryButtonText}>
-                {saving ? 'Saving...' : 'Save message bank'}
+                Use this message pool
               </ThemedText>
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              disabled={saving}
+              disabled={disabled}
               onPress={cancelEditing}
               style={styles.secondaryButton}>
               <ThemedText style={styles.secondaryButtonText}>
@@ -279,7 +301,7 @@ export function BadgeCongratulationsManager() {
 const styles = StyleSheet.create({
   container: {
     gap: Spacing.two,
-    padding: Spacing.four,
+    padding: Spacing.three,
     borderWidth: 1,
     borderRadius: Spacing.three,
   },

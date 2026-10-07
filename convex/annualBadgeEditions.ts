@@ -237,6 +237,7 @@ async function ensureNextEdition(
       requiredVisits: currentEdition.requiredVisits,
       classification: 'seasonal',
       levelsEnabled: false,
+      congratulationsMessages: currentEdition.congratulationsMessages,
       rule: currentEdition.rule,
       retired: false,
       imageKey: currentEdition.imageKey,

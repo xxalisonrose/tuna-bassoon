@@ -3,7 +3,7 @@ import { ConvexError, v } from 'convex/values';
 import { internalMutation, mutation, query } from './_generated/server';
 import type { Id } from './_generated/dataModel';
 import {
-  getActiveBadgeCongratulations,
+  getBadgeCongratulations,
 } from './lib/badge_congratulations';
 import { normalizeBadgeTag } from './lib/badge_rules';
 
@@ -793,24 +793,12 @@ export const getUnannouncedAwards = query({
       return [];
     }
 
-    const [awards, congratulationsSettings] = await Promise.all([
-      ctx.db
-        .query('badgeAwards')
-        .withIndex('by_user', (queryBuilder) =>
-          queryBuilder.eq('clerkUserId', identity.subject),
-        )
-        .collect(),
-      ctx.db
-        .query('badgeCongratulations')
-        .withIndex('by_key', (queryBuilder) =>
-          queryBuilder.eq('key', 'shared'),
-        )
-        .unique(),
-    ]);
-    const congratulationsMessages =
-      getActiveBadgeCongratulations(
-        congratulationsSettings?.messages,
-      );
+    const awards = await ctx.db
+      .query('badgeAwards')
+      .withIndex('by_user', (queryBuilder) =>
+        queryBuilder.eq('clerkUserId', identity.subject),
+      )
+      .collect();
     const unannouncedAwards = awards
       .filter((award) => award.announcedAt === undefined)
       .sort(
@@ -835,7 +823,9 @@ export const getUnannouncedAwards = query({
           description: definition?.description ?? '',
           level,
           levelsEnabled,
-          congratulationsMessages,
+          congratulationsMessages: getBadgeCongratulations(
+            definition?.congratulationsMessages,
+          ),
           imageKey: definition?.imageKey,
           imageUrl: definition?.imageStorageId === undefined
             ? undefined

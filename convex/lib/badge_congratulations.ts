@@ -11,14 +11,11 @@ export const DEFAULT_BADGE_CONGRATULATIONS = [
   'What a discovery!',
 ] as const;
 
-export function getActiveBadgeCongratulations(
-  messages:
-    | { message: string; retired: boolean }[]
-    | undefined,
+export function getBadgeCongratulations(
+  messages: string[] | undefined,
 ) {
   const activeMessages = messages
-    ?.filter((entry) => !entry.retired)
-    .map((entry) => entry.message.trim())
+    ?.map((message) => message.trim())
     .filter(Boolean);
 
   return activeMessages !== undefined && activeMessages.length > 0
