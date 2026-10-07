@@ -66,6 +66,7 @@ type BadgeFormState = {
   description: string;
   requiredVisits: string;
   classification: Classification;
+  levelsEnabled: boolean;
   imageKey: string;
   ruleType: RuleType;
   ruleValue: string;
@@ -99,6 +100,7 @@ const emptyForm: BadgeFormState = {
   description: '',
   requiredVisits: '1',
   classification: 'general',
+  levelsEnabled: false,
   imageKey: '',
   ruleType: 'tag',
   ruleValue: '',
@@ -319,6 +321,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
         badge.tag,
         badge.classification,
         badge.rule.type,
+        badge.levelsEnabled ? 'repeatable levels' : 'one time',
         badge.retired ? 'retired' : 'active',
       ].join(' ').toLowerCase();
 
@@ -402,6 +405,9 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
           ? '1'
           : String(badge.requiredVisits),
       classification: badge.classification as Classification,
+      levelsEnabled:
+        badge.classification !== 'seasonal' &&
+        badge.levelsEnabled === true,
       imageKey: badge.imageKey ?? '',
       ruleType,
       ruleValue,
@@ -442,6 +448,12 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
     }
     if (form.ruleType === 'location' && requiredVisits !== 1) {
       return 'Specific location badges must require exactly one visit.';
+    }
+    if (form.ruleType === 'location' && form.levelsEnabled) {
+      return 'Specific location badges cannot use repeatable levels.';
+    }
+    if (form.classification === 'seasonal' && form.levelsEnabled) {
+      return 'Seasonal badge editions cannot use repeatable levels.';
     }
     if (!slugPattern.test(form.key.trim())) return 'Stable key must use lowercase letters, numbers, and single hyphens only.';
     if (form.imageKey.trim() && !slugPattern.test(form.imageKey.trim())) return 'Image key must use lowercase letters, numbers, and single hyphens only.';
@@ -638,6 +650,10 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
       description: form.description.trim(),
       requiredVisits: Number(form.requiredVisits),
       classification: form.classification,
+      levelsEnabled:
+        form.classification !== 'seasonal' &&
+        form.ruleType !== 'location' &&
+        form.levelsEnabled,
       rule: buildRule(),
       imageKey: form.imageKey.trim() || undefined,
     };
@@ -900,6 +916,14 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
                 <ThemedText type="small">Tag: {badge.tag}</ThemedText>
                 <ThemedText type="small">Required visits: {badge.requiredVisits}</ThemedText>
                 <ThemedText type="small">Classification: {classificationLabels[badge.classification as Classification]}</ThemedText>
+                <ThemedText type="small">
+                  Leveling:{' '}
+                  {badge.classification === 'seasonal'
+                    ? 'One-time seasonal edition'
+                    : badge.levelsEnabled
+                      ? 'Repeatable levels enabled'
+                      : 'One-time badge'}
+                </ThemedText>
                 <ThemedText type="small">Rule: {formatRule(badge.rule)}</ThemedText>
                 {badge.imageKey ? <ThemedText type="small">Image key: {badge.imageKey}</ThemedText> : null}
                 <ThemedText type="smallBold" themeColor="textSecondary">{badge.retired ? `Retired${retiredDate ? ` on ${retiredDate}` : ''}` : 'Active'}</ThemedText>
@@ -1044,6 +1068,17 @@ function BadgeForm({
 
     if (ruleType === 'location') {
       onChange('requiredVisits', '1');
+      onChange('levelsEnabled', false);
+    }
+  };
+
+  const changeClassification = (
+    classification: Classification,
+  ) => {
+    onChange('classification', classification);
+
+    if (classification === 'seasonal') {
+      onChange('levelsEnabled', false);
     }
   };
 
@@ -1391,7 +1426,7 @@ function BadgeForm({
 
       <ThemedText type="smallBold">Classification</ThemedText>
       <ThemedView accessibilityRole="radiogroup" accessibilityLabel="Badge classification" style={styles.radioGroup}>
-        {(Object.keys(classificationLabels) as Classification[]).map((value) => <RadioOption key={value} label={classificationLabels[value]} selected={form.classification === value} hint={`Use the ${classificationLabels[value].toLowerCase()} classification.`} onPress={() => onChange('classification', value)} />)}
+        {(Object.keys(classificationLabels) as Classification[]).map((value) => <RadioOption key={value} label={classificationLabels[value]} selected={form.classification === value} hint={`Use the ${classificationLabels[value].toLowerCase()} classification.`} onPress={() => changeClassification(value)} />)}
       </ThemedView>
       {availabilityBadgeId !== null && form.classification !== 'seasonal' ? (
       <ThemedText themeColor="textSecondary">
@@ -1401,8 +1436,58 @@ function BadgeForm({
       </ThemedText>
     ) : null}
 
+    {form.classification !== 'seasonal' ? (
+      <ThemedView style={styles.annualSection}>
+        <ThemedText type="smallBold">Badge levels</ThemedText>
+        <ThemedText themeColor="textSecondary">
+          Allow this badge to be earned repeatedly. Each complete set
+          of qualifying visits earns the next permanent level, with no
+          configured maximum level.
+        </ThemedText>
+
+        {locationRuleSelected ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            Specific location badges remain one-time awards because a
+            location can only be collected once.
+          </ThemedText>
+        ) : (
+          <Pressable
+            accessibilityRole="checkbox"
+            accessibilityLabel="Allow repeatable badge levels"
+            accessibilityState={{
+              checked: form.levelsEnabled,
+              disabled: saving,
+            }}
+            disabled={saving}
+            onPress={() =>
+              onChange('levelsEnabled', !form.levelsEnabled)
+            }
+            style={({ pressed }) => [
+              styles.checkboxRow,
+              pressed && styles.pressed,
+            ]}>
+            <ThemedView
+              style={[
+                styles.checkbox,
+                form.levelsEnabled && styles.checkboxSelected,
+              ]}>
+              <ThemedText style={styles.checkboxMark}>
+                {form.levelsEnabled ? '✓' : ''}
+              </ThemedText>
+            </ThemedView>
+            <ThemedText>Allow repeatable levels</ThemedText>
+          </Pressable>
+        )}
+      </ThemedView>
+    ) : null}
+
     {form.classification === 'seasonal' ? (
       <ThemedView style={styles.annualSection}>
+        <ThemedText type="smallBold">Seasonal awards</ThemedText>
+        <ThemedText themeColor="textSecondary">
+          Each seasonal edition is a separate one-time badge. Seasonal
+          badges do not use levels.
+        </ThemedText>
         <ThemedText type="smallBold">Yearly repetition</ThemedText>
         <ThemedText themeColor="textSecondary">
           Create a separate, independently editable badge edition for

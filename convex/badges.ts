@@ -116,6 +116,32 @@ type BadgeClassification =
   | 'special_place'
   | 'seasonal';
 
+function definitionUsesLevels(definition: {
+  classification?: BadgeClassification;
+  levelsEnabled?: boolean;
+}) {
+  return (
+    (definition.classification ?? 'general') !== 'seasonal' &&
+    definition.levelsEnabled === true
+  );
+}
+
+function getEarnedLevel(
+  completedVisits: number,
+  requiredVisits: number,
+  levelsEnabled: boolean,
+) {
+  if (requiredVisits < 1) {
+    return 0;
+  }
+
+  if (levelsEnabled) {
+    return Math.floor(completedVisits / requiredVisits);
+  }
+
+  return completedVisits >= requiredVisits ? 1 : 0;
+}
+
 function getDefinitionRule(definition: {
   rule?: BadgeRule;
   tag: string;
@@ -309,6 +335,7 @@ export const seedBadgeDefinitions = internalMutation({
           classification?: BadgeClassification;
           rule?: BadgeRule;
           retired?: boolean;
+          levelsEnabled?: boolean;
         } = {};
 
         if (savedDefinition.key === undefined) {
@@ -322,6 +349,9 @@ export const seedBadgeDefinitions = internalMutation({
         }
         if (savedDefinition.retired === undefined) {
           patch.retired = false;
+        }
+        if (savedDefinition.levelsEnabled === undefined) {
+          patch.levelsEnabled = false;
         }
 
         if (Object.keys(patch).length > 0) {
@@ -341,6 +371,7 @@ export const seedBadgeDefinitions = internalMutation({
         classification: definition.classification,
         rule: defaultRule,
         retired: false,
+        levelsEnabled: false,
         imageKey: definition.imageKey,
       });
 
@@ -418,14 +449,25 @@ export const syncMyAwards = mutation({
     const progressByBadge = new Map(
       progress.map((record) => [record.badgeDefinitionId, record]),
     );
-    const awardByBadge = new Map(
-      awards.map((award) => [award.badgeDefinitionId, award]),
-    );
+    const awardsByBadge = new Map<
+      Id<'badgeDefinitions'>,
+      typeof awards
+    >();
+
+    for (const award of awards) {
+      const badgeAwards =
+        awardsByBadge.get(award.badgeDefinitionId) ?? [];
+      badgeAwards.push(award);
+      awardsByBadge.set(award.badgeDefinitionId, badgeAwards);
+    }
+
     const newlyAwarded: Array<{
       _id: typeof awards[number]['_id'];
       name: string;
       description: string;
       imageKey?: string;
+      level: number;
+      levelsEnabled: boolean;
     }> = [];
     const now = Date.now();
 
@@ -543,21 +585,45 @@ export const syncMyAwards = mutation({
         }
       }
 
-      if (
-        completedVisits >= definition.requiredVisits &&
-        awardByBadge.get(definition._id) === undefined
-      ) {
+      const levelsEnabled = definitionUsesLevels(definition);
+      const earnedLevel = getEarnedLevel(
+        completedVisits,
+        definition.requiredVisits,
+        levelsEnabled,
+      );
+      const existingAwards =
+        awardsByBadge.get(definition._id) ?? [];
+      const awardedLevels = new Set<number>();
+
+      for (const award of existingAwards) {
+        const level = award.level ?? 1;
+        awardedLevels.add(level);
+
+        if (award.level === undefined) {
+          await ctx.db.patch(award._id, { level: 1 });
+        }
+      }
+
+      for (let level = 1; level <= earnedLevel; level += 1) {
+        if (awardedLevels.has(level)) {
+          continue;
+        }
+
         const awardId = await ctx.db.insert('badgeAwards', {
           clerkUserId: identity.subject,
           badgeDefinitionId: definition._id,
+          level,
           earnedAt: now,
         });
 
+        awardedLevels.add(level);
         newlyAwarded.push({
           _id: awardId,
           name: definition.name,
           description: definition.description,
           imageKey: definition.imageKey,
+          level,
+          levelsEnabled,
         });
       }
     }
@@ -601,9 +667,25 @@ export const getMyBadgeProgress = query({
     const progressByBadge = new Map(
       progress.map((record) => [record.badgeDefinitionId, record]),
     );
-    const awardByBadge = new Map(
-      awards.map((award) => [award.badgeDefinitionId, award]),
-    );
+    const highestAwardedLevelByBadge = new Map<
+      Id<'badgeDefinitions'>,
+      number
+    >();
+
+    for (const award of awards) {
+      const level = award.level ?? 1;
+      const currentHighest =
+        highestAwardedLevelByBadge.get(
+          award.badgeDefinitionId,
+        ) ?? 0;
+
+      if (level > currentHighest) {
+        highestAwardedLevelByBadge.set(
+          award.badgeDefinitionId,
+          level,
+        );
+      }
+    }
     const windowsByBadge = groupAvailabilityWindows(
       availabilityWindows,
     );
@@ -614,7 +696,29 @@ export const getMyBadgeProgress = query({
         const windows = windowsByBadge.get(definition._id) ?? [];
         const completedVisits =
           progressByBadge.get(definition._id)?.completedVisits ?? 0;
-        const earned = awardByBadge.has(definition._id);
+        const classification =
+          definition.classification ?? 'general';
+        const levelsEnabled = definitionUsesLevels(definition);
+        const calculatedLevel = getEarnedLevel(
+          completedVisits,
+          definition.requiredVisits,
+          levelsEnabled,
+        );
+        const highestAwardedLevel =
+          highestAwardedLevelByBadge.get(definition._id) ?? 0;
+        const displaysLevel =
+          classification !== 'seasonal' &&
+          (levelsEnabled || highestAwardedLevel > 1);
+        const currentLevel = classification === 'seasonal'
+          ? highestAwardedLevel > 0 || calculatedLevel > 0
+            ? 1
+            : 0
+          : Math.max(calculatedLevel, highestAwardedLevel);
+        const earned = currentLevel > 0;
+        const levelProgressVisits = levelsEnabled &&
+          definition.requiredVisits > 0
+          ? completedVisits % definition.requiredVisits
+          : Math.min(completedVisits, definition.requiredVisits);
         const retired = definition.retired === true;
         const {
           activeWindow,
@@ -628,10 +732,12 @@ export const getMyBadgeProgress = query({
         );
         const progress = definition.requiredVisits === 0
           ? 1
-          : Math.min(
-              completedVisits / definition.requiredVisits,
-              1,
-            );
+          : levelsEnabled
+            ? levelProgressVisits / definition.requiredVisits
+            : Math.min(
+                completedVisits / definition.requiredVisits,
+                1,
+              );
 
         const imageUrl = definition.imageStorageId === undefined
           ? undefined
@@ -644,13 +750,19 @@ export const getMyBadgeProgress = query({
           imageUrl,
           rule: getDefinitionRule(definition),
           groupKey: progressByBadge.get(definition._id)?.groupKey,
-          classification:
-            definition.classification ?? 'general',
+          classification,
+          levelsEnabled,
+          displaysLevel,
           retired,
           completedVisits,
+          levelProgressVisits,
+          currentLevel,
+          nextLevel: currentLevel + 1,
           earned,
-          inProgress: !earned && completedVisits > 0,
-          unearned: !earned && completedVisits === 0,
+          inProgress: levelsEnabled
+            ? levelProgressVisits > 0
+            : !earned && completedVisits > 0,
+          unearned: !earned && levelProgressVisits === 0,
           available,
           locked: !available && !retired,
           activeWindow,
@@ -684,9 +796,14 @@ export const getUnannouncedAwards = query({
         queryBuilder.eq('clerkUserId', identity.subject),
       )
       .collect();
-    const unannouncedAwards = awards.filter(
-      (award) => award.announcedAt === undefined,
-    );
+    const unannouncedAwards = awards
+      .filter((award) => award.announcedAt === undefined)
+      .sort(
+        (firstAward, secondAward) =>
+          firstAward.earnedAt - secondAward.earnedAt ||
+          (firstAward.level ?? 1) -
+            (secondAward.level ?? 1),
+      );
 
     return Promise.all(
       unannouncedAwards.map(async (award) => {
@@ -698,6 +815,12 @@ export const getUnannouncedAwards = query({
           _id: award._id,
           name: definition?.name ?? 'Badge earned',
           description: definition?.description ?? '',
+          level: award.level ?? 1,
+          levelsEnabled:
+            definition === null
+              ? (award.level ?? 1) > 1
+              : definitionUsesLevels(definition) ||
+                (award.level ?? 1) > 1,
           imageKey: definition?.imageKey,
           imageUrl: definition?.imageStorageId === undefined
             ? undefined

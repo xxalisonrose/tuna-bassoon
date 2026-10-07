@@ -85,6 +85,15 @@ function formatAvailabilityTime(value: number) {
   });
 }
 
+function getBadgeSeriesCandidateName(badge: {
+  name: string;
+  annualSeriesId?: string;
+}) {
+  return badge.annualSeriesId === undefined
+    ? badge.name
+    : badge.name.replace(/\s+\d{4}$/, '');
+}
+
 export default function CollectionScreen() {
   const {
     isAuthenticated,
@@ -211,6 +220,29 @@ export default function CollectionScreen() {
     retired: 4,
   };
 
+  const annualSeriesSortNames = new Map<string, string>();
+
+  for (const badge of badgeProgress) {
+    if (badge.annualSeriesId === undefined) {
+      continue;
+    }
+
+    const candidateName = getBadgeSeriesCandidateName(badge);
+    const currentName = annualSeriesSortNames.get(
+      badge.annualSeriesId,
+    );
+
+    if (
+      currentName === undefined ||
+      candidateName.localeCompare(currentName) < 0
+    ) {
+      annualSeriesSortNames.set(
+        badge.annualSeriesId,
+        candidateName,
+      );
+    }
+  }
+
   const visibleBadges = badgeProgress
     .filter((badge) => {
       if (
@@ -234,8 +266,37 @@ export default function CollectionScreen() {
         statusPriority[getBadgeDisplayStatus(firstBadge)] -
         statusPriority[getBadgeDisplayStatus(secondBadge)];
 
-      return statusDifference ||
-        firstBadge.name.localeCompare(secondBadge.name);
+      if (statusDifference !== 0) {
+        return statusDifference;
+      }
+
+      const firstSeriesName = firstBadge.annualSeriesId === undefined
+        ? firstBadge.name
+        : annualSeriesSortNames.get(firstBadge.annualSeriesId) ??
+          getBadgeSeriesCandidateName(firstBadge);
+      const secondSeriesName = secondBadge.annualSeriesId === undefined
+        ? secondBadge.name
+        : annualSeriesSortNames.get(secondBadge.annualSeriesId) ??
+          getBadgeSeriesCandidateName(secondBadge);
+      const seriesNameDifference = firstSeriesName.localeCompare(
+        secondSeriesName,
+      );
+
+      if (seriesNameDifference !== 0) {
+        return seriesNameDifference;
+      }
+
+      if (
+        firstBadge.annualSeriesId !== undefined &&
+        firstBadge.annualSeriesId === secondBadge.annualSeriesId
+      ) {
+        return (
+          (firstBadge.editionYear ?? 0) -
+          (secondBadge.editionYear ?? 0)
+        );
+      }
+
+      return firstBadge.name.localeCompare(secondBadge.name);
     });
 
   const collectionSummary =
@@ -460,10 +521,30 @@ export default function CollectionScreen() {
               const metadata = [classification, editionText]
                 .filter(Boolean)
                 .join(' · ');
-              const availabilityMessage = badge.earned
-                ? 'Badge earned.'
-                : badge.retired
-                  ? 'No longer available. Existing progress is preserved.'
+              const statusLabel =
+                badge.displaysLevel && badge.currentLevel > 0
+                  ? `Level ${badge.currentLevel}`
+                  : badgeStatusLabels[displayStatus];
+              const progressVisitCount = badge.levelsEnabled
+                ? badge.levelProgressVisits
+                : badge.completedVisits;
+              const progressMessage = badge.levelsEnabled
+                ? `${progressVisitCount} of ${badge.requiredVisits} ` +
+                  `${badge.requiredVisits === 1 ? 'location' : 'locations'} ` +
+                  `toward Level ${badge.nextLevel}.`
+                : badge.displaysLevel
+                  ? `${badge.completedVisits} lifetime qualifying ` +
+                    `${badge.completedVisits === 1 ? 'location' : 'locations'}.`
+                : `${progressVisitCount} of ${badge.requiredVisits} ` +
+                  `${badge.requiredVisits === 1 ? 'location' : 'locations'}.`;
+              const availabilityMessage = badge.retired
+                ? 'No longer available. Existing levels and progress are preserved.'
+                : badge.levelsEnabled && badge.earned
+                  ? `Level ${badge.currentLevel} earned. Progress continues toward Level ${badge.nextLevel}.`
+                  : badge.displaysLevel && badge.earned
+                    ? `Level ${badge.currentLevel} earned. Additional levels are paused.`
+                  : badge.earned
+                    ? 'Badge earned.'
                   : badge.activeWindowEndsAt !== undefined
                     ? `Available now through ${formatAvailabilityTime(badge.activeWindowEndsAt)}.`
                     : badge.locked && badge.nextWindowStartsAt !== undefined
@@ -479,10 +560,9 @@ export default function CollectionScreen() {
                 `${metadata}. ` +
                 `${badge.tag} badge. ` +
                 `${badge.description} ` +
-                `${badgeStatusLabels[displayStatus]}. ` +
+                `${statusLabel}. ` +
                 `${availabilityMessage} ` +
-                `Progress: ${badge.completedVisits} of ` +
-                `${badge.requiredVisits} locations.`;
+                `Progress: ${progressMessage}`;
 
               return (
                 <View
@@ -538,7 +618,7 @@ export default function CollectionScreen() {
                         <ThemedText
                           type="small"
                           style={styles.badgeStatusText}>
-                          {badgeStatusLabels[displayStatus]}
+                          {statusLabel}
                         </ThemedText>
                       </View>
                     </View>
@@ -557,7 +637,9 @@ export default function CollectionScreen() {
                       <View
                         style={[
                           styles.progressFill,
-                          badge.earned && styles.progressFillEarned,
+                          badge.earned &&
+                            !badge.levelsEnabled &&
+                            styles.progressFillEarned,
                           { width: progressWidth },
                         ]}
                       />
@@ -566,9 +648,7 @@ export default function CollectionScreen() {
                     <ThemedText
                       type="small"
                       themeColor="textSecondary">
-                      {badge.completedVisits} of{' '}
-                      {badge.requiredVisits}{' '}
-                      {badge.requiredVisits === 1 ? 'location' : 'locations'}
+                      {progressMessage}
                     </ThemedText>
                   </ThemedView>
                 </View>

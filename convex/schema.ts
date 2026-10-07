@@ -84,6 +84,7 @@ export default defineSchema({
     imageStorageId: v.optional(v.id('_storage')),
     annualSeriesId: v.optional(v.id('badgeAnnualSeries')),
     editionYear: v.optional(v.number()),
+    levelsEnabled: v.optional(v.boolean()),
     })
       .index('by_tag', ['tag'])
       .index('by_key', ['key'])
@@ -130,6 +131,7 @@ export default defineSchema({
     badgeAwards: defineTable({
       clerkUserId: v.string(),
       badgeDefinitionId: v.id('badgeDefinitions'),
+      level: v.optional(v.number()),
       earnedAt: v.number(),
       announcedAt: v.optional(v.number()),
     })
@@ -137,5 +139,10 @@ export default defineSchema({
       .index('by_user_and_badge', [
         'clerkUserId',
         'badgeDefinitionId',
+      ])
+      .index('by_user_badge_and_level', [
+        'clerkUserId',
+        'badgeDefinitionId',
+        'level',
       ]),
 });

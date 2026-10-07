@@ -79,6 +79,7 @@ Badge forms support:
 - Description
 - Required visit count
 - Classification
+- Optional repeatable levels for non-seasonal badges
 - Bundled or uploaded badge artwork
 - Progress rule
 
@@ -101,6 +102,14 @@ The supported progress rules are:
 Specific-location rules include a searchable location selector, so the content team does not need to memorize location keys.
 
 The badge backend validates required fields, required visit counts, slug formats, unique badge keys, unique tags, and rule-specific values. Specific-location rules must reference an existing location.
+
+### Repeatable badge levels
+
+General and Special place badges can optionally use repeatable levels. When enabled, every complete set of qualifying visits earns the next permanent level. For example, a badge requiring three visits reaches Level 1 after three qualifying locations; a fourth qualifying location displays Level 1 with one of three visits toward Level 2.
+
+Levels have no configured maximum. Progress uses distinct qualifying locations, and each earned level is stored as a separate permanent award. Existing one-time awards are treated as Level 1 when leveling is enabled, so prior history is preserved. Disabling leveling stops additional levels without deleting levels that were already earned.
+
+Specific-location badges remain one-time awards because each location can only be collected once. Seasonal badges also remain one-time awards and cannot enable levels.
 
 ### Badge artwork
 
@@ -147,6 +156,8 @@ The annual-edition system follows these rules:
 - A scheduled Convex job prepares the next annual edition when it enters the configured generation period.
 
 Earned awards remain attached to their original edition. A user can therefore earn separate awards for editions such as Christmas 2026 and Christmas 2027 without rewriting prior history.
+
+Seasonal editions never use badge levels. In the Collection, earned editions from the same annual series are grouped together and ordered by edition year, so a 2027 award appears directly after its earned 2026 edition.
 
 ### Badge retirement
 

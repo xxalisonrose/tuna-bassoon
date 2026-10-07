@@ -194,6 +194,7 @@ function normalizeBadgeInput(args: {
   description: string;
   requiredVisits: number;
   classification: BadgeClassification;
+  levelsEnabled: boolean;
   imageKey?: string;
 }) {
   return {
@@ -207,6 +208,8 @@ function normalizeBadgeInput(args: {
     ),
     requiredVisits: normalizeRequiredVisits(args.requiredVisits),
     classification: normalizeClassification(args.classification),
+    levelsEnabled:
+      args.classification !== 'seasonal' && args.levelsEnabled,
     imageKey: normalizeOptionalImageKey(args.imageKey),
   };
 }
@@ -218,6 +221,17 @@ function ensureRequiredVisitsMatchRule(
   if (rule.type === 'location' && requiredVisits !== 1) {
     throw new ConvexError(
       'Specific location badges must require exactly one visit.',
+    );
+  }
+}
+
+function ensureLevelsMatchRule(
+  levelsEnabled: boolean,
+  rule: StoredBadgeRule,
+) {
+  if (levelsEnabled && rule.type === 'location') {
+    throw new ConvexError(
+      'Specific location badges cannot use repeatable levels because each location can only be collected once.',
     );
   }
 }
@@ -291,6 +305,9 @@ export const getBadgesForAdmin = query({
           type: 'tag' as const,
           normalizedTag: normalizeBadgeTag(definition.tag),
         },
+        levelsEnabled:
+          definition.classification !== 'seasonal' &&
+          definition.levelsEnabled === true,
         retired: definition.retired === true,
       })),
     );
@@ -309,6 +326,7 @@ export const createBadgeDefinition = mutation({
     description: v.string(),
     requiredVisits: v.number(),
     classification: classificationValidator,
+    levelsEnabled: v.boolean(),
     rule: badgeRuleValidator,
     imageKey: v.optional(v.string()),
   },
@@ -323,6 +341,7 @@ export const createBadgeDefinition = mutation({
       normalized.requiredVisits,
       rule,
     );
+    ensureLevelsMatchRule(normalized.levelsEnabled, rule);
 
     await ensureBadgeKeyIsUnique(ctx, normalized.key);
     await ensureBadgeTagIsUnique(ctx, normalized.tag);
@@ -334,6 +353,7 @@ export const createBadgeDefinition = mutation({
       description: normalized.description,
       requiredVisits: normalized.requiredVisits,
       classification: normalized.classification,
+      levelsEnabled: normalized.levelsEnabled,
       rule,
       retired: false,
       imageKey: normalized.imageKey,
@@ -350,6 +370,7 @@ export const updateBadgeDefinition = mutation({
     description: v.string(),
     requiredVisits: v.number(),
     classification: classificationValidator,
+    levelsEnabled: v.boolean(),
     rule: badgeRuleValidator,
     imageKey: v.optional(v.string()),
   },
@@ -372,6 +393,7 @@ export const updateBadgeDefinition = mutation({
       normalized.requiredVisits,
       rule,
     );
+    ensureLevelsMatchRule(normalized.levelsEnabled, rule);
 
     if (normalized.classification !== 'seasonal') {
       const availabilityWindows = await ctx.db
@@ -433,6 +455,7 @@ export const updateBadgeDefinition = mutation({
       description: normalized.description,
       requiredVisits: normalized.requiredVisits,
       classification: normalized.classification,
+      levelsEnabled: normalized.levelsEnabled,
       rule,
       imageKey: normalized.imageKey,
     });

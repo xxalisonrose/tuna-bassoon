@@ -21,6 +21,8 @@ export type AwardEarnedPopupAward = {
   _id: string;
   name: string;
   description: string;
+  level: number;
+  levelsEnabled: boolean;
   imageKey?: string;
   imageUrl?: string;
 };
@@ -40,9 +42,13 @@ export function AwardEarnedPopup({
 }: AwardEarnedPopupProps) {
   const theme = useTheme();
   const summaryRef = useRef<View>(null);
+  const heading = award.levelsEnabled
+    ? 'Badge level earned'
+    : 'Badge earned';
   const summaryLabel = [
-    'Badge earned.',
+    heading + '.',
     award.name + '.',
+    award.levelsEnabled ? `Level ${award.level}.` : '',
     award.description,
   ]
     .filter(Boolean)
@@ -99,12 +105,21 @@ export function AwardEarnedPopup({
                   styles.heading,
                   { color: theme.textSecondary },
                 ]}>
-                Badge earned
+                {heading}
               </ThemedText>
               <ThemedText
                 style={[styles.name, { color: theme.text }]}>
                 {award.name}
               </ThemedText>
+              {award.levelsEnabled ? (
+                <ThemedText
+                  style={[
+                    styles.level,
+                    { color: theme.text },
+                  ]}>
+                  Level {award.level}
+                </ThemedText>
+              ) : null}
               {award.description ? (
                 <ThemedText
                   style={[
@@ -190,6 +205,13 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontWeight: '700',
     lineHeight: 38,
+    marginTop: Spacing.one,
+    textAlign: 'center',
+  },
+  level: {
+    fontSize: 22,
+    fontWeight: '700',
+    lineHeight: 30,
     marginTop: Spacing.one,
     textAlign: 'center',
   },
