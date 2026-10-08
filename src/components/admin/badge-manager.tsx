@@ -107,9 +107,9 @@ const emptyForm: BadgeFormState = {
   key: '',
   tag: '',
   description: '',
-  requiredVisits: '1',
+  requiredVisits: '5',
   classification: 'general',
-  levelsEnabled: false,
+  levelsEnabled: true,
   congratulationsMessages: [...defaultBadgeCongratulations],
   imageKey: '',
   ruleType: 'tag',
@@ -121,6 +121,56 @@ const classificationLabels: Record<Classification, string> = {
   special_place: 'Special place',
   seasonal: 'Seasonal',
 };
+
+const classificationPresets: Record<
+  Classification,
+  { requiredVisits: number; levelsEnabled: boolean }
+> = {
+  general: {
+    requiredVisits: 5,
+    levelsEnabled: true,
+  },
+  special_place: {
+    requiredVisits: 1,
+    levelsEnabled: false,
+  },
+  seasonal: {
+    requiredVisits: 1,
+    levelsEnabled: false,
+  },
+};
+
+function getPresetCongratulationsMessages(
+  classification: Classification,
+  currentMessages: string[],
+) {
+  const messages = currentMessages.length > 0
+    ? [...currentMessages]
+    : [...defaultBadgeCongratulations];
+
+  if (classification !== 'general') {
+    return [messages[0] ?? defaultBadgeCongratulations[0]];
+  }
+
+  const seenMessages = new Set(
+    messages.map((message) => message.toLowerCase()),
+  );
+
+  for (const defaultMessage of defaultBadgeCongratulations) {
+    if (messages.length >= 10) {
+      break;
+    }
+
+    const duplicateKey = defaultMessage.toLowerCase();
+
+    if (!seenMessages.has(duplicateKey)) {
+      messages.push(defaultMessage);
+      seenMessages.add(duplicateKey);
+    }
+  }
+
+  return messages;
+}
 
 const classificationFilters: {
   value: ClassificationFilter;
@@ -462,14 +512,21 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
     if (!Number.isInteger(requiredVisits) || requiredVisits < 1 || requiredVisits > 1000) {
       return 'Required visits must be an integer from 1 through 1,000.';
     }
-    if (form.ruleType === 'location' && requiredVisits !== 1) {
-      return 'Specific location badges must require exactly one visit.';
+    const classificationPreset =
+      classificationPresets[form.classification];
+    if (requiredVisits !== classificationPreset.requiredVisits) {
+      return `${classificationLabels[form.classification]} badges require exactly ${classificationPreset.requiredVisits} ${classificationPreset.requiredVisits === 1 ? 'visit' : 'visits'}.`;
     }
-    if (form.ruleType === 'location' && form.levelsEnabled) {
-      return 'Specific location badges cannot use repeatable levels.';
+    if (form.levelsEnabled !== classificationPreset.levelsEnabled) {
+      return form.classification === 'general'
+        ? 'General badges must use repeatable levels.'
+        : 'Special place and Seasonal badges cannot use repeatable levels.';
     }
-    if (form.classification === 'seasonal' && form.levelsEnabled) {
-      return 'Seasonal badge editions cannot use repeatable levels.';
+    if (
+      form.classification === 'general' &&
+      form.ruleType === 'location'
+    ) {
+      return 'Specific-location rules must use the Special place or Seasonal classification.';
     }
     if (form.congratulationsMessages.length === 0) {
       return 'Add at least one badge congratulations message.';
@@ -1113,6 +1170,8 @@ function BadgeForm({
   ) => Promise<void> | void;
   onCancel: () => void;
 }) {
+  const [pendingClassification, setPendingClassification] =
+    useState<Classification | null>(null);
   const inputStyle = (extra?: object) => [styles.input, extra, { backgroundColor: theme.background, borderColor: theme.borderStrong, color: theme.text }];
   const needsValue = form.ruleType === 'location' || form.ruleType === 'story' || form.ruleType === 'region';
   const normalizedImageKey = form.imageKey.trim().toLowerCase();
@@ -1124,55 +1183,38 @@ function BadgeForm({
     !hasBadgeArtwork(normalizedImageKey);
   const activeUploadedImageUrl = pendingArtwork?.uri ??
     (removeUploadedArtwork ? undefined : uploadedImageUrl);
-  const parsedRequiredVisits = Number(form.requiredVisits);
-  const requiredVisitsIsValid =
-    Number.isInteger(parsedRequiredVisits) &&
-    parsedRequiredVisits >= 1 &&
-    parsedRequiredVisits <= 1000;
-  const requiredVisitsError =
-    form.requiredVisits.trim().length > 0 && !requiredVisitsIsValid
-      ? 'Enter a whole number from 1 through 1,000.'
-      : null;
-  const locationRuleSelected = form.ruleType === 'location';
-  const decrementVisitsDisabled =
-    saving ||
-    locationRuleSelected ||
-    !requiredVisitsIsValid ||
-    parsedRequiredVisits <= 1;
-  const incrementVisitsDisabled =
-    saving ||
-    locationRuleSelected ||
-    (requiredVisitsIsValid && parsedRequiredVisits >= 1000);
-
-  const adjustRequiredVisits = (change: number) => {
-    const currentValue = Number.isInteger(parsedRequiredVisits)
-      ? parsedRequiredVisits
-      : 0;
-    const nextValue = Math.min(
-      1000,
-      Math.max(1, currentValue + change),
-    );
-
-    onChange('requiredVisits', String(nextValue));
-  };
-
   const changeRuleType = (ruleType: RuleType) => {
     onChange('ruleType', ruleType);
-
-    if (ruleType === 'location') {
-      onChange('requiredVisits', '1');
-      onChange('levelsEnabled', false);
-    }
   };
 
-  const changeClassification = (
+  const requestClassificationChange = (
     classification: Classification,
   ) => {
-    onChange('classification', classification);
-
-    if (classification === 'seasonal') {
-      onChange('levelsEnabled', false);
+    if (classification === form.classification) {
+      return;
     }
+
+    setPendingClassification(classification);
+  };
+
+  const applyClassificationChange = () => {
+    if (pendingClassification === null) {
+      return;
+    }
+
+    const preset = classificationPresets[pendingClassification];
+
+    onChange('classification', pendingClassification);
+    onChange('requiredVisits', String(preset.requiredVisits));
+    onChange('levelsEnabled', preset.levelsEnabled);
+    onChange(
+      'congratulationsMessages',
+      getPresetCongratulationsMessages(
+        pendingClassification,
+        form.congratulationsMessages,
+      ),
+    );
+    setPendingClassification(null);
   };
 
   return (
@@ -1482,103 +1524,64 @@ function BadgeForm({
       </ThemedView>
 
       <ThemedView type="backgroundSelected" style={styles.formSectionHeading}>
-        <ThemedText type="smallBold">CELEBRATION POPUP</ThemedText>
-      </ThemedView>
-
-      <BadgeCongratulationsManager
-        badgeName={form.name}
-        disabled={saving}
-        messages={form.congratulationsMessages}
-        onChange={(messages) =>
-          onChange('congratulationsMessages', messages)
-        }
-      />
-
-      <ThemedView style={styles.fieldGroup}>
-        <ThemedText type="smallBold">
-          Required visits
-        </ThemedText>
-        <ThemedView style={styles.stepperRow}>
-          <Pressable
-            accessibilityHint="Reduces the number of qualifying visits needed to earn this badge."
-            accessibilityLabel="Decrease required visits"
-            accessibilityRole="button"
-            accessibilityState={{
-              disabled: decrementVisitsDisabled,
-            }}
-            disabled={decrementVisitsDisabled}
-            onPress={() => adjustRequiredVisits(-1)}
-            style={[
-              styles.stepperButton,
-              { borderColor: theme.textSecondary },
-              decrementVisitsDisabled && styles.disabled,
-            ]}>
-            <ThemedText style={styles.stepperButtonText}>
-              −
-            </ThemedText>
-          </Pressable>
-
-          <TextInput
-            accessibilityLabel="Required visits"
-            editable={!saving && !locationRuleSelected}
-            keyboardType="number-pad"
-            maxLength={4}
-            onChangeText={(value) =>
-              onChange(
-                'requiredVisits',
-                value.replace(/[^0-9]/g, ''),
-              )
-            }
-            placeholder="1"
-            placeholderTextColor={theme.textSecondary}
-            selectTextOnFocus
-            style={inputStyle(styles.stepperInput)}
-            value={form.requiredVisits}
-          />
-
-          <Pressable
-            accessibilityHint="Increases the number of qualifying visits needed to earn this badge."
-            accessibilityLabel="Increase required visits"
-            accessibilityRole="button"
-            accessibilityState={{
-              disabled: incrementVisitsDisabled,
-            }}
-            disabled={incrementVisitsDisabled}
-            onPress={() => adjustRequiredVisits(1)}
-            style={[
-              styles.stepperButton,
-              { borderColor: theme.textSecondary },
-              incrementVisitsDisabled && styles.disabled,
-            ]}>
-            <ThemedText style={styles.stepperButtonText}>
-              +
-            </ThemedText>
-          </Pressable>
-        </ThemedView>
-
-        <ThemedText type="small" themeColor="textSecondary">
-          {locationRuleSelected
-            ? 'Specific location badges require one visit because each location can only be collected once.'
-            : 'Number of qualifying visits needed to earn this badge.'}
-        </ThemedText>
-
-        {requiredVisitsError ? (
-          <ThemedText
-            accessibilityLiveRegion="polite"
-            style={styles.validationError}>
-            {requiredVisitsError}
-          </ThemedText>
-        ) : null}
-      </ThemedView>
-
-      <ThemedView type="backgroundSelected" style={styles.formSectionHeading}>
-        <ThemedText type="smallBold">CLASSIFICATION &amp; AVAILABILITY</ThemedText>
+        <ThemedText type="smallBold">CLASSIFICATION &amp; REQUIREMENTS</ThemedText>
       </ThemedView>
 
       <ThemedText type="smallBold">Classification</ThemedText>
       <ThemedView accessibilityRole="radiogroup" accessibilityLabel="Badge classification" style={styles.radioGroup}>
-        {(Object.keys(classificationLabels) as Classification[]).map((value) => <RadioOption key={value} label={classificationLabels[value]} selected={form.classification === value} hint={`Use the ${classificationLabels[value].toLowerCase()} classification.`} onPress={() => changeClassification(value)} />)}
+        {(Object.keys(classificationLabels) as Classification[]).map((value) => <RadioOption key={value} label={classificationLabels[value]} selected={form.classification === value} hint={`Use the ${classificationLabels[value].toLowerCase()} classification.`} onPress={() => requestClassificationChange(value)} />)}
       </ThemedView>
+      {pendingClassification !== null ? (
+        <ThemedView
+          accessibilityLabel="Confirm badge classification change"
+          type="backgroundSelected"
+          style={styles.confirmation}>
+          <ThemedText accessibilityLiveRegion="polite">
+            Change this badge to{' '}
+            {classificationLabels[pendingClassification]}? This sets{' '}
+            {classificationPresets[pendingClassification].requiredVisits}{' '}
+            {classificationPresets[pendingClassification].requiredVisits === 1
+              ? 'required visit'
+              : 'required visits'}, turns repeatable levels{' '}
+            {classificationPresets[pendingClassification].levelsEnabled
+              ? 'on'
+              : 'off'}, and prepares the appropriate starting
+            congratulations pool. Existing extra messages may be removed
+            when changing to Special place or Seasonal.
+          </ThemedText>
+          <ThemedView style={styles.actions}>
+            <Pressable
+              accessibilityRole="button"
+              disabled={saving}
+              onPress={applyClassificationChange}
+              style={styles.primaryButton}>
+              <ThemedText style={styles.primaryButtonText}>
+                Apply classification settings
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              disabled={saving}
+              onPress={() => setPendingClassification(null)}
+              style={styles.secondaryButton}>
+              <ThemedText style={styles.secondaryButtonText}>
+                Keep current classification
+              </ThemedText>
+            </Pressable>
+          </ThemedView>
+        </ThemedView>
+      ) : null}
+
+      <ThemedView style={styles.fieldGroup}>
+        <ThemedText type="smallBold">Required visits</ThemedText>
+        <ThemedText type="subtitle">{form.requiredVisits}</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          {form.classification === 'general'
+            ? 'General badges always require five qualifying visits.'
+            : `${classificationLabels[form.classification]} badges always require one qualifying visit.`}
+        </ThemedText>
+      </ThemedView>
+
       {availabilityBadgeId !== null && form.classification !== 'seasonal' ? (
       <ThemedText themeColor="textSecondary">
         This saved badge is seasonal. Remove its future windows before
@@ -1596,39 +1599,31 @@ function BadgeForm({
           configured maximum level.
         </ThemedText>
 
-        {locationRuleSelected ? (
-          <ThemedText type="small" themeColor="textSecondary">
-            Specific location badges remain one-time awards because a
-            location can only be collected once.
-          </ThemedText>
-        ) : (
-          <Pressable
-            accessibilityRole="checkbox"
-            accessibilityLabel="Allow repeatable badge levels"
-            accessibilityState={{
-              checked: form.levelsEnabled,
-              disabled: saving,
-            }}
-            disabled={saving}
-            onPress={() =>
-              onChange('levelsEnabled', !form.levelsEnabled)
-            }
-            style={({ pressed }) => [
-              styles.checkboxRow,
-              pressed && styles.pressed,
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityLabel="Allow repeatable badge levels"
+          accessibilityState={{
+            checked: form.levelsEnabled,
+            disabled: true,
+          }}
+          disabled
+          style={styles.checkboxRow}>
+          <ThemedView
+            style={[
+              styles.checkbox,
+              form.levelsEnabled && styles.checkboxSelected,
             ]}>
-            <ThemedView
-              style={[
-                styles.checkbox,
-                form.levelsEnabled && styles.checkboxSelected,
-              ]}>
-              <ThemedText style={styles.checkboxMark}>
-                {form.levelsEnabled ? '✓' : ''}
-              </ThemedText>
-            </ThemedView>
-            <ThemedText>Allow repeatable levels</ThemedText>
-          </Pressable>
-        )}
+            <ThemedText style={styles.checkboxMark}>
+              {form.levelsEnabled ? '✓' : ''}
+            </ThemedText>
+          </ThemedView>
+          <ThemedText>Allow repeatable levels</ThemedText>
+        </Pressable>
+        <ThemedText type="small" themeColor="textSecondary">
+          {form.classification === 'general'
+            ? 'General badges always use repeatable levels.'
+            : 'Special place badges are always one-time awards.'}
+        </ThemedText>
       </ThemedView>
     ) : null}
 
@@ -1775,6 +1770,26 @@ function BadgeForm({
     />
 
       <ThemedView type="backgroundSelected" style={styles.formSectionHeading}>
+        <ThemedText type="smallBold">CELEBRATION POPUP</ThemedText>
+      </ThemedView>
+
+      <ThemedText themeColor="textSecondary">
+        {form.classification === 'general'
+          ? 'General badges start with ten messages.'
+          : `${classificationLabels[form.classification]} badges start with one message.`}{' '}
+        You can add or remove messages after applying the classification.
+      </ThemedText>
+
+      <BadgeCongratulationsManager
+        badgeName={form.name}
+        disabled={saving}
+        messages={form.congratulationsMessages}
+        onChange={(messages) =>
+          onChange('congratulationsMessages', messages)
+        }
+      />
+
+      <ThemedView type="backgroundSelected" style={styles.formSectionHeading}>
         <ThemedText type="smallBold">PROGRESS RULE</ThemedText>
       </ThemedView>
 
@@ -1791,6 +1806,17 @@ function BadgeForm({
         ))}
       </ThemedView>
       <ThemedText themeColor="textSecondary">{ruleHelp[form.ruleType]}</ThemedText>
+
+      {form.classification === 'general' &&
+      form.ruleType === 'location' ? (
+        <ThemedText
+          accessibilityLiveRegion="polite"
+          style={styles.validationError}>
+          General badges require five distinct visits and repeatable
+          levels. Change this badge to Special place or Seasonal to use
+          a specific-location rule.
+        </ThemedText>
+      ) : null}
 
       {form.ruleType === 'location' ? (
         <ThemedView style={styles.locationPicker}>
@@ -1903,10 +1929,6 @@ const styles = StyleSheet.create({
   locationPicker: { gap: Spacing.two },
   annualSection: { gap: Spacing.two },
   fieldGroup: { gap: Spacing.one },
-  stepperRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  stepperButton: { minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderRadius: Spacing.two },
-  stepperButtonText: { fontSize: 24, lineHeight: 28 },
-  stepperInput: { flex: 1, textAlign: 'center' },
   checkboxRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   checkbox: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Palette.borderStrong, borderRadius: 4 },
   checkboxSelected: { borderColor: Palette.lightBronze, backgroundColor: Palette.lightBronze },

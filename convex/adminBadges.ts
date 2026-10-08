@@ -4,6 +4,7 @@ import type { MutationCtx } from './_generated/server';
 import { mutation, query } from './_generated/server';
 import type { Id } from './_generated/dataModel';
 import {
+  DEFAULT_BADGE_CONGRATULATIONS,
   getBadgeCongratulations,
 } from './lib/badge_congratulations';
 import { normalizeBadgeTag } from './lib/badge_rules';
@@ -71,6 +72,24 @@ type BadgeClassification =
   | 'general'
   | 'special_place'
   | 'seasonal';
+
+const classificationPresets: Record<
+  BadgeClassification,
+  { requiredVisits: number; levelsEnabled: boolean }
+> = {
+  general: {
+    requiredVisits: 5,
+    levelsEnabled: true,
+  },
+  special_place: {
+    requiredVisits: 1,
+    levelsEnabled: false,
+  },
+  seasonal: {
+    requiredVisits: 1,
+    levelsEnabled: false,
+  },
+};
 
 function normalizeRequiredString(
   value: string,
@@ -185,6 +204,104 @@ function normalizeCongratulationsMessages(values: string[]) {
   });
 }
 
+function getPresetCongratulationsMessages(
+  classification: BadgeClassification,
+  currentMessages: string[] | undefined,
+) {
+  const messages = getBadgeCongratulations(currentMessages);
+
+  if (classification !== 'general') {
+    return [messages[0] ?? DEFAULT_BADGE_CONGRATULATIONS[0]];
+  }
+
+  const presetMessages = [...messages];
+  const seenMessages = new Set(
+    presetMessages.map((message) => message.toLowerCase()),
+  );
+
+  for (const defaultMessage of DEFAULT_BADGE_CONGRATULATIONS) {
+    if (presetMessages.length >= 10) {
+      break;
+    }
+
+    const duplicateKey = defaultMessage.toLowerCase();
+
+    if (!seenMessages.has(duplicateKey)) {
+      presetMessages.push(defaultMessage);
+      seenMessages.add(duplicateKey);
+    }
+  }
+
+  return presetMessages;
+}
+
+function messagesMatch(first: string[], second: string[]) {
+  return (
+    first.length === second.length &&
+    first.every((message, index) => message === second[index])
+  );
+}
+
+function getClassificationPresetChange(definition: {
+  _id: Id<'badgeDefinitions'>;
+  name: string;
+  tag: string;
+  classification?: BadgeClassification;
+  requiredVisits: number;
+  levelsEnabled?: boolean;
+  congratulationsMessages?: string[];
+  rule?: StoredBadgeRule;
+}) {
+  const classification = definition.classification ?? 'general';
+  const preset = classificationPresets[classification];
+  const beforeMessages = getBadgeCongratulations(
+    definition.congratulationsMessages,
+  );
+  const afterMessages = getPresetCongratulationsMessages(
+    classification,
+    definition.congratulationsMessages,
+  );
+  const rule = definition.rule ?? {
+    type: 'tag' as const,
+    normalizedTag: normalizeBadgeTag(definition.tag),
+  };
+  const conflict =
+    classification === 'general' && rule.type === 'location'
+      ? 'General badges cannot use a specific-location rule because General badges require five visits and repeatable levels. Change this badge to Special place before applying the migration.'
+      : null;
+  const changed =
+    definition.classification !== classification ||
+    definition.requiredVisits !== preset.requiredVisits ||
+    definition.levelsEnabled !== preset.levelsEnabled ||
+    !messagesMatch(beforeMessages, afterMessages);
+
+  if (!changed && conflict === null) {
+    return null;
+  }
+
+  return {
+    badgeDefinitionId: definition._id,
+    name: definition.name,
+    classification,
+    conflict,
+    before: {
+      requiredVisits: definition.requiredVisits,
+      levelsEnabled: definition.levelsEnabled === true,
+      messageCount: beforeMessages.length,
+    },
+    after: {
+      requiredVisits: preset.requiredVisits,
+      levelsEnabled: preset.levelsEnabled,
+      messageCount: afterMessages.length,
+    },
+    removedMessages:
+      classification === 'general'
+        ? []
+        : beforeMessages.slice(1),
+    congratulationsMessages: afterMessages,
+  };
+}
+
 async function normalizeRule(
   ctx: MutationCtx,
   rule: BadgeRuleInput,
@@ -246,6 +363,24 @@ function normalizeBadgeInput(args: {
   congratulationsMessages: string[];
   imageKey?: string;
 }) {
+  const classification = normalizeClassification(args.classification);
+  const preset = classificationPresets[classification];
+  const requiredVisits = normalizeRequiredVisits(args.requiredVisits);
+
+  if (requiredVisits !== preset.requiredVisits) {
+    throw new ConvexError(
+      `${classification === 'general' ? 'General' : classification === 'special_place' ? 'Special place' : 'Seasonal'} badges require exactly ${preset.requiredVisits} ${preset.requiredVisits === 1 ? 'visit' : 'visits'}.`,
+    );
+  }
+
+  if (args.levelsEnabled !== preset.levelsEnabled) {
+    throw new ConvexError(
+      classification === 'general'
+        ? 'General badges must use repeatable levels.'
+        : 'Special place and Seasonal badges cannot use repeatable levels.',
+    );
+  }
+
   return {
     name: normalizeRequiredString(args.name, 'name', MAX_NAME_LENGTH),
     key: normalizeSlug(args.key, 'key'),
@@ -255,10 +390,9 @@ function normalizeBadgeInput(args: {
       'description',
       MAX_DESCRIPTION_LENGTH,
     ),
-    requiredVisits: normalizeRequiredVisits(args.requiredVisits),
-    classification: normalizeClassification(args.classification),
-    levelsEnabled:
-      args.classification !== 'seasonal' && args.levelsEnabled,
+    requiredVisits,
+    classification,
+    levelsEnabled: preset.levelsEnabled,
     congratulationsMessages: normalizeCongratulationsMessages(
       args.congratulationsMessages,
     ),
@@ -370,6 +504,81 @@ export const getBadgesForAdmin = query({
     return definitionsWithArtwork.sort((first, second) =>
       first.name.localeCompare(second.name),
     );
+  },
+});
+
+export const previewClassificationPresetMigration = query({
+  args: {},
+
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const definitions = await ctx.db
+      .query('badgeDefinitions')
+      .collect();
+    const changes: NonNullable<
+      ReturnType<typeof getClassificationPresetChange>
+    >[] = [];
+
+    for (const definition of definitions) {
+      const change = getClassificationPresetChange(definition);
+
+      if (change !== null) {
+        changes.push(change);
+      }
+    }
+
+    return changes.sort((first, second) =>
+      first.name.localeCompare(second.name),
+    );
+  },
+});
+
+export const applyClassificationPresetMigration = mutation({
+  args: {},
+
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const definitions = await ctx.db
+      .query('badgeDefinitions')
+      .collect();
+    const changes: NonNullable<
+      ReturnType<typeof getClassificationPresetChange>
+    >[] = [];
+
+    for (const definition of definitions) {
+      const change = getClassificationPresetChange(definition);
+
+      if (change !== null) {
+        changes.push(change);
+      }
+    }
+
+    const conflicts = changes.filter(
+      (change) => change.conflict !== null,
+    );
+
+    if (conflicts.length > 0) {
+      throw new ConvexError(
+        'Resolve classification preset conflicts before applying: ' +
+          conflicts
+            .map((change) => `${change.name}: ${change.conflict}`)
+            .join(' '),
+      );
+    }
+
+    for (const change of changes) {
+      await ctx.db.patch(change.badgeDefinitionId, {
+        classification: change.classification,
+        requiredVisits: change.after.requiredVisits,
+        levelsEnabled: change.after.levelsEnabled,
+        congratulationsMessages: change.congratulationsMessages,
+      });
+    }
+
+    return {
+      updated: changes.length,
+      badges: changes.map((change) => change.name),
+    };
   },
 });
 

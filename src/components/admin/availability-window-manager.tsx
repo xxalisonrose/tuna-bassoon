@@ -14,6 +14,7 @@ import { Palette, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
+import { AvailabilityDateTimeField } from './availability-date-time-field';
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -133,6 +134,10 @@ function formatDisplayDate(timestamp: number) {
     dateStyle: 'medium',
     timeStyle: 'short',
   });
+}
+
+function getLocalDateInputValue(timestamp: number) {
+  return formatLocalDateTimeInput(timestamp).slice(0, 10);
 }
 
 function getWindowState(window: AvailabilityWindow, now: number) {
@@ -261,7 +266,7 @@ export function AvailabilityWindowManager({
       return {
         ok: false,
         message:
-          'Enter both dates in YYYY-MM-DD HH:MM format using local time.',
+          'Choose or enter a valid date and time for both the start and end.',
       };
     }
 
@@ -421,6 +426,15 @@ export function AvailabilityWindowManager({
   const now = Date.now();
   const busy =
     saving || deletingId !== null || endingId !== null;
+  const previewStartsAt = parseLocalDateTime(form.startsAt);
+  const previewEndsAt = parseLocalDateTime(form.endsAt);
+  const rangeIsComplete =
+    previewStartsAt !== null && previewEndsAt !== null;
+  const rangeEndsAfterStart =
+    rangeIsComplete && previewEndsAt > previewStartsAt;
+  const minimumStartDate = getLocalDateInputValue(now);
+  const selectedStartDate =
+    /^\d{4}-\d{2}-\d{2}/.exec(form.startsAt)?.[0];
   const inputStyle = [
     styles.input,
     {
@@ -504,45 +518,55 @@ export function AvailabilityWindowManager({
             value={form.key}
           />
 
-          <ThemedText type="smallBold">
-            Start time (local)
-          </ThemedText>
-          <ThemedText type="small">
-            Format: YYYY-MM-DD HH:MM
-          </ThemedText>
-
-          <TextInput
-            accessibilityLabel="Availability window start"
-            autoCapitalize="none"
-            autoCorrect={false}
-            editable={!busy}
-            onChangeText={(value) =>
-              updateField('startsAt', value)
-            }
-            placeholder="YYYY-MM-DD HH:MM"
-            placeholderTextColor={theme.textSecondary}
-            style={inputStyle}
+          <AvailabilityDateTimeField
+            disabled={busy}
+            label="Starts"
+            minimumDate={minimumStartDate}
+            onChange={(value) => updateField('startsAt', value)}
             value={form.startsAt}
           />
 
-          <ThemedText type="smallBold">
-            End time (local)
-          </ThemedText>
-          <ThemedText type="small">
-            Format: YYYY-MM-DD HH:MM
-          </ThemedText>
-
-          <TextInput
-            accessibilityLabel="Availability window end"
-            autoCapitalize="none"
-            autoCorrect={false}
-            editable={!busy}
-            onChangeText={(value) => updateField('endsAt', value)}
-            placeholder="YYYY-MM-DD HH:MM"
-            placeholderTextColor={theme.textSecondary}
-            style={inputStyle}
+          <AvailabilityDateTimeField
+            disabled={busy}
+            label="Ends"
+            minimumDate={selectedStartDate ?? minimumStartDate}
+            onChange={(value) => updateField('endsAt', value)}
             value={form.endsAt}
           />
+
+          <ThemedView
+            accessibilityLabel="Selected availability range"
+            accessibilityLiveRegion="polite"
+            type="backgroundSelected"
+            style={styles.rangePreview}>
+            <ThemedText type="smallBold">
+              Selected availability
+            </ThemedText>
+            {rangeIsComplete ? (
+              <>
+                <ThemedText>
+                  {formatDisplayDate(previewStartsAt)} →{' '}
+                  {formatDisplayDate(previewEndsAt)}
+                </ThemedText>
+                <ThemedText
+                  type="small"
+                  style={
+                    rangeEndsAfterStart
+                      ? undefined
+                      : { color: theme.danger }
+                  }>
+                  {rangeEndsAfterStart
+                    ? 'The precise local timestamps above will be saved.'
+                    : 'The ending must occur after the beginning.'}
+                </ThemedText>
+              </>
+            ) : (
+              <ThemedText type="small" themeColor="textSecondary">
+                Choose both a date and time for the start and end to
+                preview the complete range.
+              </ThemedText>
+            )}
+          </ThemedView>
 
           <ThemedView style={styles.actions}>
             <Pressable
@@ -788,6 +812,11 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: Spacing.two,
+  },
+  rangePreview: {
+    gap: Spacing.one,
+    padding: Spacing.three,
+    borderRadius: Spacing.two,
   },
   input: {
     minHeight: 48,

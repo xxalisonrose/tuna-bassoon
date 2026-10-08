@@ -77,17 +77,26 @@ Badge forms support:
 - Stable badge key
 - Tag
 - Description
-- Required visit count
 - Classification
-- Optional repeatable levels for non-seasonal badges
+- Classification-controlled visit requirements and leveling behavior
+- A badge-specific congratulations message pool
 - Bundled or uploaded badge artwork
 - Progress rule
 
-The supported classifications are:
+Classification applies a consistent starting configuration:
 
-- General
-- Special place
-- Seasonal
+| Classification | Required visits | Repeatable levels | Starting congratulations pool | Availability |
+| --- | ---: | --- | ---: | --- |
+| General | 5 | On | 10 messages | Always available unless retired |
+| Special place | 1 | Off | 1 message | Always available unless retired |
+| Seasonal | 1 | Off | 1 message | Optional scheduled availability windows |
+
+Visit requirements and leveling behavior are fixed by classification.
+The congratulations count is a starting preset rather than a permanent
+limit: after the classification is applied, administrators can add,
+edit, or remove messages while keeping at least one message in the pool.
+Changing classification requires confirmation because it reapplies the
+visit, leveling, and starting-message settings.
 
 The supported progress rules are:
 
@@ -101,19 +110,26 @@ The supported progress rules are:
 
 Specific-location rules include a searchable location selector, so the content team does not need to memorize location keys.
 
-The badge backend validates required fields, required visit counts, slug formats, unique badge keys, unique tags, and rule-specific values. Specific-location rules must reference an existing location.
+The badge backend validates required fields, classification presets, slug formats, unique badge keys, unique tags, and rule-specific values. Specific-location rules must reference an existing location and use the Special place or Seasonal classification.
+
+Existing badge definitions can be normalized through the guarded
+classification-preset migration. Its preview reports every before/after
+change, any congratulations messages that would be removed, and any
+classification/rule conflicts. The apply step refuses to run until all
+reported conflicts are resolved. It preserves badge names, descriptions,
+tags, artwork, rules, availability windows, progress, and awards.
 
 ### Repeatable badge levels
 
-General and Special place badges can optionally use repeatable levels. When enabled, every complete set of qualifying visits earns the next permanent level. For example, a badge requiring three visits reaches Level 1 after three qualifying locations; a fourth qualifying location displays Level 1 with one of three visits toward Level 2.
+General badges use repeatable levels. Every complete set of five qualifying visits earns the next permanent level. For example, a sixth qualifying location displays Level 1 with one of five visits toward Level 2. Special place and Seasonal badges are one-time awards and do not use levels.
 
-Levels have no configured maximum. Progress uses distinct qualifying locations, and each earned level is stored as a separate permanent award. Existing one-time awards are treated as Level 1 when leveling is enabled, so prior history is preserved. Disabling leveling stops additional levels without deleting levels that were already earned.
+Levels have no configured maximum. Progress uses distinct qualifying locations, and each earned level is stored as a separate permanent award. Existing one-time awards are treated as Level 1 when a badge is normalized as General, so prior history is preserved. Changing a badge to Special place or Seasonal stops additional levels without deleting levels that were already earned.
 
-Each badge has its own pool of congratulations messages. The pool stays tucked behind Manage congratulations inside that badge's create or edit form. An administrator can add messages, edit them, and delete messages with confirmation. New badges start with ten general messages that can be replaced with badge-specific wording, and at least one message must remain in each pool.
+Each badge has its own pool of congratulations messages. The pool stays tucked behind Manage congratulations inside that badge's create or edit form. An administrator can add messages, edit them, and delete messages with confirmation. General badges start with ten messages; Special place and Seasonal badges start with one. These can be replaced with badge-specific wording, and at least one message must remain in each pool.
 
 Whenever a badge is first earned or a repeatable badge reaches another level, its in-app celebration popup randomly chooses one message from that badge's pool. The selected message is only used for that popup and is not stored with the award after dismissal. Adding or deleting messages therefore changes future popup choices without rewriting existing awards. Badge levels remain unlimited and do not need level-specific message ranges. New annual seasonal editions inherit the preceding edition's message pool and can then be edited independently.
 
-Specific-location badges remain one-time awards because each location can only be collected once. Seasonal badges also remain one-time awards and cannot enable levels.
+Specific-location badges remain one-time awards because each location can only be collected once, so they must use the Special place or Seasonal classification.
 
 ### Badge artwork
 
@@ -127,13 +143,16 @@ Artwork appears in the administrator badge list, the user Collection, and earned
 
 Administrators can schedule availability windows directly inside a seasonal badge form. When a new or existing badge is changed to Seasonal, the first availability window can be entered and saved with the badge in one action.
 
-Each window includes an event period title, local start time, and local end time. Titles are converted to lowercase stable keys, so an entry such as `Halloween 2027` is stored as `halloween-2027`.
+Each window includes an event period title, local start time, and local end time. On the web portal, separate calendar and time controls replace manual timestamp entry. The controls follow the computer's locale, and the selected range is previewed in a human-readable local format before saving. The application combines the selections into precise timestamps internally. Native builds retain the manual local date-and-time field as a fallback.
+
+Titles are converted to lowercase stable keys, so an entry such as `Halloween 2027` is stored as `halloween-2027`.
 
 Seasonal availability follows these rules:
 
 - Availability windows can only belong to seasonal badges.
 - A seasonal badge without windows remains available year-round.
 - Windows for the same badge cannot overlap or reuse the same key.
+- The end date and time must occur after the start date and time.
 - Future windows can be edited or removed.
 - Active windows cannot be edited or deleted, but administrators can end them early through an explicit confirmation step.
 - Ending an active window records its new end time, stops new qualifying progress, and preserves existing progress and window history.
