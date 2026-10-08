@@ -11,7 +11,6 @@ import { useMutation, useQuery } from 'convex/react';
 
 import {
   BadgeArtwork,
-  badgeArtworkOptions,
   hasBadgeArtwork,
 } from '@/components/badge-artwork';
 import {
@@ -27,6 +26,7 @@ import {
   BadgeTagPicker,
   normalizeBadgeTagValue,
 } from '@/components/admin/badge-tag-picker';
+import { SectionHelpHeading } from '@/components/admin/section-help-heading';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AvailabilityWindowManager } from '@/components/admin/availability-window-manager';
@@ -118,7 +118,7 @@ const emptyForm: BadgeFormState = {
 
 const classificationLabels: Record<Classification, string> = {
   general: 'General',
-  special_place: 'Special place',
+  special_place: 'Special Place',
   seasonal: 'Seasonal',
 };
 
@@ -179,17 +179,17 @@ const classificationFilters: {
   { value: 'all', label: 'All' },
   { value: 'general', label: 'General' },
   { value: 'seasonal', label: 'Seasonal' },
-  { value: 'special_place', label: 'Special place' },
+  { value: 'special_place', label: 'Special Place' },
 ];
 
 const ruleLabels: Record<RuleType, string> = {
   tag: 'Tag',
-  location: 'Specific location',
-  any_location: 'Any location',
-  story: 'Specific story',
-  region: 'Specific region',
-  same_story: 'Same story',
-  same_region: 'Same region',
+  location: 'Specific Location',
+  any_location: 'Any Location',
+  story: 'Specific Story',
+  region: 'Specific Region',
+  same_story: 'Same Story',
+  same_region: 'Same Region',
 };
 
 const ruleHelp: Record<RuleType, string> = {
@@ -210,6 +210,15 @@ function suggestAnnualSeriesKey(key: string) {
   return key.trim().replace(/-\d{4}$/, '');
 }
 
+function createStableKey(value: string) {
+  return value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 function getErrorMessage(error: unknown, fallback: string) {
   if (
     typeof error === 'object' &&
@@ -224,9 +233,9 @@ function getErrorMessage(error: unknown, fallback: string) {
 }
 
 function formatRule(rule: { type: string; locationKey?: string; storyKey?: string; regionKey?: string }) {
-  if (rule.type === 'location') return `Specific location: ${rule.locationKey}`;
-  if (rule.type === 'story') return `Specific story: ${rule.storyKey}`;
-  if (rule.type === 'region') return `Specific region: ${rule.regionKey}`;
+  if (rule.type === 'location') return `Specific Location: ${rule.locationKey}`;
+  if (rule.type === 'story') return `Specific Story: ${rule.storyKey}`;
+  if (rule.type === 'region') return `Specific Region: ${rule.regionKey}`;
   return ruleLabels[rule.type as RuleType] ?? rule.type;
 }
 
@@ -291,6 +300,94 @@ function RadioOption({
   );
 }
 
+function DropdownSelect<T extends string>({
+  accessibilityLabel,
+  disabled = false,
+  onChange,
+  options,
+  value,
+}: {
+  accessibilityLabel: string;
+  disabled?: boolean;
+  onChange: (value: T) => void;
+  options: readonly {
+    hint: string;
+    label: string;
+    value: T;
+  }[];
+  value: T;
+}) {
+  const [open, setOpen] = useState(false);
+  const selectedLabel =
+    options.find((option) => option.value === value)?.label ?? value;
+
+  return (
+    <ThemedView style={styles.dropdown}>
+      <Pressable
+        accessibilityLabel={`${accessibilityLabel}: ${selectedLabel}`}
+        accessibilityHint={
+          open
+            ? 'Closes the available choices.'
+            : 'Opens the available choices.'
+        }
+        accessibilityRole="button"
+        accessibilityState={{ disabled, expanded: open }}
+        disabled={disabled}
+        onPress={() => setOpen((current) => !current)}
+        style={({ pressed }) => [
+          styles.dropdownButton,
+          disabled && styles.disabled,
+          pressed && styles.pressed,
+        ]}>
+        <ThemedText type="smallBold" style={styles.textOnLightSurface}>
+          {selectedLabel}
+        </ThemedText>
+        <ThemedText style={styles.textOnLightSurface}>
+          {open ? '▲' : '▼'}
+        </ThemedText>
+      </Pressable>
+
+      {open ? (
+        <ThemedView
+          accessibilityLabel={`${accessibilityLabel} choices`}
+          accessibilityRole="radiogroup"
+          style={styles.dropdownOptions}>
+          {options.map((option) => {
+            const selectedOption = option.value === value;
+
+            return (
+              <Pressable
+                key={option.value}
+                accessibilityHint={option.hint}
+                accessibilityLabel={option.label}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: selectedOption }}
+                onPress={() => {
+                  onChange(option.value);
+                  setOpen(false);
+                }}
+                style={({ pressed }) => [
+                  styles.dropdownOption,
+                  selectedOption && styles.dropdownOptionSelected,
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText
+                  style={
+                    selectedOption
+                      ? styles.textOnLightSurface
+                      : undefined
+                  }>
+                  {option.label}
+                </ThemedText>
+              </Pressable>
+            );
+          })}
+        </ThemedView>
+      ) : null}
+    </ThemedView>
+  );
+}
+
 export function BadgeManager({ visible }: BadgeManagerProps) {
   const theme = useTheme();
   const badges = useQuery(api.adminBadges.getBadgesForAdmin);
@@ -320,6 +417,8 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
   const [formMode, setFormMode] = useState<'create' | 'edit' | null>(null);
   const [editingId, setEditingId] = useState<Id<'badgeDefinitions'> | null>(null);
   const [form, setForm] = useState<BadgeFormState>(emptyForm);
+  const [originalBadgeStableKey, setOriginalBadgeStableKey] =
+    useState('');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmingId, setConfirmingId] = useState<Id<'badgeDefinitions'> | null>(null);
@@ -438,6 +537,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
     setFormMode('create');
     setEditingId(null);
     setForm(emptyForm);
+    setOriginalBadgeStableKey('');
     setStatusMessage(null);
     setAnnualRepeatEnabled(false);
     setAnnualSeriesName('');
@@ -478,6 +578,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
       ruleType,
       ruleValue,
     });
+    setOriginalBadgeStableKey(badge.key);
     setStatusMessage(null);
     setLocationSearch('');
     setAnnualRepeatEnabled(badge.annualSeriesId !== undefined);
@@ -492,6 +593,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
     setFormMode(null);
     setEditingId(null);
     setForm(emptyForm);
+    setOriginalBadgeStableKey('');
     if (clearStatus) {
       setStatusMessage(null);
     }
@@ -759,6 +861,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
     try {
       if (formMode === 'create') {
         savedBadgeId = await createBadge(payload);
+        setOriginalBadgeStableKey(payload.key);
         setFormMode('edit');
         setEditingId(savedBadgeId);
       } else if (formMode === 'edit' && editingId) {
@@ -874,11 +977,11 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
         {!formMode ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Add new badge"
+            accessibilityLabel="Add New Badge"
             onPress={openCreate}
             style={styles.primaryButton}>
             <ThemedText style={styles.primaryButtonText}>
-              Add new badge
+              Add New Badge
             </ThemedText>
           </Pressable>
         ) : null}
@@ -899,7 +1002,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
           style={[styles.searchCard, { borderColor: theme.border }]}>
           <ThemedView style={styles.searchHeader}>
             <ThemedView style={styles.searchHeaderCopy}>
-              <ThemedText type="smallBold">Find a badge</ThemedText>
+              <ThemedText type="smallBold">Find a Badge</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
                 Search badge details and narrow the list by classification.
               </ThemedText>
@@ -972,7 +1075,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
                 pressed && styles.pressed,
               ]}>
               <ThemedText type="smallBold" style={styles.secondaryButtonText}>
-                Clear search and filters
+                Clear Search and Filters
               </ThemedText>
             </Pressable>
           ) : null}
@@ -992,6 +1095,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
           formMode={formMode}
           locations={filteredLocations}
           locationSearch={locationSearch}
+          originalStableKey={originalBadgeStableKey || form.key}
           pendingArtwork={pendingArtwork}
           removeUploadedArtwork={removeUploadedArtwork}
           saving={formBusy}
@@ -1058,7 +1162,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
                 </ThemedView>
                 <ThemedText type="small">Key: {badge.key || 'Legacy key missing'}</ThemedText>
                 <ThemedText type="small">Tag: {badge.tag}</ThemedText>
-                <ThemedText type="small">Required visits: {badge.requiredVisits}</ThemedText>
+                <ThemedText type="small">Required Visits: {badge.requiredVisits}</ThemedText>
                 <ThemedText type="small">Classification: {classificationLabels[badge.classification as Classification]}</ThemedText>
                 <ThemedText type="small">
                   Leveling:{' '}
@@ -1075,7 +1179,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
                     : 'messages'}
                 </ThemedText>
                 <ThemedText type="small">Rule: {formatRule(badge.rule)}</ThemedText>
-                {badge.imageKey ? <ThemedText type="small">Image key: {badge.imageKey}</ThemedText> : null}
+                {badge.imageKey ? <ThemedText type="small">Image Key: {badge.imageKey}</ThemedText> : null}
                 <ThemedText type="smallBold" themeColor="textSecondary">{badge.retired ? `Retired${retiredDate ? ` on ${retiredDate}` : ''}` : 'Active'}</ThemedText>
                 <ThemedView style={styles.actions}>
                   <Pressable accessibilityRole="button" accessibilityLabel={`Edit ${badge.name}`} onPress={() => openEdit(badge)} style={styles.secondaryButton}>
@@ -1090,7 +1194,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
                     <ThemedText accessibilityLiveRegion="polite">{badge.retired ? 'Reactivating this badge allows progress to be calculated again. Existing awards remain.' : 'Retiring this badge stops new progress after the retirement time. Existing awards remain.'}</ThemedText>
                     <ThemedView style={styles.actions}>
                       <Pressable accessibilityRole="button" disabled={retiringId === badge._id} accessibilityState={{ busy: retiringId === badge._id, disabled: retiringId === badge._id }} onPress={() => changeRetiredState(badge)} style={[styles.primaryButton, retiringId === badge._id && styles.disabled]}>
-                        <ThemedText style={styles.primaryButtonText}>{badge.retired ? 'Confirm reactivation' : 'Confirm retirement'}</ThemedText>
+                        <ThemedText style={styles.primaryButtonText}>{badge.retired ? 'Confirm Reactivation' : 'Confirm Retirement'}</ThemedText>
                       </Pressable>
                       <Pressable accessibilityRole="button" disabled={retiringId === badge._id} onPress={() => setConfirmingId(null)} style={styles.secondaryButton}><ThemedText style={styles.secondaryButtonText}>Cancel</ThemedText></Pressable>
                     </ThemedView>
@@ -1117,6 +1221,7 @@ function BadgeForm({
   formMode,
   locations,
   locationSearch,
+  originalStableKey,
   pendingArtwork,
   removeUploadedArtwork,
   saving,
@@ -1148,6 +1253,7 @@ function BadgeForm({
   formMode: 'create' | 'edit';
   locations: { _id: Id<'locations'>; name: string; key?: string }[];
   locationSearch: string;
+  originalStableKey: string;
   pendingArtwork: BadgeArtworkAsset | null;
   removeUploadedArtwork: boolean;
   saving: boolean;
@@ -1172,17 +1278,24 @@ function BadgeForm({
 }) {
   const [pendingClassification, setPendingClassification] =
     useState<Classification | null>(null);
+  const [stableKeyManuallyEdited, setStableKeyManuallyEdited] =
+    useState(false);
+  const [stableKeyChangeRequested, setStableKeyChangeRequested] =
+    useState(false);
+  const [stableKeyEditingUnlocked, setStableKeyEditingUnlocked] =
+    useState(false);
   const inputStyle = (extra?: object) => [styles.input, extra, { backgroundColor: theme.background, borderColor: theme.borderStrong, color: theme.text }];
   const needsValue = form.ruleType === 'location' || form.ruleType === 'story' || form.ruleType === 'region';
   const normalizedImageKey = form.imageKey.trim().toLowerCase();
-  const selectedArtwork = badgeArtworkOptions.find(
-    (option) => option.key === normalizedImageKey,
-  );
   const hasUnregisteredArtworkKey =
     normalizedImageKey.length > 0 &&
     !hasBadgeArtwork(normalizedImageKey);
   const activeUploadedImageUrl = pendingArtwork?.uri ??
     (removeUploadedArtwork ? undefined : uploadedImageUrl);
+  const hasVisibleArtwork =
+    activeUploadedImageUrl !== undefined ||
+    hasBadgeArtwork(normalizedImageKey);
+  const suggestedStableKey = createStableKey(form.name);
   const changeRuleType = (ruleType: RuleType) => {
     onChange('ruleType', ruleType);
   };
@@ -1222,51 +1335,223 @@ function BadgeForm({
       type="backgroundElement"
       style={[styles.formCard, { borderColor: theme.border }]}>
       <ThemedText type="subtitle" style={styles.formTitle}>
-        {formMode === 'create' ? 'Add a new badge' : 'Edit badge'}
-      </ThemedText>
-      <ThemedText themeColor="textSecondary">
-        Work through each section, then save from the review panel at
-        the bottom.
+        {formMode === 'create' ? 'Add a New Badge' : 'Edit Badge'}
       </ThemedText>
 
-      <ThemedView type="backgroundSelected" style={styles.formSectionHeading}>
-        <ThemedText type="smallBold">BADGE IDENTITY</ThemedText>
+      <SectionHelpHeading
+        label="BADGE IDENTITY"
+        items={[
+          {
+            label: 'Name',
+            description: 'The public badge title visitors see in Collection and in the celebration popup.',
+          },
+          {
+            label: 'Stable Key',
+            description: 'The permanent internal ID for this badge. During creation it is generated from the name until you edit it. Use lowercase letters, numbers, and single hyphens. Existing keys are locked because progress, awards, links, and annual editions may rely on them.',
+          },
+          {
+            label: 'Tag',
+            description: 'The shared topic that connects this badge to qualifying locations. Choose an existing location tag or add a new one, and reuse the exact tag on every location whose check-in should count.',
+          },
+        ]}
+      />
+
+      <ThemedView style={styles.fieldGroup}>
+        <ThemedText type="smallBold">Name</ThemedText>
+        <TextInput
+          accessibilityLabel="Name"
+          autoCapitalize="words"
+          editable={!saving}
+          onChangeText={(value) => {
+            onChange('name', value);
+
+            if (formMode === 'create' && !stableKeyManuallyEdited) {
+              onChange('key', createStableKey(value));
+            }
+          }}
+          placeholder="Name"
+          placeholderTextColor={theme.textSecondary}
+          style={inputStyle()}
+          value={form.name}
+        />
       </ThemedView>
 
-      {[
-        ['name', 'Name'],
-        ['key', 'Stable key'],
-      ].map(([field, label]) => (
-        <ThemedView
-          key={field as string}
-          style={styles.fieldGroup}>
-          <ThemedText type="smallBold">
-            {label as string}
+      <ThemedView style={styles.fieldGroup}>
+        <ThemedText type="smallBold">Stable Key</ThemedText>
+        <TextInput
+          accessibilityLabel="Stable key"
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={
+            !saving &&
+            (formMode === 'create' || stableKeyEditingUnlocked)
+          }
+          onChangeText={(value) => {
+            if (formMode === 'create') {
+              setStableKeyManuallyEdited(true);
+            }
+
+            onChange('key', value);
+          }}
+          placeholder="stable-key"
+          placeholderTextColor={theme.textSecondary}
+          style={inputStyle(
+            formMode === 'edit' && !stableKeyEditingUnlocked
+              ? styles.lockedStableKeyInput
+              : undefined,
+          )}
+          value={form.key}
+        />
+
+        {formMode === 'edit' && stableKeyEditingUnlocked ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            Editing is unlocked. Save only after checking anything that
+            may use the old key.
           </ThemedText>
-          <TextInput
-            accessibilityLabel={label as string}
-            autoCapitalize="none"
-            onChangeText={(value) =>
-              onChange(
-                field as keyof BadgeFormState,
-                value,
-              )
-            }
-            placeholder={label as string}
-            placeholderTextColor={theme.textSecondary}
-            style={inputStyle()}
-            value={
-              form[field as keyof BadgeFormState] as string
-            }
-          />
-        </ThemedView>
-      ))}
+        ) : null}
+
+        {formMode === 'create' &&
+        suggestedStableKey &&
+        form.key !== suggestedStableKey ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Use suggested stable key ${suggestedStableKey}`}
+            disabled={saving}
+            onPress={() => {
+              setStableKeyManuallyEdited(false);
+              onChange('key', suggestedStableKey);
+            }}
+            style={({ pressed }) => [
+              styles.inlineSecondaryButton,
+              saving && styles.disabled,
+              pressed && styles.pressed,
+            ]}>
+            <ThemedText style={styles.secondaryButtonText}>
+              Use Suggested Key: {suggestedStableKey}
+            </ThemedText>
+          </Pressable>
+        ) : null}
+
+        {formMode === 'edit' &&
+        !stableKeyEditingUnlocked &&
+        !stableKeyChangeRequested ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Change badge stable key"
+            disabled={saving}
+            onPress={() => setStableKeyChangeRequested(true)}
+            style={({ pressed }) => [
+              styles.inlineSecondaryButton,
+              saving && styles.disabled,
+              pressed && styles.pressed,
+            ]}>
+            <ThemedText style={styles.secondaryButtonText}>
+              Change Stable Key
+            </ThemedText>
+          </Pressable>
+        ) : null}
+
+        {formMode === 'edit' &&
+        stableKeyChangeRequested &&
+        !stableKeyEditingUnlocked ? (
+          <ThemedView
+            accessibilityLiveRegion="polite"
+            type="backgroundSelected"
+            style={[
+              styles.stableKeyWarning,
+              { borderColor: Palette.danger },
+            ]}>
+            <ThemedText type="smallBold" style={styles.stableKeyWarningTitle}>
+              Change This Permanent Identifier?
+            </ThemedText>
+            <ThemedText>
+              Progress, awards, links, and annual editions may rely on the
+              current key. Only change it when the related content has been
+              checked and can be updated if needed.
+            </ThemedText>
+            <ThemedView style={styles.actions}>
+              <Pressable
+                accessibilityRole="button"
+                disabled={saving}
+                onPress={() => {
+                  setStableKeyEditingUnlocked(true);
+                  setStableKeyChangeRequested(false);
+                }}
+                style={({ pressed }) => [
+                  styles.warningButton,
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText style={styles.warningButtonText}>
+                  I Understand — Edit Key
+                </ThemedText>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                disabled={saving}
+                onPress={() => setStableKeyChangeRequested(false)}
+                style={({ pressed }) => [
+                  styles.secondaryButton,
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText style={styles.secondaryButtonText}>
+                  Keep Current Key
+                </ThemedText>
+              </Pressable>
+            </ThemedView>
+          </ThemedView>
+        ) : null}
+
+        {formMode === 'edit' && stableKeyEditingUnlocked ? (
+          <ThemedView
+            type="backgroundSelected"
+            style={[
+              styles.stableKeyWarning,
+              { borderColor: Palette.danger },
+            ]}>
+            <ThemedText type="smallBold" style={styles.stableKeyWarningTitle}>
+              Stable-Key Editing Is Unlocked
+            </ThemedText>
+            <ThemedText>
+              The original key is {originalStableKey}. Restore it before
+              saving if this change is not intentional.
+            </ThemedText>
+            {form.key !== originalStableKey ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Restore original stable key ${originalStableKey}`}
+                disabled={saving}
+                onPress={() => {
+                  onChange('key', originalStableKey);
+                  setStableKeyEditingUnlocked(false);
+                }}
+                style={({ pressed }) => [
+                  styles.inlineSecondaryButton,
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText style={styles.secondaryButtonText}>
+                  Restore Original Key
+                </ThemedText>
+              </Pressable>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                disabled={saving}
+                onPress={() => setStableKeyEditingUnlocked(false)}
+                style={({ pressed }) => [
+                  styles.inlineSecondaryButton,
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText style={styles.secondaryButtonText}>
+                  Lock Stable Key
+                </ThemedText>
+              </Pressable>
+            )}
+          </ThemedView>
+        ) : null}
+      </ThemedView>
 
       <ThemedView style={styles.fieldGroup}>
         <ThemedText type="smallBold">Tag</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          Choose from the shared location tags or add a new tag.
-        </ThemedText>
         <BadgeTagPicker
           availableTags={availableBadgeTags}
           disabled={saving}
@@ -1278,238 +1563,130 @@ function BadgeForm({
         />
       </ThemedView>
 
-      <ThemedView type="backgroundSelected" style={styles.formSectionHeading}>
-        <ThemedText type="smallBold">ARTWORK</ThemedText>
-      </ThemedView>
+      <SectionHelpHeading
+        label="ARTWORK"
+        items={[
+          {
+            label: 'Badge Artwork',
+            description: 'Choose a PNG, JPEG, or WebP image up to 5 MB; square artwork works best. If no image is selected, the app automatically uses the badge name’s first letter. Existing badges keep bundled artwork until it is deliberately removed or replaced.',
+          },
+        ]}
+      />
 
       <ThemedView style={styles.fieldGroup}>
-        <ThemedText type="smallBold">
-          Badge artwork (optional)
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          Choose bundled artwork for this badge. With no custom
-          artwork, Collection uses the badge name’s first letter.
-        </ThemedText>
-
-        <ThemedView
-          accessibilityLabel="Badge artwork"
-          accessibilityRole="radiogroup"
-          style={styles.artworkOptions}>
+        <ThemedView style={styles.artworkPickerRow}>
           <Pressable
-            accessibilityHint="Use the badge name's first letter in Collection."
-            accessibilityLabel="No custom artwork"
-            accessibilityRole="radio"
-            accessibilityState={{
-              selected: normalizedImageKey.length === 0,
-            }}
-            onPress={() => onChange('imageKey', '')}
+            accessibilityLabel={
+              hasVisibleArtwork
+                ? 'Replace badge artwork'
+                : 'Choose badge artwork'
+            }
+            accessibilityRole="button"
+            disabled={saving}
+            onPress={onChooseUploadedArtwork}
             style={({ pressed }) => [
-              styles.artworkOption,
-              normalizedImageKey.length === 0 &&
-                styles.artworkOptionSelected,
+              styles.secondaryButton,
+              saving && styles.disabled,
               pressed && styles.pressed,
             ]}>
-            <ThemedView style={styles.noArtworkPreview}>
-              <ThemedText
-                type="smallBold"
-                style={
-                  normalizedImageKey.length === 0
-                    ? styles.textOnLightSurface
-                    : undefined
-                }>
-                None
-              </ThemedText>
-            </ThemedView>
-            <ThemedText
-              type="smallBold"
-              style={
-                normalizedImageKey.length === 0
-                  ? styles.textOnLightSurface
-                  : undefined
-              }>
-              No custom artwork
+            <ThemedText style={styles.secondaryButtonText}>
+              {pendingArtwork !== null
+                ? 'Choose a Different Image'
+                : hasVisibleArtwork
+                  ? 'Replace Image'
+                  : 'Choose Image'}
             </ThemedText>
           </Pressable>
 
-          {badgeArtworkOptions.map((option) => {
-            const selected = normalizedImageKey === option.key;
-
-            return (
-              <Pressable
-                key={option.key}
-                accessibilityHint={`Use ${option.label} artwork for this badge.`}
-                accessibilityLabel={option.label}
-                accessibilityRole="radio"
-                accessibilityState={{ selected }}
-                onPress={() => onChange('imageKey', option.key)}
-                style={({ pressed }) => [
-                  styles.artworkOption,
-                  selected && styles.artworkOptionSelected,
-                  pressed && styles.pressed,
-                ]}>
-                <BadgeArtwork
-                  earned
-                  imageKey={option.key}
-                  name={option.label}
-                />
-                <ThemedText
-                  type="smallBold"
-                  style={selected ? styles.textOnLightSurface : undefined}>
-                  {option.label}
-                </ThemedText>
-              </Pressable>
-            );
-          })}
-
-          {hasUnregisteredArtworkKey ? (
-            <Pressable
-              accessibilityHint="Keep this existing image key. Collection will use its letter fallback until matching artwork is bundled."
-              accessibilityLabel={`Keep existing image key ${normalizedImageKey}`}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: true }}
-              onPress={() => onChange('imageKey', normalizedImageKey)}
-              style={[
-                styles.artworkOption,
-                styles.artworkOptionSelected,
-              ]}>
-              <BadgeArtwork
-                earned
-                imageKey={normalizedImageKey}
-                name={form.name || 'Badge'}
-              />
-              <ThemedText type="smallBold" style={styles.textOnLightSurface}>
-                Existing key
-              </ThemedText>
-              <ThemedText type="small" style={styles.textOnLightSurface}>
-                {normalizedImageKey}
-              </ThemedText>
-            </Pressable>
+          {hasVisibleArtwork ? (
+            <BadgeArtwork
+              earned
+              imageKey={normalizedImageKey || undefined}
+              imageUrl={activeUploadedImageUrl}
+              name={form.name || 'Badge'}
+            />
           ) : null}
         </ThemedView>
 
-        <ThemedView
-          type="backgroundElement"
-          style={styles.artworkUploadCard}>
-          <ThemedText type="smallBold">Upload custom artwork</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            PNG, JPEG, or WebP up to 5 MB. Square artwork works best.
-            Uploaded artwork takes priority over the bundled selection.
-          </ThemedText>
-          <ThemedView style={styles.actions}>
+        <ThemedView style={styles.actions}>
+          {pendingArtwork !== null ? (
             <Pressable
-              accessibilityLabel={
-                activeUploadedImageUrl === undefined
-                  ? 'Choose custom badge artwork'
-                  : 'Replace custom badge artwork'
-              }
+              accessibilityLabel="Clear selected badge artwork"
               accessibilityRole="button"
               disabled={saving}
-              onPress={onChooseUploadedArtwork}
-              style={[
-                styles.secondaryButton,
-                saving && styles.disabled,
-              ]}>
+              onPress={onClearPendingArtwork}
+              style={styles.secondaryButton}>
               <ThemedText style={styles.secondaryButtonText}>
-                {pendingArtwork !== null
-                  ? 'Choose a different image'
-                  : uploadedImageUrl !== undefined &&
-                      !removeUploadedArtwork
-                    ? 'Replace uploaded artwork'
-                    : 'Choose image'}
+                Clear Selection
               </ThemedText>
             </Pressable>
-
-            {pendingArtwork !== null ? (
-              <Pressable
-                accessibilityLabel="Clear selected badge artwork"
-                accessibilityRole="button"
-                disabled={saving}
-                onPress={onClearPendingArtwork}
-                style={styles.secondaryButton}>
-                <ThemedText style={styles.secondaryButtonText}>
-                  Clear selection
-                </ThemedText>
-              </Pressable>
-            ) : uploadedImageUrl !== undefined &&
-                !removeUploadedArtwork ? (
-              <Pressable
-                accessibilityLabel="Remove uploaded badge artwork"
-                accessibilityRole="button"
-                disabled={saving}
-                onPress={onRemoveUploadedArtwork}
-                style={styles.secondaryButton}>
-                <ThemedText style={styles.secondaryButtonText}>
-                  Remove uploaded artwork
-                </ThemedText>
-              </Pressable>
-            ) : removeUploadedArtwork &&
-                uploadedImageUrl !== undefined ? (
-              <Pressable
-                accessibilityLabel="Keep uploaded badge artwork"
-                accessibilityRole="button"
-                disabled={saving}
-                onPress={onRestoreUploadedArtwork}
-                style={styles.secondaryButton}>
-                <ThemedText style={styles.secondaryButtonText}>
-                  Keep uploaded artwork
-                </ThemedText>
-              </Pressable>
-            ) : null}
-          </ThemedView>
-
-          {pendingArtwork !== null ? (
-            <ThemedText type="small" themeColor="textSecondary">
-              Selected: {pendingArtwork.name} ·{' '}
-              {formatArtworkSize(pendingArtwork.size)}. The image will
-              upload when the badge is saved.
-            </ThemedText>
-          ) : removeUploadedArtwork ? (
-            <ThemedText type="small" themeColor="textSecondary">
-              The uploaded image will be removed when the badge is
-              saved. The bundled selection or letter fallback will be
-              used instead.
-            </ThemedText>
-          ) : uploadedImageUrl !== undefined ? (
-            <ThemedText type="small" themeColor="textSecondary">
-              Uploaded artwork is currently active.
-            </ThemedText>
+          ) : uploadedImageUrl !== undefined &&
+              !removeUploadedArtwork ? (
+            <Pressable
+              accessibilityLabel="Remove uploaded badge artwork"
+              accessibilityRole="button"
+              disabled={saving}
+              onPress={onRemoveUploadedArtwork}
+              style={styles.secondaryButton}>
+              <ThemedText style={styles.secondaryButtonText}>
+                Remove Image
+              </ThemedText>
+            </Pressable>
+          ) : removeUploadedArtwork &&
+              uploadedImageUrl !== undefined ? (
+            <Pressable
+              accessibilityLabel="Keep uploaded badge artwork"
+              accessibilityRole="button"
+              disabled={saving}
+              onPress={onRestoreUploadedArtwork}
+              style={styles.secondaryButton}>
+              <ThemedText style={styles.secondaryButtonText}>
+                Undo Image Removal
+              </ThemedText>
+            </Pressable>
+          ) : normalizedImageKey.length > 0 ? (
+            <Pressable
+              accessibilityLabel="Use automatic letter badge"
+              accessibilityRole="button"
+              disabled={saving}
+              onPress={() => onChange('imageKey', '')}
+              style={styles.secondaryButton}>
+              <ThemedText style={styles.secondaryButtonText}>
+                Remove Image
+              </ThemedText>
+            </Pressable>
           ) : null}
         </ThemedView>
 
-        <ThemedView
-          type="backgroundElement"
-          style={styles.artworkPreview}>
-          <BadgeArtwork
-            earned
-            imageKey={normalizedImageKey || undefined}
-            imageUrl={activeUploadedImageUrl}
-            name={form.name || 'Badge'}
-          />
-          <ThemedView style={styles.artworkPreviewCopy}>
-            <ThemedText type="smallBold">Collection preview</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              {activeUploadedImageUrl !== undefined
-                ? pendingArtwork !== null
-                  ? 'Selected upload preview. Save the badge to publish it.'
-                  : 'Uploaded artwork is active.'
-                : selectedArtwork !== undefined
-                  ? `${selectedArtwork.label} artwork selected.`
-                  : hasUnregisteredArtworkKey
-                    ? `The unregistered key “${normalizedImageKey}” currently uses the letter fallback.`
-                    : 'No custom artwork selected; the letter fallback will be used.'}
-            </ThemedText>
-          </ThemedView>
-        </ThemedView>
+        {pendingArtwork !== null ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            Selected: {pendingArtwork.name} ·{' '}
+            {formatArtworkSize(pendingArtwork.size)}. The image will
+            upload when the badge is saved.
+          </ThemedText>
+        ) : removeUploadedArtwork ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            The uploaded image will be removed when the badge is saved.
+          </ThemedText>
+        ) : hasUnregisteredArtworkKey ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            The saved image key has no matching bundled artwork, so the
+            automatic letter badge is currently used.
+          </ThemedText>
+        ) : null}
       </ThemedView>
 
-      <ThemedView type="backgroundSelected" style={styles.formSectionHeading}>
-        <ThemedText type="smallBold">DESCRIPTION &amp; REQUIREMENTS</ThemedText>
-      </ThemedView>
+      <SectionHelpHeading
+        label="DESCRIPTION & REQUIREMENTS"
+        items={[
+          {
+            label: 'Description',
+            description: 'The public explanation of what this badge recognizes and how the visitor earns it. Keep it concise enough to read comfortably in Collection.',
+          },
+        ]}
+      />
 
       <ThemedView style={styles.fieldGroup}>
-        <ThemedText type="smallBold">
-          Description
-        </ThemedText>
         <TextInput
           accessibilityLabel="Description"
           multiline
@@ -1523,14 +1700,41 @@ function BadgeForm({
         />
       </ThemedView>
 
-      <ThemedView type="backgroundSelected" style={styles.formSectionHeading}>
-        <ThemedText type="smallBold">CLASSIFICATION &amp; REQUIREMENTS</ThemedText>
-      </ThemedView>
+      <SectionHelpHeading
+        label="CLASSIFICATION & REQUIREMENTS"
+        items={[
+          {
+            label: 'Classification',
+            description: 'Controls the badge setup automatically. General badges require five visits and use repeatable levels. Special place badges require one visit and are one-time awards. Seasonal badges require one visit, are one-time awards, and can use availability dates.',
+          },
+          {
+            label: 'Required Visits',
+            description: 'The number of distinct qualifying check-ins needed to earn the badge or its next level. This value is set automatically by classification.',
+          },
+          {
+            label: 'Repeatable Levels',
+            description: 'Each complete set of qualifying visits earns a permanent next level with no configured maximum. General badges use levels; Special place and Seasonal badges do not.',
+          },
+          {
+            label: 'Seasonal Repetition',
+            description: 'Repeat yearly creates a separate, independently editable badge edition for each year. Annual series names and stable keys connect those editions without moving prior progress or awards.',
+          },
+        ]}
+      />
 
-      <ThemedText type="smallBold">Classification</ThemedText>
-      <ThemedView accessibilityRole="radiogroup" accessibilityLabel="Badge classification" style={styles.radioGroup}>
-        {(Object.keys(classificationLabels) as Classification[]).map((value) => <RadioOption key={value} label={classificationLabels[value]} selected={form.classification === value} hint={`Use the ${classificationLabels[value].toLowerCase()} classification.`} onPress={() => requestClassificationChange(value)} />)}
-      </ThemedView>
+      <DropdownSelect
+        accessibilityLabel="Badge classification"
+        disabled={saving}
+        onChange={requestClassificationChange}
+        options={(
+          Object.keys(classificationLabels) as Classification[]
+        ).map((value) => ({
+          hint: `Use the ${classificationLabels[value].toLowerCase()} classification.`,
+          label: classificationLabels[value],
+          value,
+        }))}
+        value={form.classification}
+      />
       {pendingClassification !== null ? (
         <ThemedView
           accessibilityLabel="Confirm badge classification change"
@@ -1556,7 +1760,7 @@ function BadgeForm({
               onPress={applyClassificationChange}
               style={styles.primaryButton}>
               <ThemedText style={styles.primaryButtonText}>
-                Apply classification settings
+                Apply Classification Settings
               </ThemedText>
             </Pressable>
             <Pressable
@@ -1565,7 +1769,7 @@ function BadgeForm({
               onPress={() => setPendingClassification(null)}
               style={styles.secondaryButton}>
               <ThemedText style={styles.secondaryButtonText}>
-                Keep current classification
+                Keep Current Classification
               </ThemedText>
             </Pressable>
           </ThemedView>
@@ -1573,12 +1777,11 @@ function BadgeForm({
       ) : null}
 
       <ThemedView style={styles.fieldGroup}>
-        <ThemedText type="smallBold">Required visits</ThemedText>
-        <ThemedText type="subtitle">{form.requiredVisits}</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          {form.classification === 'general'
-            ? 'General badges always require five qualifying visits.'
-            : `${classificationLabels[form.classification]} badges always require one qualifying visit.`}
+        <ThemedText>
+          Required Visits:{' '}
+          <ThemedText type="smallBold">
+            {form.requiredVisits}
+          </ThemedText>
         </ThemedText>
       </ThemedView>
 
@@ -1592,13 +1795,6 @@ function BadgeForm({
 
     {form.classification !== 'seasonal' ? (
       <ThemedView style={styles.annualSection}>
-        <ThemedText type="smallBold">Badge levels</ThemedText>
-        <ThemedText themeColor="textSecondary">
-          Allow this badge to be earned repeatedly. Each complete set
-          of qualifying visits earns the next permanent level, with no
-          configured maximum level.
-        </ThemedText>
-
         <Pressable
           accessibilityRole="checkbox"
           accessibilityLabel="Allow repeatable badge levels"
@@ -1617,30 +1813,13 @@ function BadgeForm({
               {form.levelsEnabled ? '✓' : ''}
             </ThemedText>
           </ThemedView>
-          <ThemedText>Allow repeatable levels</ThemedText>
+          <ThemedText>Allow Repeatable Levels</ThemedText>
         </Pressable>
-        <ThemedText type="small" themeColor="textSecondary">
-          {form.classification === 'general'
-            ? 'General badges always use repeatable levels.'
-            : 'Special place badges are always one-time awards.'}
-        </ThemedText>
       </ThemedView>
     ) : null}
 
     {form.classification === 'seasonal' ? (
       <ThemedView style={styles.annualSection}>
-        <ThemedText type="smallBold">Seasonal awards</ThemedText>
-        <ThemedText themeColor="textSecondary">
-          Each seasonal edition is a separate one-time badge. Seasonal
-          badges do not use levels.
-        </ThemedText>
-        <ThemedText type="smallBold">Yearly repetition</ThemedText>
-        <ThemedText themeColor="textSecondary">
-          Create a separate, independently editable badge edition for
-          each year. Previous awards and progress remain attached to
-          their original edition.
-        </ThemedText>
-
         <Pressable
           accessibilityRole="checkbox"
           accessibilityLabel="Repeat this seasonal badge every year"
@@ -1665,20 +1844,17 @@ function BadgeForm({
               {annualRepeatEnabled ? '✓' : ''}
             </ThemedText>
           </ThemedView>
-          <ThemedText>Repeat yearly</ThemedText>
+          <ThemedText>Repeat Yearly</ThemedText>
         </Pressable>
 
         {annualRepeatEnabled && annualSeries == null ? (
           <>
             <ThemedView style={styles.fieldGroup}>
               <ThemedText type="smallBold">
-                Annual series name
-              </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                The shared name without a year, such as Christmas.
+                Annual Series Name
               </ThemedText>
               <TextInput
-                accessibilityLabel="Annual series name"
+                accessibilityLabel="Annual Series Name"
                 autoCapitalize="words"
                 editable={!saving}
                 onChangeText={onAnnualSeriesNameChange}
@@ -1691,14 +1867,10 @@ function BadgeForm({
 
             <ThemedView style={styles.fieldGroup}>
               <ThemedText type="smallBold">
-                Annual series stable key
-              </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                The shared lowercase identifier without a year, such as
-                christmas.
+                Annual Series Stable Key
               </ThemedText>
               <TextInput
-                accessibilityLabel="Annual series stable key"
+                accessibilityLabel="Annual Series Stable Key"
                 autoCapitalize="none"
                 autoCorrect={false}
                 editable={!saving}
@@ -1720,16 +1892,16 @@ function BadgeForm({
               repetition is paused.
             </ThemedText>
             <ThemedText type="smallBold">
-              Series status:{' '}
+              Series Status:{' '}
               {annualSeries.enabled && savedBadgeIsSeasonal
                 ? 'Repeating'
                 : 'Paused'}
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              Series name: {annualSeries.name}
+              Series Name: {annualSeries.name}
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              Series stable key: {annualSeries.key}
+              Series Stable Key: {annualSeries.key}
             </ThemedText>
             {annualSeries.editions.map((edition) => (
               <ThemedView
@@ -1769,16 +1941,15 @@ function BadgeForm({
       onCombinedSaveComplete={onAvailabilityWindowSaved}
     />
 
-      <ThemedView type="backgroundSelected" style={styles.formSectionHeading}>
-        <ThemedText type="smallBold">CELEBRATION POPUP</ThemedText>
-      </ThemedView>
-
-      <ThemedText themeColor="textSecondary">
-        {form.classification === 'general'
-          ? 'General badges start with ten messages.'
-          : `${classificationLabels[form.classification]} badges start with one message.`}{' '}
-        You can add or remove messages after applying the classification.
-      </ThemedText>
+      <SectionHelpHeading
+        label="CELEBRATION POPUP"
+        items={[
+          {
+            label: 'Congratulations Messages',
+            description: 'This badge has its own pool of short messages. When it is earned or levels up, the popup randomly chooses one and does not permanently store that choice. General badges start with ten messages; Special place and Seasonal badges start with one. At least one message is required, and each message can contain up to 160 characters.',
+          },
+        ]}
+      />
 
       <BadgeCongratulationsManager
         badgeName={form.name}
@@ -1789,23 +1960,29 @@ function BadgeForm({
         }
       />
 
-      <ThemedView type="backgroundSelected" style={styles.formSectionHeading}>
-        <ThemedText type="smallBold">PROGRESS RULE</ThemedText>
-      </ThemedView>
+      <SectionHelpHeading
+        label="PROGRESS RULE"
+        items={[
+          {
+            label: 'Rule',
+            description: 'Defines which check-ins count toward this badge. Tag counts distinct locations carrying the selected tag. Specific location counts one selected place. Any location counts any distinct places. Specific story and region use one shared key, while Same story and Same region require qualifying visits to come from one group.',
+          },
+        ]}
+      />
 
-      <ThemedText type="smallBold">Rule</ThemedText>
-      <ThemedView accessibilityRole="radiogroup" accessibilityLabel="Badge rule" style={styles.radioGroup}>
-        {(Object.keys(ruleLabels) as RuleType[]).map((value) => (
-          <RadioOption
-            key={value}
-            hint={ruleHelp[value]}
-            label={ruleLabels[value]}
-            selected={form.ruleType === value}
-            onPress={() => changeRuleType(value)}
-          />
-        ))}
-      </ThemedView>
-      <ThemedText themeColor="textSecondary">{ruleHelp[form.ruleType]}</ThemedText>
+      <DropdownSelect
+        accessibilityLabel="Badge progress rule"
+        disabled={saving}
+        onChange={changeRuleType}
+        options={(Object.keys(ruleLabels) as RuleType[]).map(
+          (value) => ({
+            hint: ruleHelp[value],
+            label: ruleLabels[value],
+            value,
+          }),
+        )}
+        value={form.ruleType}
+      />
 
       {form.classification === 'general' &&
       form.ruleType === 'location' ? (
@@ -1821,7 +1998,7 @@ function BadgeForm({
       {form.ruleType === 'location' ? (
         <ThemedView style={styles.locationPicker}>
           <ThemedText type="smallBold">
-            Search locations for this rule
+            Location for This Rule
           </ThemedText>
           <TextInput
             accessibilityLabel="Search locations for badge rule"
@@ -1834,21 +2011,21 @@ function BadgeForm({
           <ThemedView accessibilityRole="radiogroup" accessibilityLabel="Badge rule location" style={styles.radioGroup}>
             {locations.map((location) => <RadioOption key={location._id} label={`${location.name} (${location.key})`} selected={form.ruleValue === location.key} hint="Select this stable location key." onPress={() => onChange('ruleValue', location.key ?? '')} />)}
           </ThemedView>
-          {form.ruleValue ? <ThemedText type="small">Selected location key: {form.ruleValue}</ThemedText> : null}
+          {form.ruleValue ? <ThemedText type="small">Selected Location Key: {form.ruleValue}</ThemedText> : null}
         </ThemedView>
       ) : needsValue ? (
         <ThemedView style={styles.fieldGroup}>
           <ThemedText type="smallBold">
-            {`${ruleLabels[form.ruleType]} key`}
+            {`${ruleLabels[form.ruleType]} Key`}
           </ThemedText>
           <TextInput
-            accessibilityLabel={`${ruleLabels[form.ruleType]} key`}
+            accessibilityLabel={`${ruleLabels[form.ruleType]} Key`}
             autoCapitalize="none"
             autoCorrect={false}
             onChangeText={(value) =>
               onChange('ruleValue', value)
             }
-            placeholder={`${ruleLabels[form.ruleType]} key`}
+            placeholder={`${ruleLabels[form.ruleType]} Key`}
             placeholderTextColor={theme.textSecondary}
             style={inputStyle()}
             value={form.ruleValue}
@@ -1867,7 +2044,7 @@ function BadgeForm({
 
       <ThemedView type="backgroundSelected" style={styles.formActionsPanel}>
         <ThemedView style={styles.formActionsCopy}>
-          <ThemedText type="smallBold">Ready to finish?</ThemedText>
+          <ThemedText type="smallBold">Ready to Finish?</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             Save to publish these badge settings to the app.
           </ThemedText>
@@ -1875,7 +2052,7 @@ function BadgeForm({
 
         <ThemedView style={styles.actions}>
           {form.classification !== 'seasonal' || availabilityBadgeId !== null ? (
-            <Pressable accessibilityRole="button" accessibilityState={{ busy: saving, disabled: saving }} disabled={saving} onPress={onSubmit} style={[styles.primaryButton, saving && styles.disabled]}><ThemedText style={styles.primaryButtonText}>{saving ? 'Saving...' : formMode === 'create' ? 'Create badge' : 'Save changes'}</ThemedText></Pressable>
+            <Pressable accessibilityRole="button" accessibilityState={{ busy: saving, disabled: saving }} disabled={saving} onPress={onSubmit} style={[styles.primaryButton, saving && styles.disabled]}><ThemedText style={styles.primaryButtonText}>{saving ? 'Saving...' : formMode === 'create' ? 'Create Badge' : 'Save Changes'}</ThemedText></Pressable>
           ) : null}
           <Pressable accessibilityRole="button" disabled={saving} onPress={onCancel} style={styles.secondaryButton}><ThemedText style={styles.secondaryButtonText}>Cancel</ThemedText></Pressable>
         </ThemedView>
@@ -1898,10 +2075,15 @@ const styles = StyleSheet.create({
   searchHeaderCopy: { flex: 1, minWidth: 220, gap: Spacing.one },
   clearButton: { minHeight: 44, alignSelf: 'flex-start', alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.two, backgroundColor: Palette.teaGreen },
   input: { minHeight: 48, borderWidth: 1, borderRadius: Spacing.two, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
+  lockedStableKeyInput: { opacity: 0.7 },
+  stableKeyWarning: { gap: Spacing.two, borderWidth: 2, borderRadius: Spacing.two, padding: Spacing.three },
+  stableKeyWarningTitle: { color: Palette.danger },
+  inlineSecondaryButton: { minHeight: 44, alignSelf: 'flex-start', alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.two, backgroundColor: Palette.teaGreen },
+  warningButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.four, paddingVertical: Spacing.two, borderRadius: Spacing.two, backgroundColor: Palette.danger },
+  warningButtonText: { color: Palette.onDanger, textAlign: 'center' },
   textArea: { minHeight: 120, textAlignVertical: 'top' },
   formCard: { gap: Spacing.two, padding: Spacing.four, borderWidth: 1, borderRadius: Spacing.three },
   formTitle: { fontSize: 26, lineHeight: 34 },
-  formSectionHeading: { marginTop: Spacing.three, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.two },
   formActionsPanel: { marginTop: Spacing.four, gap: Spacing.two, padding: Spacing.three, borderRadius: Spacing.two },
   formActionsCopy: { gap: Spacing.one },
   card: { gap: Spacing.one, padding: Spacing.four, borderWidth: 1, borderColor: Palette.border, borderRadius: Spacing.three },
@@ -1917,15 +2099,14 @@ const styles = StyleSheet.create({
   radioOptionSelected: { backgroundColor: Palette.teaGreen },
   radioDot: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: Palette.borderStrong },
   radioDotSelected: { borderColor: Palette.lightBronze, backgroundColor: Palette.lightBronze },
+  dropdown: { alignSelf: 'flex-start', alignItems: 'flex-start', gap: Spacing.one },
+  dropdownButton: { minWidth: 220, minHeight: 48, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.two, backgroundColor: Palette.teaGreen },
+  dropdownOptions: { minWidth: 220, alignSelf: 'flex-start', gap: Spacing.one, padding: Spacing.one, borderWidth: 1, borderColor: Palette.border, borderRadius: Spacing.two },
+  dropdownOption: { minWidth: 220, minHeight: 44, justifyContent: 'center', paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.two },
+  dropdownOptionSelected: { backgroundColor: Palette.teaGreen },
   badgeListHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   badgeListCopy: { flex: 1, gap: Spacing.one },
-  artworkOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  artworkOption: { minWidth: 148, alignItems: 'center', justifyContent: 'center', gap: Spacing.one, padding: Spacing.two, borderWidth: 1, borderColor: Palette.borderStrong, borderRadius: Spacing.two },
-  artworkOptionSelected: { borderColor: Palette.lightBronze, backgroundColor: Palette.teaGreen },
-  artworkUploadCard: { gap: Spacing.one, padding: Spacing.two, borderRadius: Spacing.two },
-  noArtworkPreview: { width: 72, height: 72, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderStyle: 'dashed', borderColor: Palette.borderStrong, borderRadius: 36 },
-  artworkPreview: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, padding: Spacing.two, borderRadius: Spacing.two },
-  artworkPreviewCopy: { flex: 1, gap: Spacing.one },
+  artworkPickerRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Spacing.three },
   locationPicker: { gap: Spacing.two },
   annualSection: { gap: Spacing.two },
   fieldGroup: { gap: Spacing.one },

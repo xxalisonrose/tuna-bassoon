@@ -19,6 +19,11 @@ import {
   BadgeTagPicker,
   normalizeBadgeTagValue,
 } from '@/components/admin/badge-tag-picker';
+import {
+  getCanonicalLocationCategory,
+  LocationCategoryPicker,
+} from '@/components/admin/location-category-picker';
+import { SectionHelpHeading } from '@/components/admin/section-help-heading';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BadgeManager } from '@/components/admin/badge-manager';
@@ -45,6 +50,7 @@ type LocationFormState = {
   description: string;
   funFact: string;
   source: string;
+  isLore: boolean;
   latitude: string;
   longitude: string;
   category: string;
@@ -53,12 +59,18 @@ type LocationFormState = {
   regionKey: string;
 };
 
+type LocationFormValidation = {
+  message: string;
+  fieldMessages: Partial<Record<keyof LocationFormState, string>>;
+};
+
 const emptyForm: LocationFormState = {
   name: '',
   key: '',
   description: '',
   funFact: '',
   source: '',
+  isLore: false,
   latitude: '',
   longitude: '',
   category: '',
@@ -151,6 +163,14 @@ export default function AdminPortalScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<LocationFormState>(emptyForm);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [formValidation, setFormValidation] =
+    useState<LocationFormValidation | null>(null);
+  const [locationStableKeyManuallyEdited, setLocationStableKeyManuallyEdited] =
+    useState(false);
+  const [locationStableKeyChangeRequested, setLocationStableKeyChangeRequested] =
+    useState(false);
+  const [locationStableKeyEditingUnlocked, setLocationStableKeyEditingUnlocked] =
+    useState(false);
   const [saving, setSaving] = useState(false);
   const [locationStatusFilter, setLocationStatusFilter] =
     useState<LocationStatusFilter>('all');
@@ -204,6 +224,7 @@ export default function AdminPortalScreen() {
         location.category,
         location.funFact,
         location.source,
+        location.isLore ? 'lore legend folklore' : '',
         ...(location.badges ?? []),
       ]
         .filter(Boolean)
@@ -218,6 +239,14 @@ export default function AdminPortalScreen() {
     () => parseBadgeTags(form.badgesText),
     [form.badgesText],
   );
+
+  const suggestedLocationStableKey = createStableKey(form.name);
+  const editingLocation = editingId === null
+    ? undefined
+    : adminLocations?.find((location) => location._id === editingId);
+  const originalLocationStableKey = editingLocation === undefined
+    ? ''
+    : editingLocation.key?.trim() || createStableKey(editingLocation.name);
 
   const hasLocationFilters =
     search.trim().length > 0 || locationStatusFilter !== 'all';
@@ -245,6 +274,10 @@ export default function AdminPortalScreen() {
     setEditingId(null);
     setForm(emptyForm);
     setStatusMessage(null);
+    setFormValidation(null);
+    setLocationStableKeyManuallyEdited(false);
+    setLocationStableKeyChangeRequested(false);
+    setLocationStableKeyEditingUnlocked(false);
     setConfirmingLocationId(null);
     resetGeminiState();
   };
@@ -256,6 +289,7 @@ export default function AdminPortalScreen() {
     description: string;
     funFact?: string;
     source?: string;
+    isLore?: boolean;
     latitude?: number;
     longitude?: number;
     category?: string;
@@ -273,9 +307,10 @@ export default function AdminPortalScreen() {
       description: location.description,
       funFact: location.funFact ?? '',
       source: location.source ?? '',
+      isLore: location.isLore === true,
       latitude: location.latitude != null ? String(location.latitude) : '',
       longitude: location.longitude != null ? String(location.longitude) : '',
-      category: location.category ?? '',
+      category: getCanonicalLocationCategory(location.category) ?? '',
       badgesText: parseBadgeTags(
         (location.badges ?? []).join(', '),
       ).join(', '),
@@ -283,6 +318,10 @@ export default function AdminPortalScreen() {
       regionKey: location.regionKey ?? '',
     });
     setStatusMessage(null);
+    setFormValidation(null);
+    setLocationStableKeyManuallyEdited(false);
+    setLocationStableKeyChangeRequested(false);
+    setLocationStableKeyEditingUnlocked(false);
     setConfirmingLocationId(null);
     resetGeminiState();
   };
@@ -292,6 +331,10 @@ export default function AdminPortalScreen() {
     setEditingId(null);
     setForm(emptyForm);
     setStatusMessage(null);
+    setFormValidation(null);
+    setLocationStableKeyManuallyEdited(false);
+    setLocationStableKeyChangeRequested(false);
+    setLocationStableKeyEditingUnlocked(false);
     resetGeminiState();
   };
 
@@ -376,71 +419,178 @@ export default function AdminPortalScreen() {
     }
   };
 
-  const updateField = (
-    field: keyof LocationFormState,
-    value: string,
+  const updateField = <K extends keyof LocationFormState>(
+    field: K,
+    value: LocationFormState[K],
   ) => {
+    const shouldSuggestStableKey =
+      field === 'name' &&
+      formMode === 'create' &&
+      !locationStableKeyManuallyEdited;
+
     setForm((current) => ({
       ...current,
       [field]: value,
+      ...(shouldSuggestStableKey
+        ? { key: createStableKey(String(value)) }
+        : {}),
     }));
 
     if (statusMessage) {
       setStatusMessage(null);
     }
+
+    setFormValidation((current) => {
+      if (current === null) {
+        return null;
+      }
+
+      const fieldsToClear = new Set<keyof LocationFormState>([field]);
+
+      if (shouldSuggestStableKey) {
+        fieldsToClear.add('key');
+      }
+
+      if (
+        [...fieldsToClear].every(
+          (fieldToClear) => !(fieldToClear in current.fieldMessages),
+        )
+      ) {
+        return Object.keys(current.fieldMessages).length === 0
+          ? null
+          : current;
+      }
+
+      const fieldMessages = { ...current.fieldMessages };
+
+      for (const fieldToClear of fieldsToClear) {
+        delete fieldMessages[fieldToClear];
+      }
+      const remainingMessages = Object.values(fieldMessages).filter(
+        (message): message is string => typeof message === 'string',
+      );
+
+      if (remainingMessages.length === 0) {
+        return null;
+      }
+
+      return {
+        message:
+          remainingMessages.length === 1
+            ? remainingMessages[0]
+            : 'Fix the highlighted fields before saving.',
+        fieldMessages,
+      };
+    });
   };
 
-  const validateForm = () => {
+  const updateLocationStableKey = (value: string) => {
+    if (formMode === 'create') {
+      setLocationStableKeyManuallyEdited(true);
+    }
+
+    updateField('key', value);
+  };
+
+  const useSuggestedLocationStableKey = () => {
+    setLocationStableKeyManuallyEdited(false);
+    updateField('key', suggestedLocationStableKey);
+  };
+
+  const validateForm = (): LocationFormValidation | null => {
+    const fieldMessages: LocationFormValidation['fieldMessages'] = {};
     const requiredFields: [keyof LocationFormState, string][] = [
       ['name', 'Name'],
       ['key', 'Stable key'],
       ['description', 'Description'],
       ['latitude', 'Latitude'],
       ['longitude', 'Longitude'],
-      ['category', 'Category'],
+      ['category', 'Location category'],
     ];
 
     for (const [field, label] of requiredFields) {
       if (!String(form[field]).trim()) {
-        return `${label} is required.`;
+        fieldMessages[field] = `${label} is required.`;
       }
     }
 
-    const latitude = Number(form.latitude);
-    if (
-      !Number.isFinite(latitude) ||
-      latitude < -90 ||
-      latitude > 90
-    ) {
-      return 'Latitude must be a finite number from -90 through 90.';
+    if (form.latitude.trim()) {
+      const latitude = Number(form.latitude);
+      if (
+        !Number.isFinite(latitude) ||
+        latitude < -90 ||
+        latitude > 90
+      ) {
+        fieldMessages.latitude =
+          'Latitude must be a finite number from -90 through 90.';
+      }
     }
 
-    const longitude = Number(form.longitude);
-    if (
-      !Number.isFinite(longitude) ||
-      longitude < -180 ||
-      longitude > 180
-    ) {
-      return 'Longitude must be a finite number from -180 through 180.';
+    if (form.longitude.trim()) {
+      const longitude = Number(form.longitude);
+      if (
+        !Number.isFinite(longitude) ||
+        longitude < -180 ||
+        longitude > 180
+      ) {
+        fieldMessages.longitude =
+          'Longitude must be a finite number from -180 through 180.';
+      }
     }
 
-    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(form.key.trim())) {
-      return 'Stable key must use lowercase letters, numbers, and single hyphens only.';
+    if (
+      form.key.trim() &&
+      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(form.key.trim())
+    ) {
+      fieldMessages.key =
+        'Stable key must use lowercase letters, numbers, and single hyphens only.';
     }
 
     if (form.funFact.trim().length > 1000) {
-      return 'Fun fact must be 1,000 characters or fewer.';
+      fieldMessages.funFact =
+        'Fun fact must be 1,000 characters or fewer.';
     }
 
     if (form.source.trim().length > 2000) {
-      return 'Source must be 2,000 characters or fewer.';
+      fieldMessages.source =
+        'Source must be 2,000 characters or fewer.';
     }
 
-    if (selectedBadgeTags.length > MAX_LOCATION_BADGE_TAGS) {
-      return `Locations can have no more than ${MAX_LOCATION_BADGE_TAGS} badge tags.`;
+    if (selectedBadgeTags.length === 0) {
+      fieldMessages.badgesText =
+        'Select at least one badge tag for this location.';
+    } else if (selectedBadgeTags.length > MAX_LOCATION_BADGE_TAGS) {
+      fieldMessages.badgesText =
+        `Locations can have no more than ${MAX_LOCATION_BADGE_TAGS} badge tags.`;
     }
 
-    return null;
+    const messages = Object.values(fieldMessages).filter(
+      (message): message is string => typeof message === 'string',
+    );
+
+    if (messages.length === 0) {
+      return null;
+    }
+
+    return {
+      message:
+        messages.length === 1
+          ? messages[0]
+          : 'Fix the highlighted fields before saving.',
+      fieldMessages,
+    };
+  };
+
+  const renderFieldError = (field: keyof LocationFormState) => {
+    const message = formValidation?.fieldMessages[field];
+
+    return message ? (
+      <ThemedText
+        accessibilityLiveRegion="polite"
+        style={styles.fieldErrorText}>
+        {message}
+      </ThemedText>
+    ) : null;
   };
 
   const submitForm = async () => {
@@ -448,9 +598,11 @@ export default function AdminPortalScreen() {
       return;
     }
 
-    const validationMessage = validateForm();
-    if (validationMessage) {
-      setStatusMessage(validationMessage);
+    const validation = validateForm();
+    if (validation) {
+      setFormValidation(validation);
+      setStatusMessage(null);
+      announce(validation.message);
       return;
     }
 
@@ -461,6 +613,7 @@ export default function AdminPortalScreen() {
 
     setSaving(true);
     setStatusMessage(null);
+    setFormValidation(null);
     resetGeminiState();
 
     try {
@@ -471,6 +624,7 @@ export default function AdminPortalScreen() {
           description: form.description.trim(),
           funFact: form.funFact.trim() || undefined,
           source: form.source.trim() || undefined,
+          isLore: form.isLore,
           latitude: Number(form.latitude),
           longitude: Number(form.longitude),
           category: form.category.trim(),
@@ -488,6 +642,7 @@ export default function AdminPortalScreen() {
           description: form.description.trim(),
           funFact: form.funFact.trim() || undefined,
           source: form.source.trim() || undefined,
+          isLore: form.isLore,
           latitude: Number(form.latitude),
           longitude: Number(form.longitude),
           category: form.category.trim(),
@@ -506,7 +661,9 @@ export default function AdminPortalScreen() {
           ? 'Unable to create this location.'
           : 'Unable to save these changes.';
 
-      setStatusMessage(getErrorMessage(error, fallback));
+      const message = getErrorMessage(error, fallback);
+      setFormValidation({ message, fieldMessages: {} });
+      announce(message);
     } finally {
       setSaving(false);
     }
@@ -746,7 +903,7 @@ export default function AdminPortalScreen() {
             {!formMode && (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Add new location"
+                accessibilityLabel="Add New Location"
                 accessibilityHint="Create a new location entry for the app."
                 onPress={openCreateForm}
                 style={({ pressed }) => [
@@ -754,7 +911,7 @@ export default function AdminPortalScreen() {
                   pressed && styles.pressed,
                 ]}>
                 <ThemedText style={styles.buttonText}>
-                  Add new location
+                  Add New Location
                 </ThemedText>
               </Pressable>
             )}
@@ -777,7 +934,7 @@ export default function AdminPortalScreen() {
             style={[styles.searchCard, { borderColor: theme.border }]}>
             <ThemedView style={styles.searchHeader}>
               <ThemedView style={styles.searchHeaderCopy}>
-                <ThemedText type="smallBold">Find a location</ThemedText>
+                <ThemedText type="smallBold">Find a Location</ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
                   Search content and narrow the list by status.
                 </ThemedText>
@@ -860,7 +1017,7 @@ export default function AdminPortalScreen() {
                   pressed && styles.pressed,
                 ]}>
                 <ThemedText type="smallBold" style={styles.secondaryButtonText}>
-                  Clear search and filters
+                  Clear Search and Filters
                 </ThemedText>
               </Pressable>
             ) : null}
@@ -873,23 +1030,25 @@ export default function AdminPortalScreen() {
             style={[styles.formCard, { borderColor: theme.border }]}>
             <ThemedText type="subtitle" style={styles.formTitle}>
               {formMode === 'create'
-                ? 'Add a new location'
-                : 'Edit location'}
+                ? 'Add a New Location'
+                : 'Edit Location'}
             </ThemedText>
 
-            <ThemedText themeColor="textSecondary">
-              Required fields are grouped first. Optional editorial and
-              badge details can be completed as needed.
-            </ThemedText>
+            <SectionHelpHeading
+              label="BASIC DETAILS"
+              items={[
+                {
+                  label: 'Location Name',
+                  description: 'The public title visitors see on the map and in location details. Use the clearest familiar name for the place.',
+                },
+                {
+                  label: 'Stable Key',
+                  description: 'The permanent internal ID used by links and badge rules. During creation it is generated from the name until you edit it. Use lowercase letters, numbers, and single hyphens. Existing keys are locked because other content may rely on them.',
+                },
+              ]}
+            />
 
-            <ThemedView type="backgroundSelected" style={styles.formSectionHeading}>
-              <ThemedText type="smallBold">BASIC DETAILS</ThemedText>
-            </ThemedView>
-
-            <ThemedText type="smallBold">
-              Location name
-            </ThemedText>
-
+            <ThemedText type="smallBold">Location Name</ThemedText>
             <TextInput
               accessibilityLabel="Location name"
               autoCapitalize="words"
@@ -900,49 +1059,270 @@ export default function AdminPortalScreen() {
                 styles.formInput,
                 {
                   backgroundColor: theme.background,
-                  borderColor: theme.textSecondary,
+                  borderColor: formValidation?.fieldMessages.name
+                    ? Palette.danger
+                    : theme.textSecondary,
                   color: theme.text,
                 },
               ]}
               value={form.name}
             />
 
-            <ThemedText type="smallBold">
-              Stable key
-            </ThemedText>
+            {renderFieldError('name')}
 
+            <ThemedText type="smallBold">Stable Key</ThemedText>
             <TextInput
               accessibilityLabel="Stable key"
               autoCapitalize="none"
               autoCorrect={false}
-              onChangeText={(value) => updateField('key', value)}
+              editable={
+                !saving &&
+                (
+                  formMode === 'create' ||
+                  locationStableKeyEditingUnlocked
+                )
+              }
+              onChangeText={updateLocationStableKey}
               placeholder="stable-key"
               placeholderTextColor={theme.textSecondary}
               style={[
                 styles.formInput,
+                formMode === 'edit' &&
+                  !locationStableKeyEditingUnlocked &&
+                  styles.lockedStableKeyInput,
                 {
                   backgroundColor: theme.background,
-                  borderColor: theme.textSecondary,
+                  borderColor: formValidation?.fieldMessages.key
+                    ? Palette.danger
+                    : theme.textSecondary,
                   color: theme.text,
                 },
               ]}
               value={form.key}
             />
 
-            <ThemedText type="small" themeColor="textSecondary">
-              Stable keys use lowercase letters, numbers, and single
-              hyphens. A key is generated from the name only when a
-              legacy location does not already have one.
-            </ThemedText>
+            {renderFieldError('key')}
 
-            <ThemedView type="backgroundSelected" style={styles.formSectionHeading}>
-              <ThemedText type="smallBold">STORY CONTENT</ThemedText>
-            </ThemedView>
+            {formMode === 'edit' && locationStableKeyEditingUnlocked ? (
+              <ThemedText type="small" themeColor="textSecondary">
+                Editing is unlocked. Save only after checking anything that
+                may use the old key.
+              </ThemedText>
+            ) : null}
 
-            <ThemedText type="smallBold">
-              Description
-            </ThemedText>
+            {formMode === 'create' &&
+            suggestedLocationStableKey &&
+            form.key !== suggestedLocationStableKey ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Use suggested stable key ${suggestedLocationStableKey}`}
+                disabled={saving}
+                onPress={useSuggestedLocationStableKey}
+                style={({ pressed }) => [
+                  styles.inlineSecondaryButton,
+                  saving && styles.disabledButton,
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText style={styles.secondaryButtonText}>
+                  Use Suggested Key: {suggestedLocationStableKey}
+                </ThemedText>
+              </Pressable>
+            ) : null}
 
+            {formMode === 'edit' &&
+            !locationStableKeyEditingUnlocked &&
+            !locationStableKeyChangeRequested ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Change location stable key"
+                disabled={saving}
+                onPress={() => setLocationStableKeyChangeRequested(true)}
+                style={({ pressed }) => [
+                  styles.inlineSecondaryButton,
+                  saving && styles.disabledButton,
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText style={styles.secondaryButtonText}>
+                  Change Stable Key
+                </ThemedText>
+              </Pressable>
+            ) : null}
+
+            {formMode === 'edit' &&
+            locationStableKeyChangeRequested &&
+            !locationStableKeyEditingUnlocked ? (
+              <ThemedView
+                accessibilityLiveRegion="polite"
+                type="backgroundSelected"
+                style={[
+                  styles.stableKeyWarning,
+                  { borderColor: Palette.danger },
+                ]}>
+                <ThemedText type="smallBold" style={styles.stableKeyWarningTitle}>
+                  Change This Permanent Identifier?
+                </ThemedText>
+                <ThemedText>
+                  Badge rules may reference this location by its current key.
+                  Changing it can stop those rules from recognizing future
+                  check-ins until they are updated.
+                </ThemedText>
+                <ThemedView style={styles.formActions}>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={saving}
+                    onPress={() => {
+                      setLocationStableKeyEditingUnlocked(true);
+                      setLocationStableKeyChangeRequested(false);
+                    }}
+                    style={({ pressed }) => [
+                      styles.warningButton,
+                      pressed && styles.pressed,
+                    ]}>
+                    <ThemedText style={styles.warningButtonText}>
+                      I Understand — Edit Key
+                    </ThemedText>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={saving}
+                    onPress={() => setLocationStableKeyChangeRequested(false)}
+                    style={({ pressed }) => [
+                      styles.secondaryButton,
+                      pressed && styles.pressed,
+                    ]}>
+                    <ThemedText style={styles.secondaryButtonText}>
+                      Keep Current Key
+                    </ThemedText>
+                  </Pressable>
+                </ThemedView>
+              </ThemedView>
+            ) : null}
+
+            {formMode === 'edit' &&
+            locationStableKeyEditingUnlocked ? (
+              <ThemedView
+                type="backgroundSelected"
+                style={[
+                  styles.stableKeyWarning,
+                  { borderColor: Palette.danger },
+                ]}>
+                <ThemedText type="smallBold" style={styles.stableKeyWarningTitle}>
+                  Stable-Key Editing Is Unlocked
+                </ThemedText>
+                <ThemedText>
+                  The original key is {originalLocationStableKey}. Restore it
+                  before saving if this change is not intentional.
+                </ThemedText>
+                {form.key !== originalLocationStableKey ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Restore original stable key ${originalLocationStableKey}`}
+                    disabled={saving}
+                    onPress={() => {
+                      updateField('key', originalLocationStableKey);
+                      setLocationStableKeyEditingUnlocked(false);
+                    }}
+                    style={({ pressed }) => [
+                      styles.inlineSecondaryButton,
+                      pressed && styles.pressed,
+                    ]}>
+                    <ThemedText style={styles.secondaryButtonText}>
+                      Restore Original Key
+                    </ThemedText>
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={saving}
+                    onPress={() => setLocationStableKeyEditingUnlocked(false)}
+                    style={({ pressed }) => [
+                      styles.inlineSecondaryButton,
+                      pressed && styles.pressed,
+                    ]}>
+                    <ThemedText style={styles.secondaryButtonText}>
+                      Lock Stable Key
+                    </ThemedText>
+                  </Pressable>
+                )}
+              </ThemedView>
+            ) : null}
+
+            <SectionHelpHeading
+              label="STORY CONTENT"
+              items={[
+                {
+                  label: 'Lore or Legend',
+                  description: 'Turn this on when the story includes folklore, oral tradition, legend, or details that are not historically confirmed. Visitors will see a clear notice in the location details.',
+                },
+                {
+                  label: 'Description',
+                  description: 'The main story visitors read after opening this location. Keep it engaging, accurate, and focused on why the place is worth discovering.',
+                },
+                {
+                  label: 'Fun Fact',
+                  description: 'An optional short detail shown separately in the location details. Use something memorable that adds to the story without repeating the main description.',
+                },
+                {
+                  label: 'Source',
+                  description: 'The optional citation, publication, archive, organization, or URL supporting the location information.',
+                },
+                {
+                  label: 'Gemini Editorial Notes',
+                  description: 'Private optional instructions for a Gemini draft, such as the desired tone, facts to emphasize, or details to avoid. They are never published or saved with the location.',
+                },
+              ]}
+            />
+
+            <Pressable
+              accessibilityRole="checkbox"
+              accessibilityLabel="Mark this location as lore or legend"
+              accessibilityHint="Shows readers that this location story includes folklore, legend, oral tradition, or historically unverified details."
+              accessibilityState={{
+                checked: form.isLore,
+                disabled: saving,
+              }}
+              disabled={saving}
+              onPress={() => updateField('isLore', !form.isLore)}
+              style={({ pressed }) => [
+                styles.loreToggle,
+                {
+                  borderColor: form.isLore
+                    ? Palette.lightBronze
+                    : theme.borderStrong,
+                },
+                form.isLore && styles.loreToggleSelected,
+                saving && styles.disabledButton,
+                pressed && styles.pressed,
+              ]}>
+              <ThemedView
+                style={[
+                  styles.loreCheckbox,
+                  {
+                    backgroundColor: form.isLore
+                      ? Palette.lightBronze
+                      : theme.background,
+                    borderColor: form.isLore
+                      ? Palette.lightBronze
+                      : theme.borderStrong,
+                  },
+                ]}>
+                {form.isLore ? (
+                  <ThemedText
+                    accessible={false}
+                    style={styles.loreCheckboxMark}>
+                    ✓
+                  </ThemedText>
+                ) : null}
+              </ThemedView>
+
+              <ThemedView style={styles.loreToggleCopy}>
+                <ThemedText type="smallBold">
+                  Mark This Location as Lore or Legend
+                </ThemedText>
+              </ThemedView>
+            </Pressable>
+
+            <ThemedText type="smallBold">Description</ThemedText>
             <TextInput
               accessibilityLabel="Description"
               multiline
@@ -953,12 +1333,16 @@ export default function AdminPortalScreen() {
                 styles.formTextArea,
                 {
                   backgroundColor: theme.background,
-                  borderColor: theme.textSecondary,
+                  borderColor: formValidation?.fieldMessages.description
+                    ? Palette.danger
+                    : theme.textSecondary,
                   color: theme.text,
                 },
               ]}
               value={form.description}
             />
+
+            {renderFieldError('description')}
 
             {formMode && (
               <ThemedView style={styles.geminiContainer}>
@@ -988,8 +1372,8 @@ export default function AdminPortalScreen() {
                   ]}>
                   <ThemedText style={styles.geminiButtonText}>
                     {geminiOpen
-                      ? 'Close Gemini tools'
-                      : 'Draft description with Gemini'}
+                      ? 'Close Gemini Tools'
+                      : 'Draft Description with Gemini'}
                   </ThemedText>
                 </Pressable>
 
@@ -1002,9 +1386,8 @@ export default function AdminPortalScreen() {
                     </ThemedText>
 
                     <ThemedText type="smallBold">
-                      Editorial notes (optional)
+                      Editorial Notes (Optional)
                     </ThemedText>
-
                     <TextInput
                       accessibilityLabel="Editorial notes for Gemini"
                       accessibilityHint="Optional notes to guide the draft. Maximum 2,000 characters."
@@ -1053,7 +1436,7 @@ export default function AdminPortalScreen() {
                           pressed && styles.pressed,
                         ]}>
                         <ThemedText style={styles.buttonText}>
-                          {geminiBusy ? 'Generating draft...' : 'Generate draft'}
+                          {geminiBusy ? 'Generating Draft...' : 'Generate Draft'}
                         </ThemedText>
                       </Pressable>
 
@@ -1069,7 +1452,7 @@ export default function AdminPortalScreen() {
                           pressed && styles.pressed,
                         ]}>
                         <ThemedText style={styles.secondaryButtonText}>
-                          Close Gemini tools
+                          Close Gemini Tools
                         </ThemedText>
                       </Pressable>
                     </ThemedView>
@@ -1092,15 +1475,7 @@ export default function AdminPortalScreen() {
               </ThemedView>
             )}
 
-            <ThemedText type="smallBold">
-              Fun fact (optional)
-            </ThemedText>
-
-            <ThemedText type="small" themeColor="textSecondary">
-              Add an interesting detail that appears in the location
-              details.
-            </ThemedText>
-
+            <ThemedText type="smallBold">Fun Fact (Optional)</ThemedText>
             <TextInput
               accessibilityLabel="Fun fact"
               autoCapitalize="sentences"
@@ -1113,22 +1488,18 @@ export default function AdminPortalScreen() {
                 styles.formTextArea,
                 {
                   backgroundColor: theme.background,
-                  borderColor: theme.textSecondary,
+                  borderColor: formValidation?.fieldMessages.funFact
+                    ? Palette.danger
+                    : theme.textSecondary,
                   color: theme.text,
                 },
               ]}
               value={form.funFact}
             />
 
-            <ThemedText type="smallBold">
-              Source (optional)
-            </ThemedText>
+            {renderFieldError('funFact')}
 
-            <ThemedText type="small" themeColor="textSecondary">
-              Enter a citation, publication name, or URL supporting the
-              location information.
-            </ThemedText>
-
+            <ThemedText type="smallBold">Source (Optional)</ThemedText>
             <TextInput
               accessibilityLabel="Source"
               autoCapitalize="sentences"
@@ -1141,21 +1512,36 @@ export default function AdminPortalScreen() {
                 styles.formTextArea,
                 {
                   backgroundColor: theme.background,
-                  borderColor: theme.textSecondary,
+                  borderColor: formValidation?.fieldMessages.source
+                    ? Palette.danger
+                    : theme.textSecondary,
                   color: theme.text,
                 },
               ]}
               value={form.source}
             />
 
-            <ThemedView type="backgroundSelected" style={styles.formSectionHeading}>
-              <ThemedText type="smallBold">MAP DETAILS</ThemedText>
-            </ThemedView>
+            {renderFieldError('source')}
 
-            <ThemedText type="smallBold">
-              Latitude
-            </ThemedText>
+            <SectionHelpHeading
+              label="MAP DETAILS"
+              items={[
+                {
+                  label: 'Latitude',
+                  description: 'The north-south decimal coordinate that positions the map marker. Copy the full decimal value from a reliable map source.',
+                },
+                {
+                  label: 'Longitude',
+                  description: 'The east-west decimal coordinate that positions the map marker. Locations around Harvard and Boston normally use a negative longitude.',
+                },
+                {
+                  label: 'Location Category',
+                  description: 'The required broad public-facing type visitors see for this location. Choose the closest overall category and use badge tags for narrower subjects such as public-art, black-history, or transportation.',
+                },
+              ]}
+            />
 
+            <ThemedText type="smallBold">Latitude</ThemedText>
             <TextInput
               accessibilityLabel="Latitude"
               autoCapitalize="none"
@@ -1168,17 +1554,18 @@ export default function AdminPortalScreen() {
                 styles.formInput,
                 {
                   backgroundColor: theme.background,
-                  borderColor: theme.textSecondary,
+                  borderColor: formValidation?.fieldMessages.latitude
+                    ? Palette.danger
+                    : theme.textSecondary,
                   color: theme.text,
                 },
               ]}
               value={form.latitude}
             />
 
-            <ThemedText type="smallBold">
-              Longitude
-            </ThemedText>
+            {renderFieldError('latitude')}
 
+            <ThemedText type="smallBold">Longitude</ThemedText>
             <TextInput
               accessibilityLabel="Longitude"
               autoCapitalize="none"
@@ -1191,62 +1578,80 @@ export default function AdminPortalScreen() {
                 styles.formInput,
                 {
                   backgroundColor: theme.background,
-                  borderColor: theme.textSecondary,
+                  borderColor: formValidation?.fieldMessages.longitude
+                    ? Palette.danger
+                    : theme.textSecondary,
                   color: theme.text,
                 },
               ]}
               value={form.longitude}
             />
 
-            <ThemedText type="smallBold">
-              Category
-            </ThemedText>
+            {renderFieldError('longitude')}
 
-            <TextInput
-              accessibilityLabel="Category"
-              autoCapitalize="words"
-              onChangeText={(value) => updateField('category', value)}
-              placeholder="Category"
-              placeholderTextColor={theme.textSecondary}
-              style={[
-                styles.formInput,
-                {
-                  backgroundColor: theme.background,
-                  borderColor: theme.textSecondary,
-                  color: theme.text,
-                },
-              ]}
+            <ThemedText type="smallBold">
+              Location Category (Required)
+            </ThemedText>
+            <LocationCategoryPicker
+              disabled={saving}
+              hasError={Boolean(
+                formValidation?.fieldMessages.category,
+              )}
+              onChange={(category) =>
+                updateField('category', category)
+              }
               value={form.category}
             />
 
-            <ThemedView type="backgroundSelected" style={styles.formSectionHeading}>
-              <ThemedText type="smallBold">BADGE CONNECTIONS</ThemedText>
-            </ThemedView>
+            {renderFieldError('category')}
 
-            <ThemedText type="smallBold">
-              Badge tags (optional)
-            </ThemedText>
-
-            <ThemedText type="small" themeColor="textSecondary">
-              Reuse existing tags to keep badge progress consistent, or
-              add a new tag when needed.
-            </ThemedText>
-
-            <BadgeTagPicker
-              availableTags={availableBadgeTags}
-              disabled={saving}
-              maxSelected={MAX_LOCATION_BADGE_TAGS}
-              mode="multiple"
-              onChange={(tags) =>
-                updateField('badgesText', tags.join(', '))
-              }
-              selectedTags={selectedBadgeTags}
+            <SectionHelpHeading
+              label="BADGE CONNECTIONS"
+              items={[
+                {
+                  label: 'Badge Tags',
+                  description: 'The topics this location counts toward for badge progress. Every location needs at least one. Reuse an existing tag so related locations contribute to the same badges, or add a new tag when needed.',
+                },
+              ]}
             />
 
-            <ThemedText type="smallBold">
-              Story key (optional)
-            </ThemedText>
+            <ThemedView
+              style={[
+                styles.badgeTagField,
+                formValidation?.fieldMessages.badgesText &&
+                  styles.badgeTagFieldError,
+              ]}>
+              <ThemedText type="smallBold">Badge Tags (Required)</ThemedText>
+              <BadgeTagPicker
+                availableTags={availableBadgeTags}
+                disabled={saving}
+                maxSelected={MAX_LOCATION_BADGE_TAGS}
+                minimumSelected={1}
+                mode="multiple"
+                onChange={(tags) =>
+                  updateField('badgesText', tags.join(', '))
+                }
+                selectedTags={selectedBadgeTags}
+              />
 
+              {renderFieldError('badgesText')}
+            </ThemedView>
+
+            <SectionHelpHeading
+              label="ADVANCED GROUPING KEYS"
+              items={[
+                {
+                  label: 'Story Key',
+                  description: 'An optional shared ID for locations that belong to the same story. Enter the same lowercase hyphenated key on each related location only when creating a story-based badge rule.',
+                },
+                {
+                  label: 'Region Key',
+                  description: 'An optional shared ID for locations in the same intended region. Enter the same lowercase hyphenated key on each related location only when creating a region-based badge rule.',
+                },
+              ]}
+            />
+
+            <ThemedText type="smallBold">Story Key (Optional)</ThemedText>
             <TextInput
               accessibilityLabel="Story key"
               autoCapitalize="none"
@@ -1265,10 +1670,7 @@ export default function AdminPortalScreen() {
               value={form.storyKey}
             />
 
-            <ThemedText type="smallBold">
-              Region key (optional)
-            </ThemedText>
-
+            <ThemedText type="smallBold">Region Key (Optional)</ThemedText>
             <TextInput
               accessibilityLabel="Region key"
               autoCapitalize="none"
@@ -1291,11 +1693,27 @@ export default function AdminPortalScreen() {
               type="backgroundSelected"
               style={styles.formActionsPanel}>
               <ThemedView style={styles.formActionsCopy}>
-                <ThemedText type="smallBold">Ready to finish?</ThemedText>
+                <ThemedText type="smallBold">Ready to Finish?</ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
                   Save to publish these location details to the app.
                 </ThemedText>
               </ThemedView>
+
+              {formValidation ? (
+                <ThemedView
+                  accessibilityLiveRegion="assertive"
+                  accessibilityRole="alert"
+                  style={styles.formValidationAlert}>
+                  <ThemedText
+                    type="smallBold"
+                    style={styles.formValidationAlertText}>
+                    Can’t Save Yet
+                  </ThemedText>
+                  <ThemedText style={styles.formValidationAlertText}>
+                    {formValidation.message}
+                  </ThemedText>
+                </ThemedView>
+              ) : null}
 
               <ThemedView style={styles.formActions}>
               <Pressable
@@ -1320,11 +1738,11 @@ export default function AdminPortalScreen() {
                 <ThemedText style={styles.buttonText}>
                     {saving
                     ? formMode === 'create'
-                      ? 'Creating location...'
-                      : 'Saving changes...'
+                      ? 'Creating Location...'
+                      : 'Saving Changes...'
                     : formMode === 'create'
-                      ? 'Create location'
-                      : 'Save changes'}
+                      ? 'Create Location'
+                      : 'Save Changes'}
                 </ThemedText>
               </Pressable>
 
@@ -1378,6 +1796,16 @@ export default function AdminPortalScreen() {
                       <ThemedText themeColor="textSecondary">
                         {location.category}
                       </ThemedText>
+
+                      {location.isLore ? (
+                        <ThemedView style={styles.lorePill}>
+                          <ThemedText
+                            type="smallBold"
+                            style={styles.lorePillText}>
+                            Lore / Legend
+                          </ThemedText>
+                        </ThemedView>
+                      ) : null}
 
                       <ThemedText type="small" themeColor="textSecondary">
                         {location.key || 'No stable key'}
@@ -1493,8 +1921,8 @@ export default function AdminPortalScreen() {
                             {changing
                               ? 'Saving status...'
                               : location.retired
-                                ? 'Confirm reactivation'
-                                : 'Confirm retirement'}
+                                ? 'Confirm Reactivation'
+                                : 'Confirm Retirement'}
                           </ThemedText>
                         </Pressable>
 
@@ -1756,18 +2184,47 @@ const styles = StyleSheet.create({
     fontSize: 26,
     lineHeight: 34,
   },
-  formSectionHeading: {
-    marginTop: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.two,
-  },
   formInput: {
     minHeight: 48,
     borderRadius: Spacing.two,
     borderWidth: 1,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
+  },
+  lockedStableKeyInput: {
+    opacity: 0.7,
+  },
+  stableKeyWarning: {
+    gap: Spacing.two,
+    borderWidth: 2,
+    borderRadius: Spacing.two,
+    padding: Spacing.three,
+  },
+  stableKeyWarningTitle: {
+    color: Palette.danger,
+  },
+  inlineSecondaryButton: {
+    minHeight: 44,
+    alignSelf: 'flex-start',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    backgroundColor: Palette.teaGreen,
+  },
+  warningButton: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Spacing.two,
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.two,
+    backgroundColor: Palette.danger,
+  },
+  warningButtonText: {
+    color: Palette.onDanger,
+    textAlign: 'center',
   },
   formTextArea: {
     minHeight: 120,
@@ -1776,6 +2233,47 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     textAlignVertical: 'top',
+  },
+  loreToggle: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    padding: Spacing.two,
+    borderWidth: 1,
+    borderRadius: Spacing.two,
+  },
+  loreToggleSelected: {
+    backgroundColor: Palette.teaGreen,
+  },
+  loreCheckbox: {
+    width: 26,
+    height: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderRadius: 6,
+  },
+  loreCheckboxMark: {
+    color: Palette.ink,
+    lineHeight: 20,
+  },
+  loreToggleCopy: {
+    flex: 1,
+    gap: Spacing.one,
+  },
+  fieldErrorText: {
+    color: Palette.danger,
+    lineHeight: 20,
+  },
+  badgeTagField: {
+    gap: Spacing.one,
+    padding: Spacing.two,
+    borderRadius: Spacing.two,
+  },
+  badgeTagFieldError: {
+    borderColor: Palette.danger,
+    borderWidth: 2,
   },
   formActions: {
     flexDirection: 'row',
@@ -1791,6 +2289,15 @@ const styles = StyleSheet.create({
   },
   formActionsCopy: {
     gap: Spacing.one,
+  },
+  formValidationAlert: {
+    gap: Spacing.one,
+    padding: Spacing.three,
+    borderRadius: Spacing.two,
+    backgroundColor: Palette.danger,
+  },
+  formValidationAlertText: {
+    color: Palette.onDanger,
   },
   geminiContainer: {
     gap: Spacing.two,
@@ -1879,6 +2386,16 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.beige,
   },
   statusPillText: {
+    color: Palette.ink,
+  },
+  lorePill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.one,
+    borderRadius: 999,
+    backgroundColor: Palette.lightBronze,
+  },
+  lorePillText: {
     color: Palette.ink,
   },
   locationStatusConfirmation: {

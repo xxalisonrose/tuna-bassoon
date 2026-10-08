@@ -10,6 +10,7 @@ import { useMutation, useQuery } from 'convex/react';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { FieldHelpHeading } from '@/components/admin/field-help-heading';
 import { Palette, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '../../../convex/_generated/api';
@@ -446,25 +447,25 @@ export function AvailabilityWindowManager({
 
   return (
     <ThemedView
-      accessibilityLabel="Seasonal availability windows"
+      accessibilityLabel="Seasonal Availability Windows"
       type="backgroundElement"
       style={[styles.container, { borderColor: theme.border }]}>
       <ThemedView style={styles.header}>
         <ThemedView style={styles.headingCopy}>
-          <ThemedText type="smallBold">
-            Seasonal availability
-          </ThemedText>
-          <ThemedText themeColor="textSecondary">
-            {awaitingBadgeSave
-              ? 'Fill in the first window, then save the badge and window together below.'
-              : 'With no windows, this badge remains available year-round. Once a window starts, it is locked to preserve progress history.'}
-          </ThemedText>
+          <FieldHelpHeading
+            label="Seasonal Availability"
+            help={
+              awaitingBadgeSave
+                ? 'The period when check-ins can make progress toward this seasonal badge. Outside an active window, the badge remains visible but cannot gain new progress. Fill in the first window, then save the badge and window together below.'
+                : 'The period when check-ins can make progress toward this seasonal badge. Outside an active window, the badge remains visible but cannot gain new progress. With no windows, the badge remains available year-round. Once a window starts, it is locked to preserve progress history.'
+            }
+          />
         </ThemedView>
 
         {!formOpen && badgeDefinitionId !== null ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Add availability window"
+            accessibilityLabel="Add Availability Window"
             accessibilityHint="Schedule a future period when this badge can make progress."
             disabled={busy}
             onPress={openCreateForm}
@@ -473,7 +474,7 @@ export function AvailabilityWindowManager({
               busy && styles.disabled,
             ]}>
             <ThemedText style={styles.primaryButtonText}>
-              Add availability window
+              Add Availability Window
             </ThemedText>
           </Pressable>
         ) : null}
@@ -492,8 +493,8 @@ export function AvailabilityWindowManager({
         <ThemedView style={styles.form}>
           <ThemedText type="smallBold">
             {editingWindowId === null
-              ? 'Add availability window'
-              : 'Edit future availability window'}
+              ? 'Add Availability Window'
+              : 'Edit Future Availability Window'}
           </ThemedText>
 
           {awaitingBadgeSave ? (
@@ -502,12 +503,13 @@ export function AvailabilityWindowManager({
             </ThemedText>
           ) : null}
 
-          <ThemedText type="smallBold">
-            Event period title
-          </ThemedText>
+          <FieldHelpHeading
+            label="Event Period Title"
+            help="A short unique name for this availability window, such as Halloween 2027. It identifies the scheduled period in the portal."
+          />
 
           <TextInput
-            accessibilityLabel="Event period title"
+            accessibilityLabel="Event Period Title"
             autoCapitalize="none"
             autoCorrect={false}
             editable={!busy}
@@ -520,6 +522,7 @@ export function AvailabilityWindowManager({
 
           <AvailabilityDateTimeField
             disabled={busy}
+            help="The local date and time when visitors can begin making progress toward this badge."
             label="Starts"
             minimumDate={minimumStartDate}
             onChange={(value) => updateField('startsAt', value)}
@@ -528,6 +531,7 @@ export function AvailabilityWindowManager({
 
           <AvailabilityDateTimeField
             disabled={busy}
+            help="The local date and time when this badge stops accepting new progress. It must be later than the starting date and time."
             label="Ends"
             minimumDate={selectedStartDate ?? minimumStartDate}
             onChange={(value) => updateField('endsAt', value)}
@@ -535,12 +539,12 @@ export function AvailabilityWindowManager({
           />
 
           <ThemedView
-            accessibilityLabel="Selected availability range"
+            accessibilityLabel="Selected Availability Range"
             accessibilityLiveRegion="polite"
             type="backgroundSelected"
             style={styles.rangePreview}>
             <ThemedText type="smallBold">
-              Selected availability
+              Selected Availability
             </ThemedText>
             {rangeIsComplete ? (
               <>
@@ -583,12 +587,12 @@ export function AvailabilityWindowManager({
               ]}>
               <ThemedText style={styles.primaryButtonText}>
                 {awaitingBadgeSave
-                  ? 'Save badge and add window'
+                  ? 'Save Badge and Add Window'
                   : saving
                     ? 'Saving...'
                     : editingWindowId === null
-                      ? 'Add window'
-                      : 'Save window'}
+                      ? 'Add Window'
+                      : 'Save Window'}
               </ThemedText>
             </Pressable>
 
@@ -598,7 +602,7 @@ export function AvailabilityWindowManager({
               onPress={closeForm}
               style={styles.secondaryButton}>
               <ThemedText style={styles.secondaryButtonText}>
-                {awaitingBadgeSave ? 'Clear window' : 'Cancel'}
+                {awaitingBadgeSave ? 'Clear Window' : 'Cancel'}
               </ThemedText>
             </Pressable>
           </ThemedView>
@@ -666,7 +670,7 @@ export function AvailabilityWindowManager({
                           }}
                           style={styles.secondaryButton}>
                           <ThemedText style={styles.secondaryButtonText}>
-                            End availability now
+                            End Availability Now
                           </ThemedText>
                         </Pressable>
                       </ThemedView>
@@ -725,7 +729,7 @@ export function AvailabilityWindowManager({
                         <ThemedText style={styles.dangerButtonText}>
                           {endingId === window._id
                             ? 'Ending...'
-                            : 'Confirm ending'}
+                            : 'Confirm Ending'}
                         </ThemedText>
                       </Pressable>
 
@@ -766,7 +770,7 @@ export function AvailabilityWindowManager({
                         <ThemedText style={styles.dangerButtonText}>
                           {deletingId === window._id
                             ? 'Removing...'
-                            : 'Confirm removal'}
+                            : 'Confirm Removal'}
                         </ThemedText>
                       </Pressable>
 

@@ -1,5 +1,6 @@
 import { StyleSheet, TextInput } from 'react-native';
 
+import { FieldHelpHeading } from '@/components/admin/field-help-heading';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -8,6 +9,7 @@ import type { AvailabilityDateTimeFieldProps } from './availability-date-time-fi
 
 export function AvailabilityDateTimeField({
   disabled,
+  help,
   label,
   onChange,
   value,
@@ -16,7 +18,7 @@ export function AvailabilityDateTimeField({
 
   return (
     <ThemedView style={styles.field}>
-      <ThemedText type="smallBold">{label}</ThemedText>
+      <FieldHelpHeading label={label} help={help} />
       <ThemedText type="small" themeColor="textSecondary">
         Format: YYYY-MM-DD HH:MM in your local time
       </ThemedText>

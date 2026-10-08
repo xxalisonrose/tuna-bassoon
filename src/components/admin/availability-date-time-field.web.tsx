@@ -1,6 +1,7 @@
 import type { ChangeEvent, CSSProperties } from 'react';
 import { StyleSheet } from 'react-native';
 
+import { FieldHelpHeading } from '@/components/admin/field-help-heading';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -19,6 +20,7 @@ function splitDateTime(value: string) {
 
 export function AvailabilityDateTimeField({
   disabled,
+  help,
   label,
   minimumDate,
   onChange,
@@ -50,7 +52,7 @@ export function AvailabilityDateTimeField({
 
   return (
     <ThemedView style={styles.field}>
-      <ThemedText type="smallBold">{label}</ThemedText>
+      <FieldHelpHeading label={label} help={help} />
       <ThemedView style={styles.pickerRow}>
         <ThemedView style={styles.pickerPart}>
           <ThemedText type="small">Date</ThemedText>

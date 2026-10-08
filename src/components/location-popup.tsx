@@ -225,6 +225,21 @@ export function LocationPopup({
           </Text>
         )}
 
+        {place.isLore ? (
+          <View
+            accessible
+            accessibilityLabel="Lore and legend. This story includes folklore, legend, oral tradition, or details that may not be historically confirmed."
+            style={styles.loreNotice}>
+            <Text style={styles.loreHeading}>
+              Lore &amp; legend
+            </Text>
+            <Text style={styles.loreText}>
+              This story includes folklore, legend, oral tradition, or
+              details that may not be historically confirmed.
+            </Text>
+          </View>
+        ) : null}
+
         <Text style={styles.description}>
           {place.description}
         </Text>
@@ -404,6 +419,26 @@ const styles = StyleSheet.create({
     color: '#444444',
     fontSize: 16,
     lineHeight: 24,
+  },
+  loreNotice: {
+    alignSelf: 'stretch',
+    gap: 4,
+    padding: 12,
+    backgroundColor: '#FFF4D6',
+    borderColor: '#B7791F',
+    borderWidth: 1,
+    borderRadius: 12,
+  },
+  loreHeading: {
+    color: '#6B3E00',
+    fontSize: 14,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  loreText: {
+    color: '#5D451A',
+    fontSize: 14,
+    lineHeight: 20,
   },
   editorialSection: {
     alignSelf: 'stretch',

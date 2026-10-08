@@ -21,6 +21,7 @@ export const addLocation = internalMutation({
     return await ctx.db.insert('locations', {
       name: args.title,
       description: args.description,
+      isLore: false,
       latitude: args.latitude,
       longitude: args.longitude,
       category: args.category,

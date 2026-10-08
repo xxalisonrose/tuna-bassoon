@@ -12,6 +12,7 @@ export default defineSchema({
     description: v.string(),
     funFact: v.optional(v.string()),
     source: v.optional(v.string()),
+    isLore: v.optional(v.boolean()),
 
     badges: v.array(v.string()),
 

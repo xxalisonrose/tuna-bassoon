@@ -117,6 +117,7 @@ export default function MapScreen() {
           description: location.description,
           funFact: location.funFact,
           source: location.source,
+          isLore: location.isLore === true,
           category: location.category,
           badges: location.badges,
           coordinates: [

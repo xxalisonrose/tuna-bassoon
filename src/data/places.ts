@@ -6,6 +6,7 @@ export type Place = {
   description: string;
   funFact?: string;
   source?: string;
+  isLore?: boolean;
   coordinates: [number, number];
   category?: string;
   badges: string[];

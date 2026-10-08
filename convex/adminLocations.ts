@@ -10,6 +10,84 @@ const MAX_LOCATION_SOURCE_LENGTH = 2000;
 const MAX_BADGE_TAGS = 25;
 const MAX_BADGE_TAG_LENGTH = 80;
 
+const LOCATION_CATEGORIES = [
+  'History & Heritage',
+  'Culture & Arts',
+  'Literature & Libraries',
+  'People & Community',
+  'Science & Nature',
+  'Architecture & Places',
+  'Weird & Curious',
+] as const;
+
+type LocationCategory = (typeof LOCATION_CATEGORIES)[number];
+
+const LEGACY_LOCATION_CATEGORY_MAP: Record<string, LocationCategory> = {
+  architecture: 'Architecture & Places',
+  art: 'Culture & Arts',
+  'black history': 'History & Heritage',
+  books: 'Literature & Libraries',
+  'books & libraries': 'Literature & Libraries',
+  'cultural heritage': 'History & Heritage',
+  folklore: 'Weird & Curious',
+  'harvard history': 'History & Heritage',
+  'harvard people': 'People & Community',
+  'historic artifact': 'History & Heritage',
+  'historic building': 'Architecture & Places',
+  'historic events': 'History & Heritage',
+  'historic home': 'Architecture & Places',
+  'historic object': 'History & Heritage',
+  'historic places': 'Architecture & Places',
+  libraries: 'Literature & Libraries',
+  library: 'Literature & Libraries',
+  'local history': 'History & Heritage',
+  memorial: 'History & Heritage',
+  'museum, science and art': 'Culture & Arts',
+  'natural wonders': 'Science & Nature',
+  oddities: 'Weird & Curious',
+  'people, politics, industrial history': 'History & Heritage',
+  'public art': 'Culture & Arts',
+  'public gardens': 'Science & Nature',
+  'religious history': 'History & Heritage',
+  transportation: 'History & Heritage',
+  'writers & poets': 'Literature & Libraries',
+};
+
+function normalizeCategoryLookupKey(value: string): string {
+  return value
+    .normalize('NFKC')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+}
+
+function getCanonicalLocationCategory(
+  value: string | undefined,
+): LocationCategory | null {
+  if (!value) {
+    return null;
+  }
+
+  const lookupKey = normalizeCategoryLookupKey(value);
+  const canonical = LOCATION_CATEGORIES.find(
+    (category) => normalizeCategoryLookupKey(category) === lookupKey,
+  );
+
+  return canonical ?? LEGACY_LOCATION_CATEGORY_MAP[lookupKey] ?? null;
+}
+
+function normalizeLocationCategory(value: string): LocationCategory {
+  const category = getCanonicalLocationCategory(value);
+
+  if (category === null) {
+    throw new ConvexError(
+      `Location category must be one of: ${LOCATION_CATEGORIES.join(', ')}.`,
+    );
+  }
+
+  return category;
+}
+
 function normalizeRequiredString(
   value: string,
   fieldName: string,
@@ -136,6 +214,12 @@ function normalizeBadgeTags(badges: string[]): string[] {
     normalized.push(trimmed);
   }
 
+  if (normalized.length === 0) {
+    throw new ConvexError(
+      'At least one badge tag is required for every location.',
+    );
+  }
+
   return normalized;
 }
 
@@ -145,6 +229,7 @@ function normalizeLocationInput(args: {
   description: string;
   funFact?: string;
   source?: string;
+  isLore?: boolean;
   latitude: number;
   longitude: number;
   category: string;
@@ -159,11 +244,7 @@ function normalizeLocationInput(args: {
     'description',
     MAX_DESCRIPTION_LENGTH,
   );
-  const category = normalizeRequiredString(
-    args.category,
-    'category',
-    MAX_STRING_LENGTH,
-  );
+  const category = normalizeLocationCategory(args.category);
   const funFact = normalizeOptionalText(
     args.funFact,
     'Fun fact',
@@ -174,6 +255,7 @@ function normalizeLocationInput(args: {
     'Source',
     MAX_LOCATION_SOURCE_LENGTH,
   );
+  const isLore = args.isLore === true;
 
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(key)) {
     throw new ConvexError(
@@ -193,6 +275,7 @@ function normalizeLocationInput(args: {
     description,
     funFact,
     source,
+    isLore,
     latitude,
     longitude,
     category,
@@ -213,11 +296,121 @@ export const getLocationsForAdmin = query({
     return locations
       .map((location) => ({
         ...location,
+        isLore: location.isLore === true,
         retired: location.retired === true,
       }))
       .sort((left, right) =>
         left.name.localeCompare(right.name),
       );
+  },
+});
+
+export const previewLocationCategoryStandardization = query({
+  args: {},
+
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+
+    const locations = await ctx.db.query('locations').collect();
+    const changes: Array<{
+      locationId: typeof locations[number]['_id'];
+      name: string;
+      before: string;
+      after: LocationCategory;
+    }> = [];
+    const unknownCategories: Array<{
+      locationId: typeof locations[number]['_id'];
+      name: string;
+      category: string;
+    }> = [];
+
+    for (const location of locations) {
+      const before = location.category?.trim() ?? '';
+      const after = getCanonicalLocationCategory(before);
+
+      if (after === null) {
+        unknownCategories.push({
+          locationId: location._id,
+          name: location.name,
+          category: before,
+        });
+      } else if (before !== after) {
+        changes.push({
+          locationId: location._id,
+          name: location.name,
+          before,
+          after,
+        });
+      }
+    }
+
+    return {
+      totalLocations: locations.length,
+      alreadyStandardized:
+        locations.length - changes.length - unknownCategories.length,
+      changes,
+      unknownCategories,
+    };
+  },
+});
+
+export const applyLocationCategoryStandardization = mutation({
+  args: {},
+
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+
+    const locations = await ctx.db.query('locations').collect();
+    const changes: Array<{
+      locationId: typeof locations[number]['_id'];
+      name: string;
+      before: string;
+      after: LocationCategory;
+    }> = [];
+    const unknownCategories: Array<{
+      locationId: typeof locations[number]['_id'];
+      name: string;
+      category: string;
+    }> = [];
+
+    for (const location of locations) {
+      const before = location.category?.trim() ?? '';
+      const after = getCanonicalLocationCategory(before);
+
+      if (after === null) {
+        unknownCategories.push({
+          locationId: location._id,
+          name: location.name,
+          category: before,
+        });
+      } else if (before !== after) {
+        changes.push({
+          locationId: location._id,
+          name: location.name,
+          before,
+          after,
+        });
+      }
+    }
+
+    if (unknownCategories.length > 0) {
+      throw new ConvexError(
+        'Category standardization stopped because one or more locations use an unknown category. Run the preview and review those locations first.',
+      );
+    }
+
+    for (const change of changes) {
+      await ctx.db.patch(change.locationId, {
+        category: change.after,
+      });
+    }
+
+    return {
+      totalLocations: locations.length,
+      updatedLocations: changes.length,
+      unchangedLocations: locations.length - changes.length,
+      changes,
+    };
   },
 });
 
@@ -228,6 +421,7 @@ export const createLocation = mutation({
     description: v.string(),
     funFact: v.optional(v.string()),
     source: v.optional(v.string()),
+    isLore: v.optional(v.boolean()),
     latitude: v.number(),
     longitude: v.number(),
     category: v.string(),
@@ -258,6 +452,7 @@ export const createLocation = mutation({
       description: normalized.description,
       funFact: normalized.funFact,
       source: normalized.source,
+      isLore: normalized.isLore,
       latitude: normalized.latitude,
       longitude: normalized.longitude,
       category: normalized.category,
@@ -279,6 +474,7 @@ export const updateLocation = mutation({
     description: v.string(),
     funFact: v.optional(v.string()),
     source: v.optional(v.string()),
+    isLore: v.optional(v.boolean()),
     latitude: v.number(),
     longitude: v.number(),
     category: v.string(),
@@ -319,6 +515,7 @@ export const updateLocation = mutation({
       description: normalized.description,
       funFact: normalized.funFact,
       source: normalized.source,
+      isLore: normalized.isLore,
       latitude: normalized.latitude,
       longitude: normalized.longitude,
       category: normalized.category,

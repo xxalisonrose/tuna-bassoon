@@ -15,6 +15,7 @@ type BadgeTagPickerProps = {
   availableTags: string[];
   disabled?: boolean;
   maxSelected?: number;
+  minimumSelected?: number;
   mode: 'single' | 'multiple';
   onChange: (tags: string[]) => void;
   selectedTags: string[];
@@ -48,6 +49,7 @@ export function BadgeTagPicker({
   availableTags,
   disabled = false,
   maxSelected = 25,
+  minimumSelected = 0,
   mode,
   onChange,
   selectedTags,
@@ -91,6 +93,10 @@ export function BadgeTagPicker({
     !selectedTagKeys.has(normalizedSearch);
   const selectionLimit = mode === 'single' ? 1 : maxSelected;
   const subject = mode === 'single' ? 'this badge' : 'this location';
+  const minimumSelectionMessage =
+    mode === 'multiple'
+      ? 'Every location needs at least one badge tag. Add a replacement before removing this tag.'
+      : 'At least one badge tag is required. Add a replacement before removing this tag.';
 
   const announce = (message: string) => {
     AccessibilityInfo.announceForAccessibility(message);
@@ -128,6 +134,13 @@ export function BadgeTagPicker({
       return;
     }
 
+    if (normalizedSelectedTags.length <= minimumSelected) {
+      setConfirmingRemovalTag(null);
+      setStatusMessage(minimumSelectionMessage);
+      announce(minimumSelectionMessage);
+      return;
+    }
+
     const removedTag = confirmingRemovalTag;
     onChange(
       normalizedSelectedTags.filter(
@@ -151,6 +164,15 @@ export function BadgeTagPicker({
               accessibilityHint="Opens an are-you-sure confirmation."
               disabled={disabled}
               onPress={() => {
+                if (
+                  normalizedSelectedTags.length <= minimumSelected
+                ) {
+                  setConfirmingRemovalTag(null);
+                  setStatusMessage(minimumSelectionMessage);
+                  announce(minimumSelectionMessage);
+                  return;
+                }
+
                 setConfirmingRemovalTag(tag);
                 setStatusMessage(null);
               }}
@@ -175,10 +197,10 @@ export function BadgeTagPicker({
 
       {confirmingRemovalTag ? (
         <ThemedView
-          accessibilityLabel={`Confirm removal of ${confirmingRemovalTag}`}
+          accessibilityLabel={`Confirm Removal of ${confirmingRemovalTag}`}
           type="backgroundElement"
           style={styles.confirmation}>
-          <ThemedText type="smallBold">Are you sure?</ThemedText>
+          <ThemedText type="smallBold">Are You Sure?</ThemedText>
           <ThemedText themeColor="textSecondary">
             {`Remove “${confirmingRemovalTag}” from ${subject}? ` +
               'Changes only this unsaved form and will not affect other locations or badges.'}
@@ -187,7 +209,7 @@ export function BadgeTagPicker({
           <ThemedView style={styles.confirmationActions}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Confirm removal of ${confirmingRemovalTag} from ${subject}`}
+              accessibilityLabel={`Confirm Removal of ${confirmingRemovalTag} from ${subject}`}
               disabled={disabled}
               onPress={confirmRemoval}
               style={({ pressed }) => [
@@ -196,7 +218,7 @@ export function BadgeTagPicker({
                 pressed && styles.pressed,
               ]}>
               <ThemedText style={styles.destructiveButtonText}>
-                Confirm removal
+                Confirm Removal
               </ThemedText>
             </Pressable>
 
@@ -217,6 +239,15 @@ export function BadgeTagPicker({
         </ThemedView>
       ) : null}
 
+      {statusMessage ? (
+        <ThemedText
+          accessibilityLiveRegion="assertive"
+          accessibilityRole="alert"
+          style={styles.statusText}>
+          {statusMessage}
+        </ThemedText>
+      ) : null}
+
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={
@@ -232,12 +263,12 @@ export function BadgeTagPicker({
           setStatusMessage(null);
         }}
         style={({ pressed }) => [
-          styles.secondaryButton,
+          styles.pickerButton,
           disabled && styles.disabled,
           pressed && styles.pressed,
         ]}>
-        <ThemedText style={styles.secondaryButtonText}>
-          {open ? 'Close tag dropdown' : 'Choose or add a tag'}
+        <ThemedText type="smallBold" style={styles.secondaryButtonText}>
+          {open ? 'Close Tag Dropdown' : 'Choose or Add a Tag'}
         </ThemedText>
       </Pressable>
 
@@ -271,7 +302,7 @@ export function BadgeTagPicker({
             value={search}
           />
 
-          <ThemedText type="smallBold">Existing tags</ThemedText>
+          <ThemedText type="smallBold">Existing Tags</ThemedText>
 
           {filteredTags.length > 0 ? (
             <ThemedView style={styles.options}>
@@ -317,7 +348,7 @@ export function BadgeTagPicker({
             </ThemedText>
           )}
 
-          <ThemedText type="smallBold">Add a tag</ThemedText>
+          <ThemedText type="smallBold">Add a Tag</ThemedText>
 
           {canAddNewTag ? (
             <Pressable
@@ -331,7 +362,7 @@ export function BadgeTagPicker({
                 pressed && styles.pressed,
               ]}>
               <ThemedText style={styles.primaryButtonText}>
-                {`Add a tag: ${normalizedSearch}`}
+                {`Add a Tag: ${normalizedSearch}`}
               </ThemedText>
             </Pressable>
           ) : (
@@ -350,14 +381,6 @@ export function BadgeTagPicker({
             </ThemedText>
           ) : null}
 
-          {statusMessage ? (
-            <ThemedText
-              accessibilityLiveRegion="assertive"
-              accessibilityRole="alert"
-              style={styles.statusText}>
-              {statusMessage}
-            </ThemedText>
-          ) : null}
         </ThemedView>
       ) : null}
     </ThemedView>
@@ -455,6 +478,16 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     color: Palette.ink,
     textAlign: 'center',
+  },
+  pickerButton: {
+    minHeight: 44,
+    alignSelf: 'flex-start',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one,
+    borderRadius: Spacing.two,
+    backgroundColor: Palette.teaGreen,
   },
   destructiveButton: {
     minHeight: 48,

@@ -23,6 +23,20 @@ The portal has separate Locations and Badges sections. Administrators can switch
 
 The location and Gemini workflows continue to work after adding badge management.
 
+### Inline field help
+
+Location and badge editors group their guidance behind a question-mark button in each major section heading, so related explanations can be reviewed together without repeating help controls throughout the form. Seasonal-availability controls continue to provide contextual help through their input headings.
+
+Help panels appear inside the form, support keyboard and screen-reader navigation, and never alter unsaved input. Stable-key help warns that the generated internal identifier should normally remain unchanged after content is in use. Story and region keys are grouped under Advanced grouping keys and explain that they should remain blank unless an intentional story- or region-based badge rule is being configured.
+
+Static instructional copy is consolidated into this contextual help to keep long forms easier to scan. Current selections, empty-state notices, validation errors, upload status, and save-state messages remain visible without opening help.
+
+### Stable-key safeguards
+
+A stable key is the permanent lowercase, hyphenated identifier used internally to connect content even when its public name changes. New location and badge forms automatically suggest a stable key from the name. The suggestion continues following the name until an administrator edits the key directly, and a Use suggested key action can restore the generated value.
+
+Existing location and badge keys are locked by default. Changing one requires opening a warning and deliberately unlocking the field. The form keeps the original key visible and offers a one-click restore before saving. This safeguard reduces accidental changes that could disconnect location-based badge rules, links, progress, awards, or annual editions; it does not change any existing keys automatically.
+
 ### Location management
 
 Administrators can search and browse locations, create new locations, and edit all location fields:
@@ -32,6 +46,7 @@ Administrators can search and browse locations, create new locations, and edit a
 - Description
 - Optional fun fact
 - Optional source citation, publication, or URL
+- Lore or legend marker
 - Category
 - Latitude
 - Longitude
@@ -39,13 +54,39 @@ Administrators can search and browse locations, create new locations, and edit a
 - Optional story key
 - Optional region key
 
-The forms validate required fields, coordinate ranges, stable-key format, badge tags, optional story and region keys, and the length of optional fun facts and sources. Server validation remains authoritative, including duplicate-key protection and administrator authorization.
+The forms validate required fields, coordinate ranges, stable-key format, badge tags, optional story and region keys, and the length of optional fun facts and sources. When a location cannot be saved, a high-contrast alert appears beside the Save controls and each affected field is outlined in red with a short explanation. Every location must have at least one badge tag. The picker prevents removing the final tag until a replacement is selected, and server validation independently rejects a location with no normalized tags. Server validation remains authoritative, including duplicate-key protection and administrator authorization.
+
+### Standardized location categories
+
+Every location has one required, broad public-facing category selected from a fixed list. Category answers “What general kind of place or story is this?” Narrower subjects belong in badge tags, so a Public Art location uses the Culture & Arts category while retaining `public-art` as a tag.
+
+| Category | Use for |
+| --- | --- |
+| History & Heritage | Historic events, artifacts, memorials, transportation, and heritage |
+| Culture & Arts | Art, public art, museums, and cultural expression |
+| Literature & Libraries | Books, libraries, writers, poets, and literary history |
+| People & Community | People, civic life, neighborhoods, and community stories |
+| Science & Nature | Science, natural features, gardens, and the environment |
+| Architecture & Places | Notable buildings, historic homes, landmarks, and built spaces |
+| Weird & Curious | Oddities, folklore, legends, mysteries, and unusual discoveries |
+
+The portal uses a single-select category dropdown instead of free text. Convex independently rejects values outside this list, preventing spelling, capitalization, and singular/plural duplicates.
+
+The category selector uses the same compact dropdown pattern as the badge editor: it shows the saved choice while closed and expands to display the available categories when opened. Location section-help question marks sit directly beside their headings, field labels remain visible for clarity, and repetitive explanatory copy stays inside the relevant help panel.
+
+The administrator-only `previewLocationCategoryStandardization` query reports every proposed legacy-category change and any value that is not recognized. The `applyLocationCategoryStandardization` mutation refuses to run while unknown values remain, then updates recognized values without changing any other location content.
 
 Locations and badges share a searchable badge-tag dropdown populated from the location and badge content already loaded in the portal. Administrators can reuse an existing tag or add a new lowercase, hyphenated tag. Locations support multiple selected tags, while each badge selects one tag.
 
 Removing a selected tag requires an explicit confirmation and only changes the location or badge currently being edited. Other locations, badges, progress, and awards are not changed.
 
 Optional fun facts and sources appear in the mobile map's location details when present. Blank fields remain hidden.
+
+### Lore and legend labeling
+
+Location editors can mark a story as Lore or legend when it includes folklore, oral tradition, legendary material, or details that are not historically confirmed. The marker is optional and defaults to off, so all existing locations continue to be treated as factual unless an administrator deliberately changes them.
+
+Marked locations display a Lore / legend label in the administrator list. In the mobile location details, a prominent Lore & legend notice appears before the description and explains that the story may include material that is not historically confirmed. The marker labels the editorial nature of the content; it does not change check-ins, badge progress, retirement, or location availability.
 
 Location deletion is intentionally not included. Removing a location could break visits, badge progress, or awards that reference it.
 
@@ -127,17 +168,23 @@ Levels have no configured maximum. Progress uses distinct qualifying locations, 
 
 Each badge has its own pool of congratulations messages. The pool stays tucked behind Manage congratulations inside that badge's create or edit form. An administrator can add messages, edit them, and delete messages with confirmation. General badges start with ten messages; Special place and Seasonal badges start with one. These can be replaced with badge-specific wording, and at least one message must remain in each pool.
 
+The collapsed congratulations area shows only Manage congratulations. While editing, each numbered message displays a live character count beside its label and is limited to 160 characters; the numbered labels do not open separate help panels.
+
 Whenever a badge is first earned or a repeatable badge reaches another level, its in-app celebration popup randomly chooses one message from that badge's pool. The selected message is only used for that popup and is not stored with the award after dismissal. Adding or deleting messages therefore changes future popup choices without rewriting existing awards. Badge levels remain unlimited and do not need level-specific message ranges. New annual seasonal editions inherit the preceding edition's message pool and can then be edited independently.
 
 Specific-location badges remain one-time awards because each location can only be collected once, so they must use the Special place or Seasonal classification.
 
 ### Badge artwork
 
-Administrators can choose from artwork bundled with the application or upload custom artwork while creating or editing a badge. The form previews the selected artwork before saving, and the badge details and artwork are published through the same save action.
+New badges use a neutral automatic letter badge based on the badge name unless an administrator chooses custom artwork. The automatic fallback is implicit rather than shown as a selectable artwork card: with no image selected, the editor displays a single Choose image button. When real uploaded or preserved bundled artwork exists, its preview appears beside the Choose/Replace image button. Badge details and artwork are published through the same save action.
 
-Custom artwork supports PNG, JPEG, and WebP files up to 5 MB. Uploaded artwork takes priority over bundled artwork. Badges without matching artwork use a letter fallback rather than displaying a broken image.
+Classification and Progress rule use compact dropdowns. Each dropdown uses a consistent compact size while closed, shows the saved selection, and can expand to fit its longest choice when opened. Classification-controlled required visits and repeatable-level status remain visible beneath the classification selector. Section-help question marks sit directly beside their headings so the relationship is visually clear.
 
-Artwork appears in the administrator badge list, the user Collection, and earned-badge celebrations. Removing uploaded artwork restores the selected bundled artwork or letter fallback. Future annual editions inherit the current edition's artwork initially, while each generated edition remains independently editable. Shared uploaded files are retained while another edition still references them.
+The older America 250 and Ghost Stories images remain registered so badges already using them continue to render correctly, but they are not offered as permanent example choices for new badges. When editing one of those existing badges, its current bundled artwork is previewed and can be kept, removed to use the automatic letter fallback, or replaced with an upload.
+
+Custom artwork supports PNG, JPEG, and WebP files up to 5 MB. Uploaded artwork takes priority over preserved bundled artwork. Badges without uploaded or preserved bundled artwork use the automatic letter badge rather than displaying a broken image.
+
+Artwork appears in the administrator badge list, the user Collection, and earned-badge celebrations. Removing uploaded artwork restores preserved bundled artwork when one is still selected, or the automatic letter badge otherwise. Future annual editions inherit the current edition's artwork initially, while each generated edition remains independently editable. Shared uploaded files are retained while another edition still references them.
 
 ### Seasonal badge availability
 

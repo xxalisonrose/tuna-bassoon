@@ -118,7 +118,6 @@ export function BadgeCongratulationsManager({
     );
   };
 
-  const messageCount = editing ? draft.length : messages.length;
   const displayName = badgeName.trim() || 'this badge';
   const inputStyle = [
     styles.input,
@@ -132,39 +131,27 @@ export function BadgeCongratulationsManager({
   return (
     <ThemedView
       accessibilityLabel={`Congratulations message pool for ${displayName}`}
-      type="backgroundElement"
-      style={[styles.container, { borderColor: theme.border }]}>
-      <ThemedView style={styles.header}>
-        <ThemedView style={styles.headingCopy}>
-          <ThemedText type="smallBold">
-            Badge-specific congratulations
+      type={editing ? 'backgroundElement' : undefined}
+      style={
+        editing
+          ? [styles.container, { borderColor: theme.border }]
+          : styles.collapsedContainer
+      }>
+      {!editing ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled }}
+          disabled={disabled}
+          onPress={beginEditing}
+          style={[
+            styles.secondaryButton,
+            disabled && styles.disabled,
+          ]}>
+          <ThemedText style={styles.secondaryButtonText}>
+            Manage Congratulations
           </ThemedText>
-          <ThemedText themeColor="textSecondary">
-            When {displayName} is earned or levels up, its popup
-            randomly chooses one message from this pool. The choice is
-            not stored after the popup is dismissed.
-          </ThemedText>
-          <ThemedText type="small">
-            {messageCount} available {messageCount === 1 ? 'message' : 'messages'}
-          </ThemedText>
-        </ThemedView>
-
-        {!editing ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ disabled }}
-            disabled={disabled}
-            onPress={beginEditing}
-            style={[
-              styles.secondaryButton,
-              disabled && styles.disabled,
-            ]}>
-            <ThemedText style={styles.secondaryButtonText}>
-              Manage congratulations
-            </ThemedText>
-          </Pressable>
-        ) : null}
-      </ThemedView>
+        </Pressable>
+      ) : null}
 
       {statusMessage ? (
         <ThemedText
@@ -177,14 +164,44 @@ export function BadgeCongratulationsManager({
 
       {editing ? (
         <ThemedView style={styles.editor}>
+          <ThemedText type="small" themeColor="textSecondary">
+            Each message can contain up to 160 characters.
+          </ThemedText>
           {draft.map((message, index) => (
             <ThemedView
               key={index}
               type="backgroundSelected"
               style={[styles.messageCard, { borderColor: theme.border }]}>
-              <ThemedText type="smallBold">
-                Message {index + 1}
-              </ThemedText>
+              <ThemedView style={styles.messageHeading}>
+                <ThemedText type="smallBold">
+                  Message {index + 1}
+                </ThemedText>
+                <ThemedView style={styles.messageHeadingActions}>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {message.length}/160
+                  </ThemedText>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Delete congratulations message ${index + 1}`}
+                    accessibilityHint={
+                      draft.length === 1
+                        ? 'At least one congratulations message is required.'
+                        : 'Opens an are-you-sure confirmation.'
+                    }
+                    accessibilityState={{
+                      disabled: disabled || draft.length === 1,
+                    }}
+                    disabled={disabled || draft.length === 1}
+                    hitSlop={Spacing.two}
+                    onPress={() => setConfirmingDeleteIndex(index)}
+                    style={[
+                      styles.deleteIconButton,
+                      (disabled || draft.length === 1) && styles.disabled,
+                    ]}>
+                    <ThemedText style={styles.deleteIconText}>×</ThemedText>
+                  </Pressable>
+                </ThemedView>
+              </ThemedView>
               <TextInput
                 accessibilityLabel={`Congratulations message ${index + 1}`}
                 editable={!disabled}
@@ -209,7 +226,7 @@ export function BadgeCongratulationsManager({
                       onPress={() => deleteMessage(index)}
                       style={styles.dangerButton}>
                       <ThemedText style={styles.dangerButtonText}>
-                        Confirm deletion
+                        Confirm Deletion
                       </ThemedText>
                     </Pressable>
                     <Pressable
@@ -223,50 +240,9 @@ export function BadgeCongratulationsManager({
                     </Pressable>
                   </ThemedView>
                 </ThemedView>
-              ) : (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityHint={
-                    draft.length === 1
-                      ? 'At least one congratulations message is required.'
-                      : 'Removes this message after confirmation.'
-                  }
-                  accessibilityState={{
-                    disabled: disabled || draft.length === 1,
-                  }}
-                  disabled={disabled || draft.length === 1}
-                  onPress={() => setConfirmingDeleteIndex(index)}
-                  style={[
-                    styles.secondaryButton,
-                    (disabled || draft.length === 1) && styles.disabled,
-                  ]}>
-                  <ThemedText style={styles.secondaryButtonText}>
-                    Delete message
-                  </ThemedText>
-                </Pressable>
-              )}
+              ) : null}
             </ThemedView>
           ))}
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{
-              disabled: disabled || draft.length >= 100,
-            }}
-            disabled={disabled || draft.length >= 100}
-            onPress={() => {
-              setDraft((current) => [...current, '']);
-              setConfirmingDeleteIndex(null);
-              setStatusMessage(null);
-            }}
-            style={[
-              styles.secondaryButton,
-              (disabled || draft.length >= 100) && styles.disabled,
-            ]}>
-            <ThemedText style={styles.secondaryButtonText}>
-              Add message
-            </ThemedText>
-          </Pressable>
 
           <ThemedView style={styles.actions}>
             <Pressable
@@ -279,7 +255,26 @@ export function BadgeCongratulationsManager({
                 disabled && styles.disabled,
               ]}>
               <ThemedText style={styles.primaryButtonText}>
-                Use this message pool
+                Save Messages
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{
+                disabled: disabled || draft.length >= 100,
+              }}
+              disabled={disabled || draft.length >= 100}
+              onPress={() => {
+                setDraft((current) => [...current, '']);
+                setConfirmingDeleteIndex(null);
+                setStatusMessage(null);
+              }}
+              style={[
+                styles.secondaryButton,
+                (disabled || draft.length >= 100) && styles.disabled,
+              ]}>
+              <ThemedText style={styles.secondaryButtonText}>
+                Add Message
               </ThemedText>
             </Pressable>
             <Pressable
@@ -305,15 +300,35 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: Spacing.three,
   },
-  header: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  collapsedContainer: {
     alignItems: 'flex-start',
+  },
+  editor: { gap: Spacing.two },
+  messageHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.two,
   },
-  headingCopy: { flex: 1, minWidth: 240, gap: Spacing.one },
-  editor: { gap: Spacing.two },
+  messageHeadingActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  deleteIconButton: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    backgroundColor: Palette.teaGreen,
+  },
+  deleteIconText: {
+    color: Palette.ink,
+    fontSize: 22,
+    lineHeight: 24,
+    textAlign: 'center',
+  },
   messageCard: {
     gap: Spacing.one,
     padding: Spacing.three,
