@@ -61,8 +61,8 @@ export function AwardEarnedPopup({
   const theme = useTheme();
   const summaryRef = useRef<View>(null);
   const heading = award.levelsEnabled
-    ? 'Badge level earned'
-    : 'Badge earned';
+    ? 'Badge Level Earned'
+    : 'Badge Earned';
   const congratulationsMessage = selectCongratulationsMessage(
     award.congratulationsMessages,
     award._id,
@@ -200,7 +200,136 @@ export function AwardEarnedPopup({
   );
 }
 
+export function AwardEarnedBanner({
+  award,
+  isAcknowledging,
+  error,
+  onDismiss,
+}: AwardEarnedPopupProps) {
+  const theme = useTheme();
+  const heading = award.levelsEnabled
+    ? `Level ${award.level} Earned`
+    : 'Badge Earned';
+  const congratulationsMessage = selectCongratulationsMessage(
+    award.congratulationsMessages,
+    award._id,
+  );
+  const announcement = [
+    heading,
+    award.name,
+    congratulationsMessage,
+    error,
+  ]
+    .filter(Boolean)
+    .join('. ');
+
+  useEffect(() => {
+    AccessibilityInfo.announceForAccessibility(announcement);
+  }, [announcement]);
+
+  return (
+    <SafeAreaView
+      pointerEvents="box-none"
+      style={styles.bannerLayer}>
+      <ThemedView
+        accessible
+        accessibilityLabel={announcement}
+        accessibilityLiveRegion="polite"
+        type="backgroundElement"
+        style={[
+          styles.banner,
+          { borderColor: theme.borderStrong },
+        ]}>
+        <BadgeArtwork
+          earned
+          imageKey={award.imageKey}
+          imageUrl={award.imageUrl}
+          name={award.name}
+        />
+
+        <View style={styles.bannerCopy}>
+          <ThemedText
+            type="smallBold"
+            style={{ color: theme.textSecondary }}>
+            {heading}
+          </ThemedText>
+          <ThemedText type="subtitle">{award.name}</ThemedText>
+          <ThemedText type="small">
+            {congratulationsMessage}
+          </ThemedText>
+          {error ? (
+            <Text
+              accessibilityLiveRegion="assertive"
+              accessibilityRole="alert"
+              style={styles.error}>
+              {error}
+            </Text>
+          ) : null}
+        </View>
+
+        <Pressable
+          accessibilityLabel="Dismiss badge banner"
+          accessibilityRole="button"
+          accessibilityState={{
+            busy: isAcknowledging,
+            disabled: isAcknowledging,
+          }}
+          disabled={isAcknowledging}
+          hitSlop={Spacing.two}
+          onPress={onDismiss}
+          style={({ pressed }) => [
+            styles.bannerDismiss,
+            pressed && styles.buttonPressed,
+            isAcknowledging && styles.buttonDisabled,
+          ]}>
+          <ThemedText style={styles.bannerDismissText}>×</ThemedText>
+        </Pressable>
+      </ThemedView>
+    </SafeAreaView>
+  );
+}
+
 const styles = StyleSheet.create({
+  bannerLayer: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    left: 0,
+    zIndex: 1000,
+    alignItems: 'center',
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
+  },
+  banner: {
+    width: '100%',
+    maxWidth: 620,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    padding: Spacing.three,
+    borderWidth: 1,
+    borderRadius: 16,
+    elevation: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+  },
+  bannerCopy: {
+    flex: 1,
+    gap: Spacing.one,
+  },
+  bannerDismiss: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 20,
+  },
+  bannerDismissText: {
+    fontSize: 28,
+    lineHeight: 32,
+  },
   safeArea: {
     backgroundColor: 'rgba(0, 0, 0, 0.56)',
     flex: 1,

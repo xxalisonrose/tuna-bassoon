@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   AccessibilityInfo,
   Pressable,
   StyleSheet,
+  TextInput,
 } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -120,7 +121,27 @@ export function LocationCategoryPicker({
 }: LocationCategoryPickerProps) {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const selectedCategory = getCanonicalLocationCategory(value);
+  const highlightedCategory = useMemo(() => {
+    const query = categoryLookupKey(search);
+
+    if (!query) {
+      return selectedCategory;
+    }
+
+    const startsWithQuery = locationCategoryOptions.find((option) =>
+      categoryLookupKey(option.value).startsWith(query),
+    );
+
+    return (
+      startsWithQuery?.value ??
+      locationCategoryOptions.find((option) =>
+        categoryLookupKey(option.value).includes(query),
+      )?.value ??
+      null
+    );
+  }, [search, selectedCategory]);
 
   return (
     <ThemedView style={styles.container}>
@@ -134,7 +155,10 @@ export function LocationCategoryPicker({
         accessibilityHint="Opens the standardized location category list."
         accessibilityState={{ expanded: open, disabled }}
         disabled={disabled}
-        onPress={() => setOpen((current) => !current)}
+        onPress={() => {
+          setOpen((current) => !current);
+          setSearch('');
+        }}
         style={({ pressed }) => [
           styles.trigger,
           {
@@ -155,49 +179,78 @@ export function LocationCategoryPicker({
 
       {open ? (
         <ThemedView
-          accessibilityLabel="Location category choices"
-          accessibilityRole="radiogroup"
           type="backgroundElement"
           style={[styles.menu, { borderColor: theme.border }]}>
-          {locationCategoryOptions.map((option) => {
-            const selected = option.value === selectedCategory;
+          <TextInput
+            accessibilityLabel="Search location categories"
+            autoCapitalize="words"
+            autoCorrect={false}
+            editable={!disabled}
+            onChangeText={setSearch}
+            placeholder="Start typing a category"
+            placeholderTextColor={theme.textSecondary}
+            style={[
+              styles.searchInput,
+              {
+                backgroundColor: theme.background,
+                borderColor: theme.borderStrong,
+                color: theme.text,
+              },
+            ]}
+            value={search}
+          />
 
-            return (
-              <Pressable
-                key={option.value}
-                accessibilityRole="radio"
-                accessibilityState={{ selected, disabled }}
-                disabled={disabled}
-                onPress={() => {
-                  onChange(option.value);
-                  setOpen(false);
-                  AccessibilityInfo.announceForAccessibility(
-                    `Selected location category ${option.value}.`,
-                  );
-                }}
-                style={({ pressed }) => [
-                  styles.option,
-                  { borderColor: theme.border },
-                  selected && styles.optionSelected,
-                  disabled && styles.disabled,
-                  pressed && styles.pressed,
-                ]}>
-                <ThemedText
-                  type="smallBold"
-                  style={selected ? styles.optionSelectedText : undefined}>
-                  {option.value}
-                </ThemedText>
+          <ThemedView
+            accessibilityLabel="Location category choices"
+            accessibilityRole="radiogroup"
+            style={styles.options}>
+            {locationCategoryOptions.map((option) => {
+              const selected = option.value === selectedCategory;
+              const highlighted = option.value === highlightedCategory;
 
-                {selected ? (
+              return (
+                <Pressable
+                  key={option.value}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected, disabled }}
+                  disabled={disabled}
+                  onPress={() => {
+                    onChange(option.value);
+                    setOpen(false);
+                    setSearch('');
+                    AccessibilityInfo.announceForAccessibility(
+                      `Selected location category ${option.value}.`,
+                    );
+                  }}
+                  style={({ pressed }) => [
+                    styles.option,
+                    { borderColor: theme.border },
+                    selected && styles.optionSelected,
+                    highlighted && !selected && styles.optionHighlighted,
+                    disabled && styles.disabled,
+                    pressed && styles.pressed,
+                  ]}>
                   <ThemedText
-                    accessibilityLabel="Selected"
-                    style={styles.checkmark}>
-                    ✓
+                    type="smallBold"
+                    style={
+                      selected || highlighted
+                        ? styles.optionSelectedText
+                        : undefined
+                    }>
+                    {option.value}
                   </ThemedText>
-                ) : null}
-              </Pressable>
-            );
-          })}
+
+                  {selected ? (
+                    <ThemedText
+                      accessibilityLabel="Selected"
+                      style={styles.checkmark}>
+                      ✓
+                    </ThemedText>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </ThemedView>
         </ThemedView>
       ) : null}
     </ThemedView>
@@ -235,6 +288,17 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
     padding: Spacing.one,
   },
+  searchInput: {
+    width: '100%',
+    minHeight: 44,
+    borderWidth: 1,
+    borderRadius: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+  },
+  options: {
+    gap: Spacing.one,
+  },
   option: {
     minWidth: 220,
     minHeight: 44,
@@ -249,6 +313,10 @@ const styles = StyleSheet.create({
   },
   optionSelected: {
     backgroundColor: Palette.teaGreen,
+    borderColor: Palette.bronzeDeep,
+  },
+  optionHighlighted: {
+    backgroundColor: Palette.papayaWhip,
     borderColor: Palette.bronzeDeep,
   },
   optionSelectedText: {

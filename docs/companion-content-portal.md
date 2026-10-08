@@ -27,7 +27,7 @@ The location and Gemini workflows continue to work after adding badge management
 
 Location and badge editors group their guidance behind a question-mark button in each major section heading, so related explanations can be reviewed together without repeating help controls throughout the form. Seasonal-availability controls continue to provide contextual help through their input headings.
 
-Help panels appear inside the form, support keyboard and screen-reader navigation, and never alter unsaved input. Stable-key help warns that the generated internal identifier should normally remain unchanged after content is in use. Story and region keys are grouped under Advanced grouping keys and explain that they should remain blank unless an intentional story- or region-based badge rule is being configured.
+Help panels appear inside the form, support keyboard and screen-reader navigation, and never alter unsaved input. Stable-key help warns that the generated internal identifier should normally remain unchanged after content is in use. Story and region keys are hidden inside the collapsed Advanced Grouping Fields section and explain that they should remain blank unless an intentional story- or region-based badge rule is being configured.
 
 Static instructional copy is consolidated into this contextual help to keep long forms easier to scan. Current selections, empty-state notices, validation errors, upload status, and save-state messages remain visible without opening help.
 
@@ -72,7 +72,7 @@ Every location has one required, broad public-facing category selected from a fi
 
 The portal uses a single-select category dropdown instead of free text. Convex independently rejects values outside this list, preventing spelling, capitalization, and singular/plural duplicates.
 
-The category selector uses the same compact dropdown pattern as the badge editor: it shows the saved choice while closed and expands to display the available categories when opened. Location section-help question marks sit directly beside their headings, field labels remain visible for clarity, and repetitive explanatory copy stays inside the relevant help panel.
+The category selector uses the same compact dropdown pattern as the badge editor: it shows the saved choice while closed and expands to display the available categories when opened. Typing in the expanded selector highlights the closest matching category without hiding the rest of the controlled list. Location section-help question marks sit directly beside their headings, field labels remain visible for clarity, and repetitive explanatory copy stays inside the relevant help panel.
 
 The administrator-only `previewLocationCategoryStandardization` query reports every proposed legacy-category change and any value that is not recognized. The `applyLocationCategoryStandardization` mutation refuses to run while unknown values remain, then updates recognized values without changing any other location content.
 
@@ -100,6 +100,12 @@ Retired locations can be reactivated through a separate confirmation flow. React
 
 Administrator and non-administrator retirement access tests passed. The public location query, direct check-in protection, retirement persistence, and reactivation flow were also tested.
 
+### Portal list and grid views
+
+The Locations and Badges workspaces each support List and Grid views. List remains the default. Grid uses wider information cards in a responsive two-column layout at the portal's full width and wraps to one column on narrower screens. Badge descriptions are limited to two lines with an ellipsis in Grid view, and card actions stay aligned at the bottom.
+
+Workspace headings place Add New Location or Add New Badge directly beneath the section name. The redundant Home button and introductory toolbar copy are removed. Search areas begin with a single Search for a Location or Search for a Badge field, followed by the relevant filters and view controls.
+
 ### Gemini drafting
 
 Gemini drafting is optional and lives inside the location create/edit form. It uses the current unsaved name, category, and description as context, along with optional editorial notes.
@@ -110,7 +116,7 @@ Provider failures and 120-second client-side timeouts display safe messages near
 
 ### Badge management
 
-Administrators can search and browse badge definitions, create badges, and edit existing badges. The badge list can be filtered by General, Seasonal, or Special place classification.
+Administrators can search and browse badge definitions, create badges, and edit existing badges. The badge list can be filtered by General, Theme, Seasonal, or Special Place classification.
 
 Badge forms support:
 
@@ -129,15 +135,16 @@ Classification applies a consistent starting configuration:
 | Classification | Required visits | Repeatable levels | Starting congratulations pool | Availability |
 | --- | ---: | --- | ---: | --- |
 | General | 5 | On | 10 messages | Always available unless retired |
-| Special place | 1 | Off | 1 message | Always available unless retired |
+| Theme | 2 | On | 10 messages | Always available unless retired |
+| Special Place | 1 | Off | 1 message | Always available unless retired |
 | Seasonal | 1 | Off | 1 message | Optional scheduled availability windows |
 
-Visit requirements and leveling behavior are fixed by classification.
+General starts at five required visits, but an administrator can adjust that value for a badge that needs a shorter or longer progression. Theme is fixed at two visits per level. Special Place and Seasonal remain fixed at one visit and do not use repeatable levels.
 The congratulations count is a starting preset rather than a permanent
 limit: after the classification is applied, administrators can add,
 edit, or remove messages while keeping at least one message in the pool.
-Changing classification requires confirmation because it reapplies the
-visit, leveling, and starting-message settings.
+Changing classification immediately reapplies the visit, leveling, and
+starting-message settings.
 
 The supported progress rules are:
 
@@ -149,9 +156,11 @@ The supported progress rules are:
 - Same story
 - Same region
 
+Specific Location is hidden from the Progress Rule menu while General or Theme is selected. If an existing one-time badge using that rule is changed to General or Theme, its rule returns to Tag automatically.
+
 Specific-location rules include a searchable location selector, so the content team does not need to memorize location keys.
 
-The badge backend validates required fields, classification presets, slug formats, unique badge keys, unique tags, and rule-specific values. Specific-location rules must reference an existing location and use the Special place or Seasonal classification.
+The badge backend validates required fields, classification presets, slug formats, unique badge keys, unique tags, and rule-specific values. Specific-location rules must reference an existing location and use the Special Place or Seasonal classification.
 
 Existing badge definitions can be normalized through the guarded
 classification-preset migration. Its preview reports every before/after
@@ -162,17 +171,21 @@ tags, artwork, rules, availability windows, progress, and awards.
 
 ### Repeatable badge levels
 
-General badges use repeatable levels. Every complete set of five qualifying visits earns the next permanent level. For example, a sixth qualifying location displays Level 1 with one of five visits toward Level 2. Special place and Seasonal badges are one-time awards and do not use levels.
+General and Theme badges use repeatable levels. General starts at five qualifying visits per level and can be adjusted for an individual badge. Theme uses two qualifying visits per level. For example, a third qualifying Theme location displays Level 1 with one of two visits toward Level 2. Special Place and Seasonal badges are one-time awards and do not use levels.
 
-Levels have no configured maximum. Progress uses distinct qualifying locations, and each earned level is stored as a separate permanent award. Existing one-time awards are treated as Level 1 when a badge is normalized as General, so prior history is preserved. Changing a badge to Special place or Seasonal stops additional levels without deleting levels that were already earned.
+Levels have no configured maximum. Progress uses distinct qualifying locations, and each earned level is stored as a separate permanent award. Existing one-time awards are treated as Level 1 when a badge is normalized as General, so prior history is preserved. Changing a badge to Special Place or Seasonal stops additional levels without deleting levels that were already earned.
 
-Each badge has its own pool of congratulations messages. The pool stays tucked behind Manage congratulations inside that badge's create or edit form. An administrator can add messages, edit them, and delete messages with confirmation. General badges start with ten messages; Special place and Seasonal badges start with one. These can be replaced with badge-specific wording, and at least one message must remain in each pool.
+Each badge has its own pool of congratulations messages. The pool stays tucked behind Manage Congratulations inside that badge's create or edit form. An administrator can add messages, edit them, and delete messages with confirmation. General and Theme badges start with ten messages; Special Place and Seasonal badges start with one. These can be replaced with badge-specific wording, and at least one message must remain in each pool.
 
-The collapsed congratulations area shows only Manage congratulations. While editing, each numbered message displays a live character count beside its label and is limited to 160 characters; the numbered labels do not open separate help panels.
+The collapsed congratulations area shows only Manage Congratulations. While editing, each numbered message displays a live character count beside its label and is limited to 160 characters; the numbered labels do not open separate help panels.
 
 Whenever a badge is first earned or a repeatable badge reaches another level, its in-app celebration popup randomly chooses one message from that badge's pool. The selected message is only used for that popup and is not stored with the award after dismissal. Adding or deleting messages therefore changes future popup choices without rewriting existing awards. Badge levels remain unlimited and do not need level-specific message ranges. New annual seasonal editions inherit the preceding edition's message pool and can then be edited independently.
 
-Specific-location badges remain one-time awards because each location can only be collected once, so they must use the Special place or Seasonal classification.
+Specific-location badges remain one-time awards because each location can only be collected once, so they must use the Special Place or Seasonal classification.
+
+### Badge celebration preference
+
+Collection includes a Use Quick Banner Celebrations toggle. Full-screen celebrations remain the default. When the toggle is on, newly earned badges and levels appear in a compact banner at the top of the app instead of covering the screen. The banner can be dismissed immediately and otherwise closes after six seconds. The preference is stored on the current device and browser.
 
 ### Badge artwork
 

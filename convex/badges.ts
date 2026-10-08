@@ -116,6 +116,7 @@ type BadgeRule =
 
 type BadgeClassification =
   | 'general'
+  | 'theme'
   | 'special_place'
   | 'seasonal';
 

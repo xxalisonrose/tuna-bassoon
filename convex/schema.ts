@@ -46,6 +46,7 @@ export default defineSchema({
     classification: v.optional(
       v.union(
         v.literal('general'),
+        v.literal('theme'),
         v.literal('special_place'),
         v.literal('seasonal'),
       ),

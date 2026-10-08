@@ -46,6 +46,7 @@ const badgeRuleValidator = v.union(
 
 const classificationValidator = v.union(
   v.literal('general'),
+  v.literal('theme'),
   v.literal('special_place'),
   v.literal('seasonal'),
 );
@@ -70,6 +71,7 @@ type StoredBadgeRule =
 
 type BadgeClassification =
   | 'general'
+  | 'theme'
   | 'special_place'
   | 'seasonal';
 
@@ -79,6 +81,10 @@ const classificationPresets: Record<
 > = {
   general: {
     requiredVisits: 5,
+    levelsEnabled: true,
+  },
+  theme: {
+    requiredVisits: 2,
     levelsEnabled: true,
   },
   special_place: {
@@ -210,7 +216,10 @@ function getPresetCongratulationsMessages(
 ) {
   const messages = getBadgeCongratulations(currentMessages);
 
-  if (classification !== 'general') {
+  if (
+    classification === 'special_place' ||
+    classification === 'seasonal'
+  ) {
     return [messages[0] ?? DEFAULT_BADGE_CONGRATULATIONS[0]];
   }
 
@@ -254,6 +263,9 @@ function getClassificationPresetChange(definition: {
 }) {
   const classification = definition.classification ?? 'general';
   const preset = classificationPresets[classification];
+  const requiredVisits = classification === 'general'
+    ? normalizeRequiredVisits(definition.requiredVisits)
+    : preset.requiredVisits;
   const beforeMessages = getBadgeCongratulations(
     definition.congratulationsMessages,
   );
@@ -266,12 +278,12 @@ function getClassificationPresetChange(definition: {
     normalizedTag: normalizeBadgeTag(definition.tag),
   };
   const conflict =
-    classification === 'general' && rule.type === 'location'
-      ? 'General badges cannot use a specific-location rule because General badges require five visits and repeatable levels. Change this badge to Special place before applying the migration.'
+    preset.levelsEnabled && rule.type === 'location'
+      ? `${classification === 'theme' ? 'Theme' : 'General'} badges cannot use a specific-location rule because they use repeatable levels. Change this badge to Special Place before applying the migration.`
       : null;
   const changed =
     definition.classification !== classification ||
-    definition.requiredVisits !== preset.requiredVisits ||
+    definition.requiredVisits !== requiredVisits ||
     definition.levelsEnabled !== preset.levelsEnabled ||
     !messagesMatch(beforeMessages, afterMessages);
 
@@ -290,12 +302,12 @@ function getClassificationPresetChange(definition: {
       messageCount: beforeMessages.length,
     },
     after: {
-      requiredVisits: preset.requiredVisits,
+      requiredVisits,
       levelsEnabled: preset.levelsEnabled,
       messageCount: afterMessages.length,
     },
     removedMessages:
-      classification === 'general'
+      classification === 'general' || classification === 'theme'
         ? []
         : beforeMessages.slice(1),
     congratulationsMessages: afterMessages,
@@ -367,17 +379,20 @@ function normalizeBadgeInput(args: {
   const preset = classificationPresets[classification];
   const requiredVisits = normalizeRequiredVisits(args.requiredVisits);
 
-  if (requiredVisits !== preset.requiredVisits) {
+  if (
+    classification !== 'general' &&
+    requiredVisits !== preset.requiredVisits
+  ) {
     throw new ConvexError(
-      `${classification === 'general' ? 'General' : classification === 'special_place' ? 'Special place' : 'Seasonal'} badges require exactly ${preset.requiredVisits} ${preset.requiredVisits === 1 ? 'visit' : 'visits'}.`,
+      `${classification === 'theme' ? 'Theme' : classification === 'special_place' ? 'Special Place' : 'Seasonal'} badges require exactly ${preset.requiredVisits} ${preset.requiredVisits === 1 ? 'visit' : 'visits'}.`,
     );
   }
 
   if (args.levelsEnabled !== preset.levelsEnabled) {
     throw new ConvexError(
-      classification === 'general'
-        ? 'General badges must use repeatable levels.'
-        : 'Special place and Seasonal badges cannot use repeatable levels.',
+      preset.levelsEnabled
+        ? 'General and Theme badges must use repeatable levels.'
+        : 'Special Place and Seasonal badges cannot use repeatable levels.',
     );
   }
 

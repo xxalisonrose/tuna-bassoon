@@ -82,7 +82,7 @@ export default function AppTabsWeb() {
 
           {currentUser?.isAdmin && (
             <>
-              <NavLink href="/admin" label="Content portal" />
+              <NavLink href="/admin" label="Content Portal" />
             </>
           )}
         </View>

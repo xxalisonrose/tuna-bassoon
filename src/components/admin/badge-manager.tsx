@@ -47,8 +47,9 @@ const ALLOWED_ARTWORK_CONTENT_TYPES = [
   'image/webp',
 ] as const;
 
-type Classification = 'general' | 'special_place' | 'seasonal';
+type Classification = 'general' | 'theme' | 'special_place' | 'seasonal';
 type ClassificationFilter = Classification | 'all';
+type ViewMode = 'list' | 'grid';
 type RuleType =
   | 'tag'
   | 'location'
@@ -118,6 +119,7 @@ const emptyForm: BadgeFormState = {
 
 const classificationLabels: Record<Classification, string> = {
   general: 'General',
+  theme: 'Theme',
   special_place: 'Special Place',
   seasonal: 'Seasonal',
 };
@@ -128,6 +130,10 @@ const classificationPresets: Record<
 > = {
   general: {
     requiredVisits: 5,
+    levelsEnabled: true,
+  },
+  theme: {
+    requiredVisits: 2,
     levelsEnabled: true,
   },
   special_place: {
@@ -148,7 +154,10 @@ function getPresetCongratulationsMessages(
     ? [...currentMessages]
     : [...defaultBadgeCongratulations];
 
-  if (classification !== 'general') {
+  if (
+    classification === 'special_place' ||
+    classification === 'seasonal'
+  ) {
     return [messages[0] ?? defaultBadgeCongratulations[0]];
   }
 
@@ -178,6 +187,7 @@ const classificationFilters: {
 }[] = [
   { value: 'all', label: 'All' },
   { value: 'general', label: 'General' },
+  { value: 'theme', label: 'Theme' },
   { value: 'seasonal', label: 'Seasonal' },
   { value: 'special_place', label: 'Special Place' },
 ];
@@ -414,6 +424,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
   const [search, setSearch] = useState('');
   const [classificationFilter, setClassificationFilter] =
     useState<ClassificationFilter>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [formMode, setFormMode] = useState<'create' | 'edit' | null>(null);
   const [editingId, setEditingId] = useState<Id<'badgeDefinitions'> | null>(null);
   const [form, setForm] = useState<BadgeFormState>(emptyForm);
@@ -616,19 +627,22 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
     }
     const classificationPreset =
       classificationPresets[form.classification];
-    if (requiredVisits !== classificationPreset.requiredVisits) {
+    if (
+      form.classification !== 'general' &&
+      requiredVisits !== classificationPreset.requiredVisits
+    ) {
       return `${classificationLabels[form.classification]} badges require exactly ${classificationPreset.requiredVisits} ${classificationPreset.requiredVisits === 1 ? 'visit' : 'visits'}.`;
     }
     if (form.levelsEnabled !== classificationPreset.levelsEnabled) {
-      return form.classification === 'general'
-        ? 'General badges must use repeatable levels.'
-        : 'Special place and Seasonal badges cannot use repeatable levels.';
+      return classificationPreset.levelsEnabled
+        ? 'General and Theme badges must use repeatable levels.'
+        : 'Special Place and Seasonal badges cannot use repeatable levels.';
     }
     if (
-      form.classification === 'general' &&
+      form.levelsEnabled &&
       form.ruleType === 'location'
     ) {
-      return 'Specific-location rules must use the Special place or Seasonal classification.';
+      return 'Specific-location rules must use the Special Place or Seasonal classification.';
     }
     if (form.congratulationsMessages.length === 0) {
       return 'Add at least one badge congratulations message.';
@@ -967,24 +981,18 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
           <ThemedText type="subtitle" style={styles.workspaceTitle}>
             Badges
           </ThemedText>
-          <ThemedText themeColor="textSecondary">
-            {formMode
-              ? 'Complete the badge form below, then save when everything looks right.'
-              : 'Manage awards, repeatable levels, seasonal editions, and popup messages.'}
-          </ThemedText>
+          {!formMode ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Add New Badge"
+              onPress={openCreate}
+              style={styles.primaryButton}>
+              <ThemedText style={styles.primaryButtonText}>
+                Add New Badge
+              </ThemedText>
+            </Pressable>
+          ) : null}
         </ThemedView>
-
-        {!formMode ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Add New Badge"
-            onPress={openCreate}
-            style={styles.primaryButton}>
-            <ThemedText style={styles.primaryButtonText}>
-              Add New Badge
-            </ThemedText>
-          </Pressable>
-        ) : null}
       </ThemedView>
 
       {!formMode && statusMessage ? (
@@ -1000,38 +1008,23 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
         <ThemedView
           type="backgroundElement"
           style={[styles.searchCard, { borderColor: theme.border }]}>
-          <ThemedView style={styles.searchHeader}>
-            <ThemedView style={styles.searchHeaderCopy}>
-              <ThemedText type="smallBold">Find a Badge</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                Search badge details and narrow the list by classification.
-              </ThemedText>
-            </ThemedView>
-
-            <ThemedText type="smallBold" themeColor="textSecondary">
-              {badges === undefined
-                ? 'Loading...'
-                : `${filteredBadges.length} of ${badges.length}`}
-            </ThemedText>
-          </ThemedView>
-
-            <TextInput
-              accessibilityLabel="Search badges"
-              autoCapitalize="none"
-              autoCorrect={false}
-              onChangeText={setSearch}
-              placeholder="Name, key, tag, rule, or status"
-              placeholderTextColor={theme.textSecondary}
-              style={[
-                styles.input,
-                {
-                  backgroundColor: theme.background,
-                  borderColor: theme.borderStrong,
-                  color: theme.text,
-                },
-              ]}
-              value={search}
-            />
+          <TextInput
+            accessibilityLabel="Search badges"
+            autoCapitalize="none"
+            autoCorrect={false}
+            onChangeText={setSearch}
+            placeholder="Search for a Badge"
+            placeholderTextColor={theme.textSecondary}
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.background,
+                borderColor: theme.borderStrong,
+                color: theme.text,
+              },
+            ]}
+            value={search}
+          />
 
           <ThemedText type="smallBold">Classification</ThemedText>
           <ThemedView
@@ -1060,6 +1053,31 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
                 </Pressable>
               );
             })}
+          </ThemedView>
+
+          <ThemedText type="smallBold">View</ThemedText>
+          <ThemedView
+            accessibilityLabel="Choose badge view"
+            accessibilityRole="radiogroup"
+            style={styles.filterRow}>
+            {(['list', 'grid'] as ViewMode[]).map((mode) => (
+              <Pressable
+                key={mode}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: viewMode === mode }}
+                onPress={() => setViewMode(mode)}
+                style={({ pressed }) => [
+                  styles.filterButton,
+                  viewMode === mode && styles.filterButtonSelected,
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText
+                  type="smallBold"
+                  style={styles.filterButtonText}>
+                  {mode === 'list' ? 'List' : 'Grid'}
+                </ThemedText>
+              </Pressable>
+            ))}
           </ThemedView>
 
           {hasBadgeFilters ? (
@@ -1142,22 +1160,47 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
       ) : filteredBadges.length === 0 ? (
         <ThemedText themeColor="textSecondary">{badges.length === 0 ? 'No badges have been created yet.' : 'No badges match your search.'}</ThemedText>
       ) : (
-        <ScrollView nestedScrollEnabled contentContainerStyle={styles.list}>
+        <ScrollView
+          nestedScrollEnabled
+          contentContainerStyle={[
+            styles.list,
+            viewMode === 'grid' && styles.gridList,
+          ]}>
           {filteredBadges.map((badge) => {
             const retiredDate = formatDate(badge.retiredAt);
             const confirming = confirmingId === badge._id;
             return (
-              <ThemedView key={badge._id} type="backgroundElement" style={styles.card}>
-                <ThemedView style={styles.badgeListHeader}>
+              <ThemedView
+                key={badge._id}
+                type="backgroundElement"
+                style={[
+                  styles.card,
+                  viewMode === 'grid' && styles.gridCard,
+                ]}>
+                <ThemedView
+                  style={[
+                    styles.badgeListHeader,
+                    viewMode === 'grid' && styles.badgeListHeaderGrid,
+                  ]}>
                   <BadgeArtwork
                     earned
                     imageKey={badge.imageKey}
                     imageUrl={badge.imageUrl}
                     name={badge.name}
                   />
-                  <ThemedView style={styles.badgeListCopy}>
+                  <ThemedView
+                    style={[
+                      styles.badgeListCopy,
+                      viewMode === 'grid' && styles.badgeListCopyGrid,
+                    ]}>
                     <ThemedText type="smallBold">{badge.name}</ThemedText>
-                    <ThemedText themeColor="textSecondary">{badge.description}</ThemedText>
+                    <ThemedText
+                      ellipsizeMode="tail"
+                      numberOfLines={viewMode === 'grid' ? 2 : undefined}
+                      style={viewMode === 'grid' ? styles.gridDescription : undefined}
+                      themeColor="textSecondary">
+                      {badge.description}
+                    </ThemedText>
                   </ThemedView>
                 </ThemedView>
                 <ThemedText type="small">Key: {badge.key || 'Legacy key missing'}</ThemedText>
@@ -1181,11 +1224,11 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
                 <ThemedText type="small">Rule: {formatRule(badge.rule)}</ThemedText>
                 {badge.imageKey ? <ThemedText type="small">Image Key: {badge.imageKey}</ThemedText> : null}
                 <ThemedText type="smallBold" themeColor="textSecondary">{badge.retired ? `Retired${retiredDate ? ` on ${retiredDate}` : ''}` : 'Active'}</ThemedText>
-                <ThemedView style={styles.actions}>
-                  <Pressable accessibilityRole="button" accessibilityLabel={`Edit ${badge.name}`} onPress={() => openEdit(badge)} style={styles.secondaryButton}>
+                <ThemedView style={[styles.actions, styles.cardActions]}>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Edit ${badge.name}`} onPress={() => openEdit(badge)} style={[styles.secondaryButton, styles.cardActionButton]}>
                     <ThemedText style={styles.secondaryButtonText}>Edit</ThemedText>
                   </Pressable>
-                  <Pressable accessibilityRole="button" accessibilityLabel={badge.retired ? `Reactivate ${badge.name}` : `Retire ${badge.name}`} onPress={() => setConfirmingId(badge._id)} style={styles.secondaryButton}>
+                  <Pressable accessibilityRole="button" accessibilityLabel={badge.retired ? `Reactivate ${badge.name}` : `Retire ${badge.name}`} onPress={() => setConfirmingId(badge._id)} style={[styles.secondaryButton, styles.cardActionButton]}>
                     <ThemedText style={styles.secondaryButtonText}>{badge.retired ? 'Reactivate' : 'Retire'}</ThemedText>
                   </Pressable>
                 </ThemedView>
@@ -1276,8 +1319,6 @@ function BadgeForm({
   ) => Promise<void> | void;
   onCancel: () => void;
 }) {
-  const [pendingClassification, setPendingClassification] =
-    useState<Classification | null>(null);
   const [stableKeyManuallyEdited, setStableKeyManuallyEdited] =
     useState(false);
   const [stableKeyChangeRequested, setStableKeyChangeRequested] =
@@ -1300,34 +1341,28 @@ function BadgeForm({
     onChange('ruleType', ruleType);
   };
 
-  const requestClassificationChange = (
-    classification: Classification,
-  ) => {
+  const applyClassificationChange = (classification: Classification) => {
     if (classification === form.classification) {
       return;
     }
 
-    setPendingClassification(classification);
-  };
+    const preset = classificationPresets[classification];
 
-  const applyClassificationChange = () => {
-    if (pendingClassification === null) {
-      return;
-    }
-
-    const preset = classificationPresets[pendingClassification];
-
-    onChange('classification', pendingClassification);
+    onChange('classification', classification);
     onChange('requiredVisits', String(preset.requiredVisits));
     onChange('levelsEnabled', preset.levelsEnabled);
     onChange(
       'congratulationsMessages',
       getPresetCongratulationsMessages(
-        pendingClassification,
+        classification,
         form.congratulationsMessages,
       ),
     );
-    setPendingClassification(null);
+
+    if (preset.levelsEnabled && form.ruleType === 'location') {
+      onChange('ruleType', 'tag');
+      onChange('ruleValue', '');
+    }
   };
 
   return (
@@ -1705,15 +1740,15 @@ function BadgeForm({
         items={[
           {
             label: 'Classification',
-            description: 'Controls the badge setup automatically. General badges require five visits and use repeatable levels. Special place badges require one visit and are one-time awards. Seasonal badges require one visit, are one-time awards, and can use availability dates.',
+            description: 'Controls the starting badge setup automatically. General badges start at five visits and use repeatable levels. Theme badges require two visits and use repeatable levels. Special Place badges require one visit and are one-time awards. Seasonal badges require one visit, are one-time awards, and can use availability dates.',
           },
           {
             label: 'Required Visits',
-            description: 'The number of distinct qualifying check-ins needed to earn the badge or its next level. This value is set automatically by classification.',
+            description: 'The number of distinct qualifying check-ins needed to earn the badge or its next level. General starts at five and can be adjusted. Theme is fixed at two; Special Place and Seasonal are fixed at one.',
           },
           {
             label: 'Repeatable Levels',
-            description: 'Each complete set of qualifying visits earns a permanent next level with no configured maximum. General badges use levels; Special place and Seasonal badges do not.',
+            description: 'Each complete set of qualifying visits earns a permanent next level with no configured maximum. General and Theme badges use levels; Special Place and Seasonal badges do not.',
           },
           {
             label: 'Seasonal Repetition',
@@ -1725,7 +1760,7 @@ function BadgeForm({
       <DropdownSelect
         accessibilityLabel="Badge classification"
         disabled={saving}
-        onChange={requestClassificationChange}
+        onChange={applyClassificationChange}
         options={(
           Object.keys(classificationLabels) as Classification[]
         ).map((value) => ({
@@ -1735,54 +1770,24 @@ function BadgeForm({
         }))}
         value={form.classification}
       />
-      {pendingClassification !== null ? (
-        <ThemedView
-          accessibilityLabel="Confirm badge classification change"
-          type="backgroundSelected"
-          style={styles.confirmation}>
-          <ThemedText accessibilityLiveRegion="polite">
-            Change this badge to{' '}
-            {classificationLabels[pendingClassification]}? This sets{' '}
-            {classificationPresets[pendingClassification].requiredVisits}{' '}
-            {classificationPresets[pendingClassification].requiredVisits === 1
-              ? 'required visit'
-              : 'required visits'}, turns repeatable levels{' '}
-            {classificationPresets[pendingClassification].levelsEnabled
-              ? 'on'
-              : 'off'}, and prepares the appropriate starting
-            congratulations pool. Existing extra messages may be removed
-            when changing to Special place or Seasonal.
-          </ThemedText>
-          <ThemedView style={styles.actions}>
-            <Pressable
-              accessibilityRole="button"
-              disabled={saving}
-              onPress={applyClassificationChange}
-              style={styles.primaryButton}>
-              <ThemedText style={styles.primaryButtonText}>
-                Apply Classification Settings
-              </ThemedText>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              disabled={saving}
-              onPress={() => setPendingClassification(null)}
-              style={styles.secondaryButton}>
-              <ThemedText style={styles.secondaryButtonText}>
-                Keep Current Classification
-              </ThemedText>
-            </Pressable>
-          </ThemedView>
-        </ThemedView>
-      ) : null}
-
       <ThemedView style={styles.fieldGroup}>
-        <ThemedText>
-          Required Visits:{' '}
-          <ThemedText type="smallBold">
-            {form.requiredVisits}
-          </ThemedText>
-        </ThemedText>
+        <ThemedText type="smallBold">Required Visits</ThemedText>
+        {form.classification === 'general' ? (
+          <TextInput
+            accessibilityLabel="Required visits"
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!saving}
+            keyboardType="number-pad"
+            onChangeText={(value) => onChange('requiredVisits', value)}
+            placeholder="5"
+            placeholderTextColor={theme.textSecondary}
+            style={inputStyle()}
+            value={form.requiredVisits}
+          />
+        ) : (
+          <ThemedText>{form.requiredVisits}</ThemedText>
+        )}
       </ThemedView>
 
       {availabilityBadgeId !== null && form.classification !== 'seasonal' ? (
@@ -1946,7 +1951,7 @@ function BadgeForm({
         items={[
           {
             label: 'Congratulations Messages',
-            description: 'This badge has its own pool of short messages. When it is earned or levels up, the popup randomly chooses one and does not permanently store that choice. General badges start with ten messages; Special place and Seasonal badges start with one. At least one message is required, and each message can contain up to 160 characters.',
+            description: 'This badge has its own pool of short messages. When it is earned or levels up, the popup randomly chooses one and does not permanently store that choice. General and Theme badges start with ten messages; Special Place and Seasonal badges start with one. At least one message is required, and each message can contain up to 160 characters.',
           },
         ]}
       />
@@ -1965,7 +1970,7 @@ function BadgeForm({
         items={[
           {
             label: 'Rule',
-            description: 'Defines which check-ins count toward this badge. Tag counts distinct locations carrying the selected tag. Specific location counts one selected place. Any location counts any distinct places. Specific story and region use one shared key, while Same story and Same region require qualifying visits to come from one group.',
+            description: 'Defines which check-ins count toward this badge. Tag counts distinct locations carrying the selected tag. Specific Location is available for one-time Special Place and Seasonal badges. Any Location counts any distinct places. Specific Story and Region use one shared key, while Same Story and Same Region require qualifying visits to come from one group.',
           },
         ]}
       />
@@ -1974,26 +1979,18 @@ function BadgeForm({
         accessibilityLabel="Badge progress rule"
         disabled={saving}
         onChange={changeRuleType}
-        options={(Object.keys(ruleLabels) as RuleType[]).map(
-          (value) => ({
+        options={(Object.keys(ruleLabels) as RuleType[])
+          .filter(
+            (value) =>
+              value !== 'location' || !form.levelsEnabled,
+          )
+          .map((value) => ({
             hint: ruleHelp[value],
             label: ruleLabels[value],
             value,
-          }),
-        )}
+          }))}
         value={form.ruleType}
       />
-
-      {form.classification === 'general' &&
-      form.ruleType === 'location' ? (
-        <ThemedText
-          accessibilityLiveRegion="polite"
-          style={styles.validationError}>
-          General badges require five distinct visits and repeatable
-          levels. Change this badge to Special place or Seasonal to use
-          a specific-location rule.
-        </ThemedText>
-      ) : null}
 
       {form.ruleType === 'location' ? (
         <ThemedView style={styles.locationPicker}>
@@ -2063,8 +2060,8 @@ function BadgeForm({
 
 const styles = StyleSheet.create({
   container: { width: '100%', maxWidth: PortalContentWidth, alignSelf: 'center', gap: Spacing.three },
-  toolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two, padding: Spacing.four, borderWidth: 1, borderRadius: Spacing.three },
-  toolbarCopy: { flex: 1, minWidth: 260, gap: Spacing.one },
+  toolbar: { gap: Spacing.two, padding: Spacing.four, borderWidth: 1, borderRadius: Spacing.three },
+  toolbarCopy: { alignItems: 'flex-start', gap: Spacing.two },
   workspaceTitle: { fontSize: 26, lineHeight: 34 },
   filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   filterButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderWidth: 1, borderColor: Palette.border, borderRadius: Spacing.two, backgroundColor: Palette.teaGreen },
@@ -2088,7 +2085,11 @@ const styles = StyleSheet.create({
   formActionsCopy: { gap: Spacing.one },
   card: { gap: Spacing.one, padding: Spacing.four, borderWidth: 1, borderColor: Palette.border, borderRadius: Spacing.three },
   list: { gap: Spacing.two, paddingBottom: Spacing.five },
+  gridList: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'stretch' },
+  gridCard: { flexBasis: 360, flexGrow: 1, maxWidth: 510, minWidth: 320, minHeight: 400 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, marginTop: Spacing.two },
+  cardActions: { marginTop: 'auto', paddingTop: Spacing.two },
+  cardActionButton: { flexBasis: 0, flexGrow: 1, minWidth: 112 },
   primaryButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.four, paddingVertical: Spacing.two, borderRadius: Spacing.two, backgroundColor: Palette.lightBronze },
   primaryButtonText: { color: Palette.ink, textAlign: 'center' },
   secondaryButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.four, paddingVertical: Spacing.two, borderRadius: Spacing.two, backgroundColor: Palette.teaGreen },
@@ -2105,7 +2106,10 @@ const styles = StyleSheet.create({
   dropdownOption: { minWidth: 220, minHeight: 44, justifyContent: 'center', paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.two },
   dropdownOptionSelected: { backgroundColor: Palette.teaGreen },
   badgeListHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
+  badgeListHeaderGrid: { alignItems: 'flex-start' },
   badgeListCopy: { flex: 1, gap: Spacing.one },
+  badgeListCopyGrid: { minWidth: 0 },
+  gridDescription: { minHeight: 40, lineHeight: 20 },
   artworkPickerRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Spacing.three },
   locationPicker: { gap: Spacing.two },
   annualSection: { gap: Spacing.two },

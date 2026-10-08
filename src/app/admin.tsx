@@ -43,6 +43,7 @@ const MAX_LOCATION_BADGE_TAGS = 25;
 type FormMode = 'create' | 'edit';
 type PortalSection = 'locations' | 'badges';
 type LocationStatusFilter = 'all' | 'active' | 'retired';
+type ViewMode = 'list' | 'grid';
 
 type LocationFormState = {
   name: string;
@@ -174,6 +175,10 @@ export default function AdminPortalScreen() {
   const [saving, setSaving] = useState(false);
   const [locationStatusFilter, setLocationStatusFilter] =
     useState<LocationStatusFilter>('all');
+  const [locationViewMode, setLocationViewMode] =
+    useState<ViewMode>('list');
+  const [advancedGroupingOpen, setAdvancedGroupingOpen] =
+    useState(false);
   const [confirmingLocationId, setConfirmingLocationId] =
     useState<Id<'locations'> | null>(null);
   const [changingLocationId, setChangingLocationId] =
@@ -278,6 +283,7 @@ export default function AdminPortalScreen() {
     setLocationStableKeyManuallyEdited(false);
     setLocationStableKeyChangeRequested(false);
     setLocationStableKeyEditingUnlocked(false);
+    setAdvancedGroupingOpen(false);
     setConfirmingLocationId(null);
     resetGeminiState();
   };
@@ -322,6 +328,7 @@ export default function AdminPortalScreen() {
     setLocationStableKeyManuallyEdited(false);
     setLocationStableKeyChangeRequested(false);
     setLocationStableKeyEditingUnlocked(false);
+    setAdvancedGroupingOpen(Boolean(location.storyKey || location.regionKey));
     setConfirmingLocationId(null);
     resetGeminiState();
   };
@@ -335,6 +342,7 @@ export default function AdminPortalScreen() {
     setLocationStableKeyManuallyEdited(false);
     setLocationStableKeyChangeRequested(false);
     setLocationStableKeyEditingUnlocked(false);
+    setAdvancedGroupingOpen(false);
     resetGeminiState();
   };
 
@@ -836,7 +844,7 @@ export default function AdminPortalScreen() {
             accessibilityRole="header"
             type="title"
             style={styles.title}>
-            Content portal
+            Content Portal
           </ThemedText>
 
           <ThemedText
@@ -882,24 +890,6 @@ export default function AdminPortalScreen() {
             <ThemedText type="subtitle" style={styles.workspaceTitle}>
               Locations
             </ThemedText>
-            <ThemedText themeColor="textSecondary">
-              {formMode
-                ? 'Complete the form below, then save when everything looks right.'
-                : 'Search existing places or add a new location to the map.'}
-            </ThemedText>
-          </ThemedView>
-
-          <ThemedView style={styles.toolbarActions}>
-            <Link
-              href="/"
-              accessibilityLabel="Back to home"
-              accessibilityHint="Returns to the main Tuna Bassoon home screen."
-              style={styles.secondaryLinkButton}>
-              <ThemedText type="smallBold" style={styles.secondaryButtonText}>
-                Home
-              </ThemedText>
-            </Link>
-
             {!formMode && (
               <Pressable
                 accessibilityRole="button"
@@ -932,27 +922,6 @@ export default function AdminPortalScreen() {
           <ThemedView
             type="backgroundElement"
             style={[styles.searchCard, { borderColor: theme.border }]}>
-            <ThemedView style={styles.searchHeader}>
-              <ThemedView style={styles.searchHeaderCopy}>
-                <ThemedText type="smallBold">Find a Location</ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
-                  Search content and narrow the list by status.
-                </ThemedText>
-              </ThemedView>
-
-              {adminLocations === undefined ? (
-                <ActivityIndicator
-                  accessibilityLabel="Loading location list"
-                  accessibilityRole="progressbar"
-                  size="small"
-                />
-              ) : (
-                <ThemedText type="smallBold" themeColor="textSecondary">
-                  {`${filteredLocations.length} of ${adminLocations.length}`}
-                </ThemedText>
-              )}
-            </ThemedView>
-
             <TextInput
               accessibilityLabel="Search locations"
               accessibilityHint="Filter the location list by name, key, category, or badge tag."
@@ -960,7 +929,7 @@ export default function AdminPortalScreen() {
               autoCorrect={false}
               clearButtonMode="while-editing"
               onChangeText={setSearch}
-              placeholder="Search by name, key, category, or tag"
+              placeholder="Search for a Location"
               placeholderTextColor={theme.textSecondary}
               style={[
                 styles.searchInput,
@@ -1002,6 +971,33 @@ export default function AdminPortalScreen() {
                   </Pressable>
                 ),
               )}
+            </ThemedView>
+
+            <ThemedText type="smallBold">View</ThemedText>
+
+            <ThemedView
+              accessibilityRole="radiogroup"
+              accessibilityLabel="Choose location view"
+              style={styles.statusFilterRow}>
+              {(['list', 'grid'] as ViewMode[]).map((mode) => (
+                <Pressable
+                  key={mode}
+                  accessibilityRole="radio"
+                  accessibilityState={{
+                    selected: locationViewMode === mode,
+                  }}
+                  onPress={() => setLocationViewMode(mode)}
+                  style={({ pressed }) => [
+                    styles.statusFilterButton,
+                    locationViewMode === mode &&
+                      styles.statusFilterButtonSelected,
+                    pressed && styles.pressed,
+                  ]}>
+                  <ThemedText style={styles.statusFilterText}>
+                    {mode === 'list' ? 'List' : 'Grid'}
+                  </ThemedText>
+                </Pressable>
+              ))}
             </ThemedView>
 
             {hasLocationFilters ? (
@@ -1637,57 +1633,72 @@ export default function AdminPortalScreen() {
               {renderFieldError('badgesText')}
             </ThemedView>
 
-            <SectionHelpHeading
-              label="ADVANCED GROUPING KEYS"
-              items={[
-                {
-                  label: 'Story Key',
-                  description: 'An optional shared ID for locations that belong to the same story. Enter the same lowercase hyphenated key on each related location only when creating a story-based badge rule.',
-                },
-                {
-                  label: 'Region Key',
-                  description: 'An optional shared ID for locations in the same intended region. Enter the same lowercase hyphenated key on each related location only when creating a region-based badge rule.',
-                },
-              ]}
-            />
+            <ThemedView style={styles.advancedSection}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded: advancedGroupingOpen }}
+                onPress={() =>
+                  setAdvancedGroupingOpen((current) => !current)
+                }
+                style={({ pressed }) => [
+                  styles.advancedToggle,
+                  { backgroundColor: theme.backgroundSelected },
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText type="smallBold">
+                  ADVANCED GROUPING FIELDS
+                </ThemedText>
+                <ThemedText>{advancedGroupingOpen ? '▲' : '▼'}</ThemedText>
+              </Pressable>
 
-            <ThemedText type="smallBold">Story Key (Optional)</ThemedText>
-            <TextInput
-              accessibilityLabel="Story key"
-              autoCapitalize="none"
-              autoCorrect={false}
-              onChangeText={(value) => updateField('storyKey', value)}
-              placeholder="Story key (optional)"
-              placeholderTextColor={theme.textSecondary}
-              style={[
-                styles.formInput,
-                {
-                  backgroundColor: theme.background,
-                  borderColor: theme.textSecondary,
-                  color: theme.text,
-                },
-              ]}
-              value={form.storyKey}
-            />
+              {advancedGroupingOpen ? (
+                <ThemedView style={styles.advancedFields}>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    These optional future-facing identifiers connect locations
+                    used by story- or region-based badge rules. Leave them blank
+                    unless related locations intentionally share the same key.
+                  </ThemedText>
 
-            <ThemedText type="smallBold">Region Key (Optional)</ThemedText>
-            <TextInput
-              accessibilityLabel="Region key"
-              autoCapitalize="none"
-              autoCorrect={false}
-              onChangeText={(value) => updateField('regionKey', value)}
-              placeholder="Region key (optional)"
-              placeholderTextColor={theme.textSecondary}
-              style={[
-                styles.formInput,
-                {
-                  backgroundColor: theme.background,
-                  borderColor: theme.textSecondary,
-                  color: theme.text,
-                },
-              ]}
-              value={form.regionKey}
-            />
+                  <ThemedText type="smallBold">Story Key (Optional)</ThemedText>
+                  <TextInput
+                    accessibilityLabel="Story key"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    onChangeText={(value) => updateField('storyKey', value)}
+                    placeholder="Story key (optional)"
+                    placeholderTextColor={theme.textSecondary}
+                    style={[
+                      styles.formInput,
+                      {
+                        backgroundColor: theme.background,
+                        borderColor: theme.textSecondary,
+                        color: theme.text,
+                      },
+                    ]}
+                    value={form.storyKey}
+                  />
+
+                  <ThemedText type="smallBold">Region Key (Optional)</ThemedText>
+                  <TextInput
+                    accessibilityLabel="Region key"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    onChangeText={(value) => updateField('regionKey', value)}
+                    placeholder="Region key (optional)"
+                    placeholderTextColor={theme.textSecondary}
+                    style={[
+                      styles.formInput,
+                      {
+                        backgroundColor: theme.background,
+                        borderColor: theme.textSecondary,
+                        color: theme.text,
+                      },
+                    ]}
+                    value={form.regionKey}
+                  />
+                </ThemedView>
+              ) : null}
+            </ThemedView>
 
             <ThemedView
               type="backgroundSelected"
@@ -1773,7 +1784,11 @@ export default function AdminPortalScreen() {
             No locations match your search and selected status.
           </ThemedText>
         ) : (
-          <ThemedView style={styles.locationList}>
+          <ThemedView
+            style={[
+              styles.locationList,
+              locationViewMode === 'grid' && styles.locationGrid,
+            ]}>
             {filteredLocations.map((location) => {
               const retiredDate = location.retiredAt === undefined
                 ? null
@@ -1786,9 +1801,23 @@ export default function AdminPortalScreen() {
                 <ThemedView
                   key={location._id}
                   type="backgroundElement"
-                  style={[styles.locationCard, { borderColor: theme.border }]}>
-                  <ThemedView style={styles.locationCardHeader}>
-                    <ThemedView style={styles.locationCardCopy}>
+                  style={[
+                    styles.locationCard,
+                    locationViewMode === 'grid' && styles.locationGridCard,
+                    { borderColor: theme.border },
+                  ]}>
+                  <ThemedView
+                    style={[
+                      styles.locationCardHeader,
+                      locationViewMode === 'grid' &&
+                        styles.locationCardHeaderGrid,
+                    ]}>
+                    <ThemedView
+                      style={[
+                        styles.locationCardCopy,
+                        locationViewMode === 'grid' &&
+                          styles.locationCardCopyGrid,
+                      ]}>
                       <ThemedText type="smallBold" style={styles.locationName}>
                         {location.name}
                       </ThemedText>
@@ -1855,7 +1884,11 @@ export default function AdminPortalScreen() {
                     )}
                   </ThemedView>
 
-                  <ThemedView style={styles.formActions}>
+                  <ThemedView
+                    style={[
+                      styles.formActions,
+                      styles.locationCardActions,
+                    ]}>
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={`Edit ${location.name}`}
@@ -1864,6 +1897,7 @@ export default function AdminPortalScreen() {
                       onPress={() => openEditForm(location)}
                       style={({ pressed }) => [
                         styles.secondaryButton,
+                        styles.locationCardActionButton,
                         changingLocationId !== null && styles.disabledButton,
                         pressed && styles.pressed,
                       ]}>
@@ -1884,6 +1918,7 @@ export default function AdminPortalScreen() {
                       onPress={() => setConfirmingLocationId(location._id)}
                       style={({ pressed }) => [
                         styles.secondaryButton,
+                        styles.locationCardActionButton,
                         changingLocationId !== null && styles.disabledButton,
                         pressed && styles.pressed,
                       ]}>
@@ -2000,24 +2035,13 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: PortalContentWidth,
     alignSelf: 'center',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     gap: Spacing.two,
     padding: Spacing.four,
     borderWidth: 1,
     borderRadius: Spacing.three,
   },
   toolbarCopy: {
-    flex: 1,
-    minWidth: 260,
-    gap: Spacing.one,
-  },
-  toolbarActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: Spacing.two,
   },
   workspaceTitle: {
@@ -2349,11 +2373,23 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     gap: Spacing.two,
   },
+  locationGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'stretch',
+  },
   locationCard: {
     gap: Spacing.one,
     padding: Spacing.four,
     borderWidth: 1,
     borderRadius: Spacing.three,
+  },
+  locationGridCard: {
+    flexBasis: 360,
+    flexGrow: 1,
+    maxWidth: 510,
+    minWidth: 320,
+    minHeight: 330,
   },
   locationCardHeader: {
     flexDirection: 'row',
@@ -2362,14 +2398,49 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.two,
   },
+  locationCardHeaderGrid: {
+    flexDirection: 'row',
+  },
   locationCardCopy: {
     flex: 1,
     minWidth: 220,
     gap: Spacing.one,
   },
+  locationCardCopyGrid: {
+    minWidth: 0,
+    width: '100%',
+  },
   locationName: {
     fontSize: 18,
     lineHeight: 24,
+  },
+  advancedSection: {
+    gap: Spacing.two,
+    marginTop: Spacing.three,
+  },
+  advancedToggle: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: Spacing.two,
+  },
+  locationCardActions: {
+    marginTop: 'auto',
+    paddingTop: Spacing.two,
+  },
+  locationCardActionButton: {
+    flexBasis: 0,
+    flexGrow: 1,
+    minWidth: 112,
+  },
+  advancedFields: {
+    gap: Spacing.two,
+    padding: Spacing.three,
+    borderRadius: Spacing.two,
   },
   statusPill: {
     minHeight: 32,
