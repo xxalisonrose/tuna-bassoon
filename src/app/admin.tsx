@@ -143,6 +143,11 @@ export default function AdminPortalScreen() {
     currentUser?.isAdmin ? {} : 'skip',
   );
 
+  const adminBadges = useQuery(
+    api.adminBadges.getBadgesForAdmin,
+    currentUser?.isAdmin ? {} : 'skip',
+  );
+
   const createLocation = useMutation(
     api.adminLocations.createLocation,
   );
@@ -320,10 +325,18 @@ export default function AdminPortalScreen() {
       }
     }
 
+    for (const badge of adminBadges ?? []) {
+      const normalizedTag = normalizeBadgeTagValue(badge.tag);
+
+      if (normalizedTag) {
+        tags.add(normalizedTag);
+      }
+    }
+
     return [...tags].sort((left, right) =>
       left.localeCompare(right),
     );
-  }, [adminLocations]);
+  }, [adminBadges, adminLocations]);
 
   const openCreateForm = () => {
     setFormMode('create');

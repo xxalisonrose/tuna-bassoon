@@ -54,7 +54,7 @@ Administrators can search and browse locations, create new locations, and edit a
 - Optional story key
 - Optional region key
 
-The forms validate required fields, coordinate ranges, stable-key format, badge tags, optional story and region keys, and the length of optional fun facts and sources. When a location cannot be saved, a high-contrast alert appears beside the Save controls and each affected field is outlined in red with a short explanation. Every location must have at least one badge tag. The picker prevents removing the final tag until a replacement is selected, and server validation independently rejects a location with no normalized tags. Server validation remains authoritative, including duplicate-key protection and administrator authorization.
+The forms validate required fields, coordinate ranges, stable-key format, badge tags, optional story and region keys, and the length of optional fun facts and sources. When a location cannot be saved, a high-contrast alert appears beside the Save controls and each affected field is outlined in red with a short explanation. Every location must have at least one badge tag. The picker prevents removing the final tag until a replacement is selected, and server validation independently rejects a location with no normalized tags. The badge and location editors share one combined list of tags already saved on badges or locations, so a badge tag remains available when assigning locations even before any location uses it. A newly entered tag becomes part of that shared list when its badge or location is saved. Server validation remains authoritative, including duplicate-key protection and administrator authorization.
 
 ### Standardized location categories
 

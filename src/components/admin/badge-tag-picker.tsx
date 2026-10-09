@@ -371,7 +371,7 @@ export function BadgeTagPicker({
                 ? 'That tag is already selected.'
                 : normalizedSearch && catalogHasSearchTag
                   ? 'Choose the matching existing tag above.'
-                  : 'Enter a new tag above. It will use lowercase letters and hyphens.'}
+                  : `Enter a new tag above. It will use lowercase letters and hyphens, and it becomes permanent when you save ${subject}.`}
             </ThemedText>
           )}
 
