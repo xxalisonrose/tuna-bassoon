@@ -1224,12 +1224,41 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
                 <ThemedText type="small">Rule: {formatRule(badge.rule)}</ThemedText>
                 {badge.imageKey ? <ThemedText type="small">Image Key: {badge.imageKey}</ThemedText> : null}
                 <ThemedText type="smallBold" themeColor="textSecondary">{badge.retired ? `Retired${retiredDate ? ` on ${retiredDate}` : ''}` : 'Active'}</ThemedText>
-                <ThemedView style={[styles.actions, styles.cardActions]}>
-                  <Pressable accessibilityRole="button" accessibilityLabel={`Edit ${badge.name}`} onPress={() => openEdit(badge)} style={[styles.secondaryButton, styles.cardActionButton]}>
+                <ThemedView
+                  style={[
+                    styles.actions,
+                    viewMode === 'grid'
+                      ? styles.cardActions
+                      : styles.listCardActions,
+                  ]}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Edit ${badge.name}`}
+                    onPress={() => openEdit(badge)}
+                    style={[
+                      styles.secondaryButton,
+                      viewMode === 'grid'
+                        ? styles.cardActionButton
+                        : styles.listActionButton,
+                    ]}>
                     <ThemedText style={styles.secondaryButtonText}>Edit</ThemedText>
                   </Pressable>
-                  <Pressable accessibilityRole="button" accessibilityLabel={badge.retired ? `Reactivate ${badge.name}` : `Retire ${badge.name}`} onPress={() => setConfirmingId(badge._id)} style={[styles.secondaryButton, styles.cardActionButton]}>
-                    <ThemedText style={styles.secondaryButtonText}>{badge.retired ? 'Reactivate' : 'Retire'}</ThemedText>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={badge.retired ? `Reactivate ${badge.name}` : `Retire ${badge.name}`}
+                    onPress={() => setConfirmingId(badge._id)}
+                    style={[
+                      styles.secondaryButton,
+                      viewMode === 'grid'
+                        ? styles.cardActionButton
+                        : styles.listActionButton,
+                      viewMode === 'list' && styles.listQuietActionButton,
+                    ]}>
+                    <ThemedText
+                      type={viewMode === 'list' ? 'smallBold' : undefined}
+                      style={viewMode === 'grid' ? styles.secondaryButtonText : undefined}>
+                      {badge.retired ? 'Reactivate' : 'Retire'}
+                    </ThemedText>
                   </Pressable>
                 </ThemedView>
                 {confirming ? (
@@ -1386,7 +1415,7 @@ function BadgeForm({
           },
           {
             label: 'Tag',
-            description: 'The shared topic that connects this badge to qualifying locations. Choose an existing location tag or add a new one, and reuse the exact tag on every location whose check-in should count.',
+            description: 'The shared topic that connects this badge to qualifying locations. Choose an existing location tag or add a new one, and reuse the exact tag on every location whose check-in should count. Multiple badges can use the same tag, including a year-round badge and a seasonal badge.',
           },
         ]}
       />
@@ -2090,6 +2119,9 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, marginTop: Spacing.two },
   cardActions: { marginTop: 'auto', paddingTop: Spacing.two },
   cardActionButton: { flexBasis: 0, flexGrow: 1, minWidth: 112 },
+  listCardActions: { alignSelf: 'flex-start' },
+  listActionButton: { minHeight: 44, paddingHorizontal: Spacing.three, paddingVertical: Spacing.one, borderRadius: 999 },
+  listQuietActionButton: { borderWidth: 1, borderColor: Palette.lightBronze, backgroundColor: 'transparent' },
   primaryButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.four, paddingVertical: Spacing.two, borderRadius: Spacing.two, backgroundColor: Palette.lightBronze },
   primaryButtonText: { color: Palette.ink, textAlign: 'center' },
   secondaryButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.four, paddingVertical: Spacing.two, borderRadius: Spacing.two, backgroundColor: Palette.teaGreen },

@@ -76,7 +76,7 @@ The category selector uses the same compact dropdown pattern as the badge editor
 
 The administrator-only `previewLocationCategoryStandardization` query reports every proposed legacy-category change and any value that is not recognized. The `applyLocationCategoryStandardization` mutation refuses to run while unknown values remain, then updates recognized values without changing any other location content.
 
-Locations and badges share a searchable badge-tag dropdown populated from the location and badge content already loaded in the portal. Administrators can reuse an existing tag or add a new lowercase, hyphenated tag. Locations support multiple selected tags, while each badge selects one tag.
+Locations and badges share a searchable badge-tag dropdown populated from the location and badge content already loaded in the portal. Administrators can reuse an existing tag or add a new lowercase, hyphenated tag. Locations support multiple selected tags, while each badge selects one tag. Multiple badges can intentionally share a tag, so the same qualifying locations can support both a year-round badge and a seasonal badge such as Women’s History Month or Black History Month.
 
 Removing a selected tag requires an explicit confirmation and only changes the location or badge currently being edited. Other locations, badges, progress, and awards are not changed.
 
@@ -102,7 +102,7 @@ Administrator and non-administrator retirement access tests passed. The public l
 
 ### Portal list and grid views
 
-The Locations and Badges workspaces each support List and Grid views. List remains the default. Grid uses wider information cards in a responsive two-column layout at the portal's full width and wraps to one column on narrower screens. Badge descriptions are limited to two lines with an ellipsis in Grid view, and card actions stay aligned at the bottom.
+The Locations and Badges workspaces each support List and Grid views. List remains the default and uses compact pill-style Edit and Retire/Reactivate actions. Grid uses wider information cards in a responsive two-column layout at the portal's full width and wraps to one column on narrower screens. Badge descriptions are limited to two lines with an ellipsis in Grid view, and card actions stay aligned at the bottom.
 
 Workspace headings place Add New Location or Add New Badge directly beneath the section name. The redundant Home button and introductory toolbar copy are removed. Search areas begin with a single Search for a Location or Search for a Badge field, followed by the relevant filters and view controls.
 
@@ -160,7 +160,7 @@ Specific Location is hidden from the Progress Rule menu while General or Theme i
 
 Specific-location rules include a searchable location selector, so the content team does not need to memorize location keys.
 
-The badge backend validates required fields, classification presets, slug formats, unique badge keys, unique tags, and rule-specific values. Specific-location rules must reference an existing location and use the Special Place or Seasonal classification.
+The badge backend validates required fields, classification presets, slug formats, unique badge keys, and rule-specific values. Badge tags are reusable across definitions. Specific-location rules must reference an existing location and use the Special Place or Seasonal classification.
 
 Existing badge definitions can be normalized through the guarded
 classification-preset migration. Its preview reports every before/after

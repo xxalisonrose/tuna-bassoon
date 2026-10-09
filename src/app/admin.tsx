@@ -1887,7 +1887,9 @@ export default function AdminPortalScreen() {
                   <ThemedView
                     style={[
                       styles.formActions,
-                      styles.locationCardActions,
+                      locationViewMode === 'grid'
+                        ? styles.locationCardActions
+                        : styles.locationListCardActions,
                     ]}>
                     <Pressable
                       accessibilityRole="button"
@@ -1897,7 +1899,9 @@ export default function AdminPortalScreen() {
                       onPress={() => openEditForm(location)}
                       style={({ pressed }) => [
                         styles.secondaryButton,
-                        styles.locationCardActionButton,
+                        locationViewMode === 'grid'
+                          ? styles.locationCardActionButton
+                          : styles.locationListActionButton,
                         changingLocationId !== null && styles.disabledButton,
                         pressed && styles.pressed,
                       ]}>
@@ -1918,11 +1922,21 @@ export default function AdminPortalScreen() {
                       onPress={() => setConfirmingLocationId(location._id)}
                       style={({ pressed }) => [
                         styles.secondaryButton,
-                        styles.locationCardActionButton,
+                        locationViewMode === 'grid'
+                          ? styles.locationCardActionButton
+                          : styles.locationListActionButton,
+                        locationViewMode === 'list' &&
+                          styles.locationListQuietActionButton,
                         changingLocationId !== null && styles.disabledButton,
                         pressed && styles.pressed,
                       ]}>
-                      <ThemedText style={styles.secondaryButtonText}>
+                      <ThemedText
+                        type={locationViewMode === 'list' ? 'smallBold' : undefined}
+                        style={
+                          locationViewMode === 'grid'
+                            ? styles.secondaryButtonText
+                            : undefined
+                        }>
                         {location.retired ? 'Reactivate' : 'Retire'}
                       </ThemedText>
                     </Pressable>
@@ -2436,6 +2450,20 @@ const styles = StyleSheet.create({
     flexBasis: 0,
     flexGrow: 1,
     minWidth: 112,
+  },
+  locationListCardActions: {
+    alignSelf: 'flex-start',
+  },
+  locationListActionButton: {
+    minHeight: 44,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one,
+    borderRadius: 999,
+  },
+  locationListQuietActionButton: {
+    borderWidth: 1,
+    borderColor: Palette.lightBronze,
+    backgroundColor: 'transparent',
   },
   advancedFields: {
     gap: Spacing.two,

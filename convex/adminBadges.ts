@@ -458,30 +458,6 @@ async function ensureBadgeKeyIsUnique(
   }
 }
 
-async function ensureBadgeTagIsUnique(
-  ctx: MutationCtx,
-  tag: string,
-  badgeDefinitionId?: Id<'badgeDefinitions'>,
-  annualSeriesId?: Id<'badgeAnnualSeries'>,
-) {
-  const definitions = await ctx.db.query('badgeDefinitions').collect();
-  const duplicate = definitions.find((definition) => {
-    const sameAnnualSeries =
-      annualSeriesId !== undefined &&
-      definition.annualSeriesId === annualSeriesId;
-
-    return (
-      definition._id !== badgeDefinitionId &&
-      normalizeBadgeTag(definition.tag) === normalizeBadgeTag(tag) &&
-      !sameAnnualSeries
-    );
-  });
-
-  if (duplicate !== undefined) {
-    throw new ConvexError(`Badge tag "${tag}" is already in use.`);
-  }
-}
-
 export const getBadgesForAdmin = query({
   args: {},
 
@@ -624,8 +600,6 @@ export const createBadgeDefinition = mutation({
     ensureLevelsMatchRule(normalized.levelsEnabled, rule);
 
     await ensureBadgeKeyIsUnique(ctx, normalized.key);
-    await ensureBadgeTagIsUnique(ctx, normalized.tag);
-
     return await ctx.db.insert('badgeDefinitions', {
       name: normalized.name,
       key: normalized.key,
@@ -723,13 +697,6 @@ export const updateBadgeDefinition = mutation({
       normalized.key,
       args.badgeDefinitionId,
     );
-    await ensureBadgeTagIsUnique(
-      ctx,
-      normalized.tag,
-      args.badgeDefinitionId,
-      existingDefinition.annualSeriesId,
-    );
-
     await ctx.db.patch(args.badgeDefinitionId, {
       name: normalized.name,
       key: normalized.key,

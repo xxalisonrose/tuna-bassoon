@@ -73,12 +73,15 @@ export const backfillBadgeDefinitions = internalMutation({
     let updated = 0;
 
     for (const migration of LEGACY_BADGE_MIGRATIONS) {
-      const definition = await ctx.db
+      const matchingDefinitions = await ctx.db
         .query('badgeDefinitions')
         .withIndex('by_tag', (queryBuilder) =>
           queryBuilder.eq('tag', migration.legacyTag),
         )
-        .unique();
+        .collect();
+      const definition = matchingDefinitions.find(
+        (candidate) => candidate.name === migration.name,
+      ) ?? null;
 
       if (definition === null) {
         throw new Error(

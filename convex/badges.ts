@@ -318,8 +318,8 @@ export const seedBadgeDefinitions = internalMutation({
     for (const definition of BADGE_DEFINITIONS) {
       const savedDefinition = await ctx.db
         .query('badgeDefinitions')
-        .withIndex('by_tag', (queryBuilder) =>
-          queryBuilder.eq('tag', definition.tag),
+        .withIndex('by_key', (queryBuilder) =>
+          queryBuilder.eq('key', definition.key),
         )
         .unique();
 
