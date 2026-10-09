@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   Pressable,
   ScrollView,
@@ -35,7 +36,9 @@ import {
   PortalContentWidth,
   Spacing,
 } from '@/constants/theme';
+import { useFormUndoShortcuts } from '@/hooks/use-form-undo-shortcuts';
 import { useTheme } from '@/hooks/use-theme';
+import { useUndoableState } from '@/hooks/use-undoable-state';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 
@@ -427,7 +430,14 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [formMode, setFormMode] = useState<'create' | 'edit' | null>(null);
   const [editingId, setEditingId] = useState<Id<'badgeDefinitions'> | null>(null);
-  const [form, setForm] = useState<BadgeFormState>(emptyForm);
+  const {
+    state: form,
+    updateState: updateBadgeForm,
+    resetState: resetBadgeForm,
+    clearHistory: clearBadgeFormHistory,
+    undo: undoBadgeForm,
+    redo: redoBadgeForm,
+  } = useUndoableState<BadgeFormState>(emptyForm);
   const [originalBadgeStableKey, setOriginalBadgeStableKey] =
     useState('');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -447,6 +457,35 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
   const [removeUploadedArtwork, setRemoveUploadedArtwork] =
     useState(false);
   const [pickingArtwork, setPickingArtwork] = useState(false);
+
+  useFormUndoShortcuts({
+    enabled:
+      visible &&
+      formMode !== null &&
+      !saving &&
+      !annualSaving &&
+      !pickingArtwork,
+    onUndo: () => {
+      if (undoBadgeForm() === undefined) {
+        return false;
+      }
+
+      const text = 'Undid the last unsaved badge change.';
+      setStatusMessage(text);
+      AccessibilityInfo.announceForAccessibility(text);
+      return true;
+    },
+    onRedo: () => {
+      if (redoBadgeForm() === undefined) {
+        return false;
+      }
+
+      const text = 'Redid the last unsaved badge change.';
+      setStatusMessage(text);
+      AccessibilityInfo.announceForAccessibility(text);
+      return true;
+    },
+  });
 
   const annualSeries = useQuery(
     api.annualBadgeEditions.getAnnualSeriesForAdmin,
@@ -539,15 +578,22 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
     );
   }, [badges, locations]);
 
-  const updateField = <K extends keyof BadgeFormState>(field: K, value: BadgeFormState[K]) => {
-    setForm((current) => ({ ...current, [field]: value }));
+  const updateField = <K extends keyof BadgeFormState>(
+    field: K,
+    value: BadgeFormState[K],
+    historyGroupKey = String(field),
+  ) => {
+    updateBadgeForm(
+      (current) => ({ ...current, [field]: value }),
+      { groupKey: `badge-${historyGroupKey}` },
+    );
     setStatusMessage(null);
   };
 
   const openCreate = () => {
     setFormMode('create');
     setEditingId(null);
-    setForm(emptyForm);
+    resetBadgeForm(emptyForm);
     setOriginalBadgeStableKey('');
     setStatusMessage(null);
     setAnnualRepeatEnabled(false);
@@ -571,7 +617,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
 
     setFormMode('edit');
     setEditingId(badge._id);
-    setForm({
+    resetBadgeForm({
       name: badge.name,
       key: badge.key,
       tag: normalizeBadgeTagValue(badge.tag),
@@ -603,7 +649,7 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
   const closeForm = (clearStatus = true) => {
     setFormMode(null);
     setEditingId(null);
-    setForm(emptyForm);
+    resetBadgeForm(emptyForm);
     setOriginalBadgeStableKey('');
     if (clearStatus) {
       setStatusMessage(null);
@@ -884,6 +930,8 @@ export function BadgeManager({ visible }: BadgeManagerProps) {
           badgeDefinitionId: editingId,
         });
       }
+
+      clearBadgeFormHistory();
 
       if (savedBadgeId === null) {
         throw new Error('Badge definition was not saved.');
@@ -1335,7 +1383,11 @@ function BadgeForm({
   onAnnualRepeatChange: (enabled: boolean) => void;
   onAnnualSeriesKeyChange: (value: string) => void;
   onAnnualSeriesNameChange: (value: string) => void;
-  onChange: <K extends keyof BadgeFormState>(field: K, value: BadgeFormState[K]) => void;
+  onChange: <K extends keyof BadgeFormState>(
+    field: K,
+    value: BadgeFormState[K],
+    historyGroupKey?: string,
+  ) => void;
   onChooseUploadedArtwork: () => void;
   onClearPendingArtwork: () => void;
   onLocationSearch: (value: string) => void;
@@ -1377,20 +1429,25 @@ function BadgeForm({
 
     const preset = classificationPresets[classification];
 
-    onChange('classification', classification);
-    onChange('requiredVisits', String(preset.requiredVisits));
-    onChange('levelsEnabled', preset.levelsEnabled);
+    onChange('classification', classification, 'classification');
+    onChange(
+      'requiredVisits',
+      String(preset.requiredVisits),
+      'classification',
+    );
+    onChange('levelsEnabled', preset.levelsEnabled, 'classification');
     onChange(
       'congratulationsMessages',
       getPresetCongratulationsMessages(
         classification,
         form.congratulationsMessages,
       ),
+      'classification',
     );
 
     if (preset.levelsEnabled && form.ruleType === 'location') {
-      onChange('ruleType', 'tag');
-      onChange('ruleValue', '');
+      onChange('ruleType', 'tag', 'classification');
+      onChange('ruleValue', '', 'classification');
     }
   };
 
@@ -1427,10 +1484,10 @@ function BadgeForm({
           autoCapitalize="words"
           editable={!saving}
           onChangeText={(value) => {
-            onChange('name', value);
+            onChange('name', value, 'name');
 
             if (formMode === 'create' && !stableKeyManuallyEdited) {
-              onChange('key', createStableKey(value));
+              onChange('key', createStableKey(value), 'name');
             }
           }}
           placeholder="Name"

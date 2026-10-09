@@ -33,7 +33,9 @@ import {
   PortalContentWidth,
   Spacing,
 } from '@/constants/theme';
+import { useFormUndoShortcuts } from '@/hooks/use-form-undo-shortcuts';
 import { useTheme } from '@/hooks/use-theme';
+import { useUndoableState } from '@/hooks/use-undoable-state';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 
@@ -162,7 +164,13 @@ export default function AdminPortalScreen() {
   const [portalSection, setPortalSection] = useState<PortalSection>('locations');
   const [formMode, setFormMode] = useState<FormMode | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<LocationFormState>(emptyForm);
+  const {
+    state: form,
+    updateState: updateLocationForm,
+    resetState: resetLocationForm,
+    undo: undoLocationForm,
+    redo: redoLocationForm,
+  } = useUndoableState<LocationFormState>(emptyForm);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [formValidation, setFormValidation] =
     useState<LocationFormValidation | null>(null);
@@ -192,6 +200,49 @@ export default function AdminPortalScreen() {
   const announce = (text: string) => {
     AccessibilityInfo.announceForAccessibility(text);
   };
+
+  useFormUndoShortcuts({
+    enabled:
+      portalSection === 'locations' &&
+      formMode !== null &&
+      !saving,
+    onUndo: () => {
+      const restoredForm = undoLocationForm();
+
+      if (restoredForm === undefined) {
+        return false;
+      }
+
+      if (formMode === 'create') {
+        setLocationStableKeyManuallyEdited(
+          restoredForm.key !== createStableKey(restoredForm.name),
+        );
+      }
+
+      setStatusMessage('Undid the last unsaved location change.');
+      setFormValidation(null);
+      announce('Undid the last unsaved location change.');
+      return true;
+    },
+    onRedo: () => {
+      const restoredForm = redoLocationForm();
+
+      if (restoredForm === undefined) {
+        return false;
+      }
+
+      if (formMode === 'create') {
+        setLocationStableKeyManuallyEdited(
+          restoredForm.key !== createStableKey(restoredForm.name),
+        );
+      }
+
+      setStatusMessage('Redid the last unsaved location change.');
+      setFormValidation(null);
+      announce('Redid the last unsaved location change.');
+      return true;
+    },
+  });
 
   const resetGeminiState = () => {
     setGeminiOpen(false);
@@ -277,7 +328,7 @@ export default function AdminPortalScreen() {
   const openCreateForm = () => {
     setFormMode('create');
     setEditingId(null);
-    setForm(emptyForm);
+    resetLocationForm(emptyForm);
     setStatusMessage(null);
     setFormValidation(null);
     setLocationStableKeyManuallyEdited(false);
@@ -305,7 +356,7 @@ export default function AdminPortalScreen() {
   }) => {
     setFormMode('edit');
     setEditingId(location._id);
-    setForm({
+    resetLocationForm({
       name: location.name,
       key:
         location.key?.trim() ||
@@ -336,7 +387,7 @@ export default function AdminPortalScreen() {
   const closeForm = () => {
     setFormMode(null);
     setEditingId(null);
-    setForm(emptyForm);
+    resetLocationForm(emptyForm);
     setStatusMessage(null);
     setFormValidation(null);
     setLocationStableKeyManuallyEdited(false);
@@ -403,10 +454,13 @@ export default function AdminPortalScreen() {
         return;
       }
 
-      setForm((current) => ({
-        ...current,
-        description: result.description,
-      }));
+      updateLocationForm(
+        (current) => ({
+          ...current,
+          description: result.description,
+        }),
+        { groupKey: 'location-description' },
+      );
 
       const text =
         'Gemini draft added to the description field. Review it before saving.';
@@ -436,13 +490,16 @@ export default function AdminPortalScreen() {
       formMode === 'create' &&
       !locationStableKeyManuallyEdited;
 
-    setForm((current) => ({
-      ...current,
-      [field]: value,
-      ...(shouldSuggestStableKey
-        ? { key: createStableKey(String(value)) }
-        : {}),
-    }));
+    updateLocationForm(
+      (current) => ({
+        ...current,
+        [field]: value,
+        ...(shouldSuggestStableKey
+          ? { key: createStableKey(String(value)) }
+          : {}),
+      }),
+      { groupKey: `location-${String(field)}` },
+    );
 
     if (statusMessage) {
       setStatusMessage(null);

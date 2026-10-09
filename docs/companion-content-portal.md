@@ -106,6 +106,12 @@ The Locations and Badges workspaces each support List and Grid views. List remai
 
 Workspace headings place Add New Location or Add New Badge directly beneath the section name. The redundant Home button and introductory toolbar copy are removed. Search areas begin with a single Search for a Location or Search for a Badge field, followed by the relevant filters and view controls.
 
+### Unsaved form undo and redo
+
+The location and badge editors keep a local history of unsaved content-field changes. On the web portal, Command-Z on macOS or Control-Z elsewhere undoes the most recent change when focus is outside a text field. Command-Shift-Z and Control-Y redo it. Repeated typing and classification presets are grouped into logical changes so one shortcut does not step through every individual preset field.
+
+Text fields retain the browser's normal character-by-character undo while the cursor is inside them. Form-level history starts fresh whenever an editor is opened or closed and is cleared after a successful save. It does not reverse changes that have already been saved to Convex; restoring saved content remains a separate future audit-history feature.
+
 ### Gemini drafting
 
 Gemini drafting is optional and lives inside the location create/edit form. It uses the current unsaved name, category, and description as context, along with optional editorial notes.
