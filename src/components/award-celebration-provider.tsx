@@ -1,10 +1,7 @@
 import { useConvexAuth, useMutation, useQuery } from 'convex/react';
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -16,35 +13,10 @@ import {
   AwardEarnedBanner,
   AwardEarnedPopup,
 } from '@/components/award-earned-popup';
-import {
-  loadAwardDisplayMode,
-  saveAwardDisplayMode,
-  type AwardDisplayMode,
-} from '@/lib/award-display-preference';
 
 type AwardCelebrationProviderProps = {
   children: ReactNode;
 };
-
-type AwardCelebrationPreference = {
-  displayMode: AwardDisplayMode;
-  setDisplayMode: (mode: AwardDisplayMode) => void;
-};
-
-const AwardCelebrationPreferenceContext =
-  createContext<AwardCelebrationPreference | null>(null);
-
-export function useAwardCelebrationPreference() {
-  const value = useContext(AwardCelebrationPreferenceContext);
-
-  if (value === null) {
-    throw new Error(
-      'useAwardCelebrationPreference must be used inside AwardCelebrationProvider.',
-    );
-  }
-
-  return value;
-}
 
 export function AwardCelebrationProvider({
   children,
@@ -60,23 +32,10 @@ export function AwardCelebrationProvider({
   const [isAcknowledging, setIsAcknowledging] = useState(false);
   const [acknowledgementError, setAcknowledgementError] =
     useState<string | null>(null);
-  const [displayMode, setDisplayModeState] =
-    useState<AwardDisplayMode | null>(null);
   const currentAward = unannouncedAwards?.[0] ?? null;
-
-  useEffect(() => {
-    let active = true;
-
-    void loadAwardDisplayMode().then((storedMode) => {
-      if (active) {
-        setDisplayModeState(storedMode);
-      }
-    });
-
-    return () => {
-      active = false;
-    };
-  }, []);
+  const shouldUseBanner =
+    currentAward?.levelsEnabled === true &&
+    currentAward.level > 1;
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -124,7 +83,7 @@ export function AwardCelebrationProvider({
 
   useEffect(() => {
     if (
-      displayMode !== 'banner' ||
+      !shouldUseBanner ||
       currentAward === null ||
       isAcknowledging ||
       acknowledgementError !== null
@@ -141,48 +100,33 @@ export function AwardCelebrationProvider({
     acknowledgementError,
     currentAward,
     dismissCurrentAward,
-    displayMode,
     isAcknowledging,
+    shouldUseBanner,
   ]);
 
-  const setDisplayMode = useCallback((mode: AwardDisplayMode) => {
-    setDisplayModeState(mode);
-    void saveAwardDisplayMode(mode).catch(() => undefined);
-  }, []);
-
-  const preference = useMemo(
-    () => ({
-      displayMode: displayMode ?? 'full_screen' as const,
-      setDisplayMode,
-    }),
-    [displayMode, setDisplayMode],
-  );
-
   return (
-    <AwardCelebrationPreferenceContext.Provider value={preference}>
-      <View style={styles.container}>
-        {children}
-        {currentAward !== null && displayMode !== null ? (
-          displayMode === 'banner' ? (
-            <AwardEarnedBanner
-              key={currentAward._id}
-              award={currentAward}
-              error={acknowledgementError}
-              isAcknowledging={isAcknowledging}
-              onDismiss={dismissCurrentAward}
-            />
-          ) : (
-            <AwardEarnedPopup
-              key={currentAward._id}
-              award={currentAward}
-              error={acknowledgementError}
-              isAcknowledging={isAcknowledging}
-              onDismiss={dismissCurrentAward}
-            />
-          )
-        ) : null}
-      </View>
-    </AwardCelebrationPreferenceContext.Provider>
+    <View style={styles.container}>
+      {children}
+      {currentAward !== null ? (
+        shouldUseBanner ? (
+          <AwardEarnedBanner
+            key={currentAward._id}
+            award={currentAward}
+            error={acknowledgementError}
+            isAcknowledging={isAcknowledging}
+            onDismiss={dismissCurrentAward}
+          />
+        ) : (
+          <AwardEarnedPopup
+            key={currentAward._id}
+            award={currentAward}
+            error={acknowledgementError}
+            isAcknowledging={isAcknowledging}
+            onDismiss={dismissCurrentAward}
+          />
+        )
+      ) : null}
+    </View>
   );
 }
 

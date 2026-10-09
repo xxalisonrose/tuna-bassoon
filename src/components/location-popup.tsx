@@ -20,6 +20,7 @@ import { api } from '../../convex/_generated/api';
 type LocationPopupProps = {
   place: Place;
   userCoordinates: [number, number] | null;
+  usingTestCoordinates?: boolean;
   onClose: () => void;
 };
 
@@ -31,6 +32,7 @@ type CheckInMessage = {
 export function LocationPopup({
   place,
   userCoordinates,
+  usingTestCoordinates = false,
   onClose,
 }: LocationPopupProps) {
   const {
@@ -223,6 +225,21 @@ export function LocationPopup({
             style={styles.category}>
             {place.category}
           </Text>
+        )}
+
+        {usingTestCoordinates && (
+          <View
+            accessible
+            accessibilityLabel="Admin Test GPS. Distance and check-ins use the simulated location. Successful check-ins are saved to your account."
+            style={styles.testGpsNotice}>
+            <Text style={styles.testGpsHeading}>
+              Admin Test GPS
+            </Text>
+            <Text style={styles.testGpsText}>
+              Distance and check-ins use the simulated location.
+              Successful check-ins are saved to your account.
+            </Text>
+          </View>
         )}
 
         {place.isLore ? (
@@ -419,6 +436,26 @@ const styles = StyleSheet.create({
     color: '#444444',
     fontSize: 16,
     lineHeight: 24,
+  },
+  testGpsNotice: {
+    alignSelf: 'stretch',
+    gap: 4,
+    padding: 12,
+    backgroundColor: '#E8F4EE',
+    borderColor: '#2F7E78',
+    borderWidth: 1,
+    borderRadius: 12,
+  },
+  testGpsHeading: {
+    color: '#24423F',
+    fontSize: 14,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  testGpsText: {
+    color: '#315B55',
+    fontSize: 14,
+    lineHeight: 20,
   },
   loreNotice: {
     alignSelf: 'stretch',

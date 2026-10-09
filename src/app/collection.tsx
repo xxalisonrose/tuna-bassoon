@@ -9,19 +9,16 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BadgeArtwork } from '@/components/badge-artwork';
-import { useAwardCelebrationPreference } from '@/components/award-celebration-provider';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
   BottomTabInset,
   MaxContentWidth,
-  Palette,
   Spacing,
 } from '@/constants/theme';
 import { api } from '../../convex/_generated/api';
@@ -101,8 +98,6 @@ function getBadgeSeriesCandidateName(badge: {
 }
 
 export default function CollectionScreen() {
-  const { displayMode, setDisplayMode } =
-    useAwardCelebrationPreference();
   const {
     isAuthenticated,
     isLoading: isAuthenticationLoading,
@@ -330,33 +325,6 @@ export default function CollectionScreen() {
               badges as you explore.
             </ThemedText>
           </View>
-
-          <ThemedView
-            type="backgroundElement"
-            style={styles.celebrationPreference}>
-            <View style={styles.celebrationPreferenceCopy}>
-              <ThemedText type="smallBold">
-                Use Quick Banner Celebrations
-              </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                Show earned badges in a brief banner instead of a full-screen
-                celebration.
-              </ThemedText>
-            </View>
-            <Switch
-              accessibilityLabel="Use quick banner celebrations"
-              accessibilityHint="Switches badge celebrations between a quick banner and a full-screen popup."
-              onValueChange={(enabled) =>
-                setDisplayMode(enabled ? 'banner' : 'full_screen')
-              }
-              thumbColor={Palette.paper}
-              trackColor={{
-                false: Palette.borderStrong,
-                true: Palette.bronzeDeep,
-              }}
-              value={displayMode === 'banner'}
-            />
-          </ThemedView>
 
           <View
             accessible
@@ -853,18 +821,6 @@ const styles = StyleSheet.create({
   },
   heading: {
     gap: Spacing.two,
-  },
-  celebrationPreference: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.three,
-    padding: Spacing.four,
-    borderRadius: Spacing.four,
-  },
-  celebrationPreferenceCopy: {
-    flex: 1,
-    gap: Spacing.one,
   },
   signedOutCard: {
     gap: Spacing.three,

@@ -1,6 +1,7 @@
 import { ConvexError, v } from 'convex/values';
 
 import { mutation, query } from './_generated/server';
+import { requireAdmin } from './lib/auth';
 
 const CHECK_IN_RADIUS_METERS = 80;
 const EARTH_RADIUS_METERS = 6_371_000;
@@ -164,6 +165,107 @@ export const getMyVisits = query({
         };
       }),
     );
+  },
+});
+
+export const resetMyTestingProgress = mutation({
+  args: {},
+
+  handler: async (ctx) => {
+    const identity = await requireAdmin(ctx);
+
+    const [visits, badgeProgress, badgeAwards] =
+      await Promise.all([
+        ctx.db
+          .query('visits')
+          .withIndex('by_user', (queryBuilder) =>
+            queryBuilder.eq('clerkUserId', identity.subject),
+          )
+          .collect(),
+        ctx.db
+          .query('badgeProgress')
+          .withIndex('by_user', (queryBuilder) =>
+            queryBuilder.eq('clerkUserId', identity.subject),
+          )
+          .collect(),
+        ctx.db
+          .query('badgeAwards')
+          .withIndex('by_user', (queryBuilder) =>
+            queryBuilder.eq('clerkUserId', identity.subject),
+          )
+          .collect(),
+      ]);
+
+    await Promise.all([
+      ...visits.map((visit) => ctx.db.delete(visit._id)),
+      ...badgeProgress.map((progress) =>
+        ctx.db.delete(progress._id),
+      ),
+      ...badgeAwards.map((award) =>
+        ctx.db.delete(award._id),
+      ),
+    ]);
+
+    return {
+      deletedVisits: visits.length,
+      deletedProgressRecords: badgeProgress.length,
+      deletedAwards: badgeAwards.length,
+    };
+  },
+});
+
+export const awardMyTestBadgeLevel = mutation({
+  args: {},
+
+  handler: async (ctx) => {
+    const identity = await requireAdmin(ctx);
+    const definitions = await ctx.db
+      .query('badgeDefinitions')
+      .collect();
+    const definition = definitions
+      .filter(
+        (candidate) =>
+          candidate.retired !== true &&
+          (candidate.levelsEnabled === true ||
+            candidate.classification === 'general' ||
+            candidate.classification === 'theme'),
+      )
+      .sort((first, second) =>
+        first.name.localeCompare(second.name),
+      )[0];
+
+    if (definition === undefined) {
+      throw new ConvexError(
+        'Create an active General or Theme badge before testing celebrations.',
+      );
+    }
+
+    const existingAwards = await ctx.db
+      .query('badgeAwards')
+      .withIndex('by_user_and_badge', (queryBuilder) =>
+        queryBuilder
+          .eq('clerkUserId', identity.subject)
+          .eq('badgeDefinitionId', definition._id),
+      )
+      .collect();
+    const highestLevel = existingAwards.reduce(
+      (highest, award) =>
+        Math.max(highest, award.level ?? 1),
+      0,
+    );
+    const level = highestLevel + 1;
+
+    await ctx.db.insert('badgeAwards', {
+      clerkUserId: identity.subject,
+      badgeDefinitionId: definition._id,
+      level,
+      earnedAt: Date.now(),
+    });
+
+    return {
+      badgeName: definition.name,
+      level,
+    };
   },
 });
 export const getVisitForLocation = query({

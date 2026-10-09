@@ -72,7 +72,6 @@ export function AwardEarnedPopup({
     award.name + '.',
     award.levelsEnabled ? `Level ${award.level}.` : '',
     congratulationsMessage,
-    award.description,
   ]
     .filter(Boolean)
     .join(' ');
@@ -150,15 +149,6 @@ export function AwardEarnedPopup({
                 ]}>
                 {congratulationsMessage}
               </ThemedText>
-              {award.description ? (
-                <ThemedText
-                  style={[
-                    styles.description,
-                    { color: theme.textSecondary },
-                  ]}>
-                  {award.description}
-                </ThemedText>
-              ) : null}
             </View>
 
             {error ? (
@@ -378,12 +368,6 @@ const styles = StyleSheet.create({
     fontSize: 19,
     fontWeight: '700',
     lineHeight: 26,
-    marginTop: Spacing.two,
-    textAlign: 'center',
-  },
-  description: {
-    fontSize: 17,
-    lineHeight: 25,
     marginTop: Spacing.two,
     textAlign: 'center',
   },

@@ -2,18 +2,31 @@ import {
   Camera,
   type CameraRef,
   Map,
+  type MapRef,
   Marker,
 } from '@maplibre/maplibre-react-native';
 import {
   useConvexAuth,
+  useMutation,
   useQuery,
 } from 'convex/react';
 import * as Location from 'expo-location';
 import { type ErrorBoundaryProps } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
+  Alert,
+  Animated,
+  type GestureResponderEvent,
+  PanResponder,
+  type PanResponderGestureState,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -23,11 +36,144 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LocationPopup } from '@/components/location-popup';
+import {
+  AdminLocationSimulator,
+  type SimulatorDirection,
+} from '@/components/map/admin-location-simulator';
+import {
+  MapModeButton,
+  type MapInteractionMode,
+} from '@/components/map/map-mode-button';
+import { LocationPinLayer } from '@/components/map/location-pin-layer';
+import { MapZoomControl } from '@/components/map/map-zoom-control';
+import { PlayerMarker } from '@/components/map/player-marker';
+import { StorybookMapLayers } from '@/components/map/storybook-map-layers';
 import { BottomTabInset } from '@/constants/theme';
 import type { Place } from '@/data/places';
 import { api } from '../../convex/_generated/api';
 
 const HARVARD_YARD: [number, number] = [-71.1167, 42.377];
+const STORYBOOK_MAP_STYLE =
+  'https://tiles.openfreemap.org/styles/liberty';
+const LOOK_AROUND_PITCH = 55;
+const LOOK_AROUND_ZOOM = 17;
+const MINIMUM_MAP_ZOOM = 15;
+const MAXIMUM_MAP_ZOOM = 19.5;
+const MAP_CONTROL_SIZE = 52;
+const MAP_CONTROL_GAP = 10;
+const MAP_CONTROL_STEP =
+  MAP_CONTROL_SIZE + MAP_CONTROL_GAP;
+const WHEEL_ROTATION_MULTIPLIER = 1;
+const MINIMUM_WHEEL_RADIUS = 44;
+const SIMULATOR_STEP_METERS = 10;
+const EARTH_RADIUS_METERS = 6_371_000;
+const RECENTER_MINIMUM_DURATION_MS = 450;
+const RECENTER_MAXIMUM_DURATION_MS = 1_600;
+const RECENTER_MILLISECONDS_PER_METER = 1.4;
+
+function normalizeBearing(value: number) {
+  return ((value % 360) + 360) % 360;
+}
+
+function moveCoordinates(
+  coordinates: [number, number],
+  bearingDegrees: number,
+  distanceMeters: number,
+): [number, number] {
+  const [longitude, latitude] = coordinates;
+  const bearingRadians = bearingDegrees * (Math.PI / 180);
+  const latitudeRadians = latitude * (Math.PI / 180);
+  const angularDistance =
+    distanceMeters / EARTH_RADIUS_METERS;
+
+  const nextLatitude =
+    latitude +
+    angularDistance *
+      Math.cos(bearingRadians) *
+      (180 / Math.PI);
+
+  const longitudeScale = Math.max(
+    Math.abs(Math.cos(latitudeRadians)),
+    0.000001,
+  );
+  const nextLongitude =
+    longitude +
+    (angularDistance * Math.sin(bearingRadians)) /
+      longitudeScale *
+      (180 / Math.PI);
+
+  return [
+    ((nextLongitude + 180) % 360 + 360) % 360 - 180,
+    Math.max(-90, Math.min(90, nextLatitude)),
+  ];
+}
+
+function distanceBetweenCoordinates(
+  first: [number, number],
+  second: [number, number],
+) {
+  const [firstLongitude, firstLatitude] = first.map(
+    (value) => value * (Math.PI / 180),
+  );
+  const [secondLongitude, secondLatitude] = second.map(
+    (value) => value * (Math.PI / 180),
+  );
+  const latitudeDelta = secondLatitude - firstLatitude;
+  const longitudeDelta = secondLongitude - firstLongitude;
+  const haversine =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(firstLatitude) *
+      Math.cos(secondLatitude) *
+      Math.sin(longitudeDelta / 2) ** 2;
+
+  return (
+    2 *
+    EARTH_RADIUS_METERS *
+    Math.asin(Math.min(1, Math.sqrt(haversine)))
+  );
+}
+
+function easeInOutCubic(progress: number) {
+  return progress < 0.5
+    ? 4 * progress ** 3
+    : 1 - (-2 * progress + 2) ** 3 / 2;
+}
+
+function getWheelAngle(
+  event: GestureResponderEvent,
+  viewport: { width: number; height: number },
+) {
+  if (viewport.width === 0 || viewport.height === 0) {
+    return null;
+  }
+
+  const horizontalDistance =
+    event.nativeEvent.locationX - viewport.width / 2;
+  const verticalDistance =
+    event.nativeEvent.locationY - viewport.height / 2;
+  const radius = Math.hypot(
+    horizontalDistance,
+    verticalDistance,
+  );
+
+  if (radius < MINIMUM_WHEEL_RADIUS) {
+    return null;
+  }
+
+  return Math.atan2(verticalDistance, horizontalDistance);
+}
+
+function unwrapAngleDelta(delta: number) {
+  if (delta > Math.PI) {
+    return delta - Math.PI * 2;
+  }
+
+  if (delta < -Math.PI) {
+    return delta + Math.PI * 2;
+  }
+
+  return delta;
+}
 
 export function ErrorBoundary({
   retry,
@@ -65,6 +211,25 @@ export function ErrorBoundary({
 
 export default function MapScreen() {
   const cameraRef = useRef<CameraRef>(null);
+  const mapRef = useRef<MapRef>(null);
+  const mapModeRef = useRef<MapInteractionMode>('look');
+  const lookBearingRef = useRef(0);
+  const wheelAngleRef = useRef<number | null>(null);
+  const wheelBearingRef = useRef(0);
+  const mapViewportRef = useRef({ width: 0, height: 0 });
+  const pendingBearingRef = useRef<number | null>(null);
+  const rotationFrameRef = useRef<number | null>(null);
+  const recenterFrameRef = useRef<number | null>(null);
+  const mapZoomRef = useRef(LOOK_AROUND_ZOOM);
+  const recenteringRef = useRef(false);
+  const [northArrowRotation] = useState(
+    () => new Animated.Value(0),
+  );
+  const cameraViewRef = useRef({
+    zoom: LOOK_AROUND_ZOOM,
+    bearing: 0,
+    pitch: LOOK_AROUND_PITCH,
+  });
   const insets = useSafeAreaInsets();
 
   const { isAuthenticated } = useConvexAuth();
@@ -72,14 +237,29 @@ export default function MapScreen() {
   const [selectedPlace, setSelectedPlace] =
     useState<Place | null>(null);
 
+  const [mapMode, setMapMode] =
+    useState<MapInteractionMode>('look');
+
+  const [compassActive, setCompassActive] =
+    useState(false);
+
+  const [mapZoom, setMapZoom] =
+    useState(LOOK_AROUND_ZOOM);
+
   const [locationListVisible, setLocationListVisible] =
     useState(false);
 
   const [placeOpenedFromList, setPlaceOpenedFromList] =
     useState(false);
 
-  const [userCoordinates, setUserCoordinates] =
+  const [liveCoordinates, setLiveCoordinates] =
     useState<[number, number] | null>(null);
+
+  const [simulatedCoordinates, setSimulatedCoordinates] =
+    useState<[number, number]>(HARVARD_YARD);
+
+  const [simulatedLocationEnabled, setSimulatedLocationEnabled] =
+    useState(false);
 
   const [locationMessage, setLocationMessage] = useState(
     'Finding your location...',
@@ -88,45 +268,77 @@ export default function MapScreen() {
   const [locationsTakingLong, setLocationsTakingLong] =
     useState(false);
 
+  const [resettingTestProgress, setResettingTestProgress] =
+    useState(false);
+
+  const [awardingTestBadge, setAwardingTestBadge] =
+    useState(false);
+
   const locations = useQuery(api.locations.getLocations);
+
+  const resetMyTestingProgress = useMutation(
+    api.visits.resetMyTestingProgress,
+  );
+
+  const awardMyTestBadgeLevel = useMutation(
+    api.visits.awardMyTestBadgeLevel,
+  );
 
   const visits = useQuery(
     api.visits.getMyVisits,
     isAuthenticated ? {} : 'skip',
   );
 
-  const visitedLocationIds = new Set(
-    (visits ?? []).map((visit) => visit.locationId),
+  const currentUser = useQuery(
+    api.users.getCurrentUser,
+    isAuthenticated ? {} : 'skip',
+  );
+
+  const isAdmin = currentUser?.isAdmin === true;
+  const simulationIsActive =
+    isAdmin && simulatedLocationEnabled;
+  const userCoordinates = simulationIsActive
+    ? simulatedCoordinates
+    : liveCoordinates;
+
+  const visitedLocationIds = useMemo(
+    () =>
+      new Set(
+        (visits ?? []).map((visit) => visit.locationId),
+      ),
+    [visits],
   );
 
   const locationsAreLoading = locations === undefined;
 
-  const places: Place[] = (locations ?? []).flatMap(
-    (location) => {
-      if (
-        location.latitude === undefined ||
-        location.longitude === undefined
-      ) {
-        return [];
-      }
+  const places: Place[] = useMemo(
+    () =>
+      (locations ?? []).flatMap((location) => {
+        if (
+          location.latitude === undefined ||
+          location.longitude === undefined
+        ) {
+          return [];
+        }
 
-      return [
-        {
-          id: location._id,
-          title: location.name,
-          description: location.description,
-          funFact: location.funFact,
-          source: location.source,
-          isLore: location.isLore === true,
-          category: location.category,
-          badges: location.badges,
-          coordinates: [
-            location.longitude,
-            location.latitude,
-          ] as [number, number],
-        },
-      ];
-    },
+        return [
+          {
+            id: location._id,
+            title: location.name,
+            description: location.description,
+            funFact: location.funFact,
+            source: location.source,
+            isLore: location.isLore === true,
+            category: location.category,
+            badges: location.badges,
+            coordinates: [
+              location.longitude,
+              location.latitude,
+            ] as [number, number],
+          },
+        ];
+      }),
+    [locations],
   );
 
   const locationsAreEmpty =
@@ -158,7 +370,12 @@ export default function MapScreen() {
   }, [locationsAreLoading]);
 
   useEffect(() => {
+    mapModeRef.current = mapMode;
+  }, [mapMode]);
+
+  useEffect(() => {
     let isMounted = true;
+    let locationSubscription: Location.LocationSubscription | null = null;
 
     async function loadCurrentLocation() {
       try {
@@ -197,12 +414,46 @@ export default function MapScreen() {
           });
 
         if (isMounted) {
-          setUserCoordinates([
+          setLiveCoordinates([
             currentLocation.coords.longitude,
             currentLocation.coords.latitude,
           ]);
 
           setLocationMessage('');
+        }
+
+        try {
+          const subscription = await Location.watchPositionAsync(
+            {
+              accuracy: Location.Accuracy.Balanced,
+              distanceInterval: 4,
+              timeInterval: 5000,
+            },
+            (nextLocation) => {
+              if (!isMounted) {
+                return;
+              }
+
+              setLiveCoordinates([
+                nextLocation.coords.longitude,
+                nextLocation.coords.latitude,
+              ]);
+              setLocationMessage('');
+            },
+          );
+
+          if (!isMounted) {
+            subscription.remove();
+            return;
+          }
+
+          locationSubscription = subscription;
+        } catch {
+          if (isMounted) {
+            setLocationMessage(
+              'Your position is shown, but live updates are unavailable.',
+            );
+          }
         }
       } catch {
         if (isMounted) {
@@ -217,22 +468,464 @@ export default function MapScreen() {
 
     return () => {
       isMounted = false;
+      locationSubscription?.remove();
     };
   }, []);
+
+  useEffect(() => {
+    if (
+      userCoordinates === null ||
+      mapModeRef.current !== 'look'
+    ) {
+      return;
+    }
+
+    cameraRef.current?.easeTo({
+      center: userCoordinates,
+      zoom: cameraViewRef.current.zoom,
+      bearing: lookBearingRef.current,
+      pitch: LOOK_AROUND_PITCH,
+      duration: 650,
+    });
+  }, [userCoordinates]);
 
   const startingCenter =
     userCoordinates ?? HARVARD_YARD;
 
-  const recenterMap = () => {
-    if (!userCoordinates) {
+  const shouldStartLookRotation = useCallback(
+    (
+      event: GestureResponderEvent,
+      gestureState: PanResponderGestureState,
+    ) =>
+      mapModeRef.current === 'look' &&
+      gestureState.numberActiveTouches === 1 &&
+      getWheelAngle(
+        event,
+        mapViewportRef.current,
+      ) !== null &&
+      Math.max(
+        Math.abs(gestureState.dx),
+        Math.abs(gestureState.dy),
+      ) > 6,
+    [],
+  );
+
+  const applyPendingRotation = useCallback(() => {
+    rotationFrameRef.current = null;
+    const nextBearing = pendingBearingRef.current;
+
+    if (
+      nextBearing === null ||
+      mapModeRef.current !== 'look'
+    ) {
       return;
     }
 
-    cameraRef.current?.flyTo({
-      center: userCoordinates,
-      zoom: 15,
-      duration: 750,
+    pendingBearingRef.current = null;
+    lookBearingRef.current = nextBearing;
+    cameraViewRef.current.bearing = nextBearing;
+    cameraViewRef.current.pitch = LOOK_AROUND_PITCH;
+    northArrowRotation.setValue(-nextBearing);
+
+    cameraRef.current?.jumpTo({
+      center: userCoordinates ?? HARVARD_YARD,
+      zoom: cameraViewRef.current.zoom,
+      bearing: nextBearing,
+      pitch: LOOK_AROUND_PITCH,
     });
+  }, [northArrowRotation, userCoordinates]);
+
+  const startLookRotation = useCallback((
+    event: GestureResponderEvent,
+  ) => {
+    setCompassActive(true);
+    wheelAngleRef.current = getWheelAngle(
+      event,
+      mapViewportRef.current,
+    );
+    wheelBearingRef.current =
+      pendingBearingRef.current ??
+      cameraViewRef.current.bearing;
+  }, []);
+
+  const rotateLookView = useCallback((
+    event: GestureResponderEvent,
+    gestureState: PanResponderGestureState,
+  ) => {
+    if (
+      mapModeRef.current !== 'look' ||
+      gestureState.numberActiveTouches !== 1
+    ) {
+      return;
+    }
+
+    const nextAngle = getWheelAngle(
+      event,
+      mapViewportRef.current,
+    );
+
+    if (nextAngle === null) {
+      wheelAngleRef.current = null;
+      return;
+    }
+
+    const previousAngle = wheelAngleRef.current;
+    wheelAngleRef.current = nextAngle;
+
+    if (previousAngle === null) {
+      return;
+    }
+
+    const angleDelta = unwrapAngleDelta(
+      nextAngle - previousAngle,
+    );
+    wheelBearingRef.current = normalizeBearing(
+      wheelBearingRef.current -
+        angleDelta *
+          (180 / Math.PI) *
+          WHEEL_ROTATION_MULTIPLIER,
+    );
+    pendingBearingRef.current = wheelBearingRef.current;
+
+    if (rotationFrameRef.current === null) {
+      rotationFrameRef.current = requestAnimationFrame(
+        applyPendingRotation,
+      );
+    }
+  }, [applyPendingRotation]);
+
+  const finishLookRotation = useCallback(() => {
+    wheelAngleRef.current = null;
+    setCompassActive(false);
+  }, []);
+
+  /* eslint-disable react-hooks/refs -- PanResponder stores callbacks for touch events; they do not read refs during render. */
+  const lookAroundPanResponder = useMemo(
+    () => PanResponder.create({
+      onMoveShouldSetPanResponderCapture:
+        shouldStartLookRotation,
+      onPanResponderGrant: startLookRotation,
+      onPanResponderMove: rotateLookView,
+      onPanResponderRelease: finishLookRotation,
+      onPanResponderTerminate: finishLookRotation,
+      onPanResponderTerminationRequest: () => true,
+    }),
+    [
+      finishLookRotation,
+      rotateLookView,
+      shouldStartLookRotation,
+      startLookRotation,
+    ],
+  );
+  /* eslint-enable react-hooks/refs */
+
+  useEffect(() => () => {
+    if (rotationFrameRef.current !== null) {
+      cancelAnimationFrame(rotationFrameRef.current);
+    }
+
+    if (recenterFrameRef.current !== null) {
+      cancelAnimationFrame(recenterFrameRef.current);
+    }
+  }, []);
+
+  const changeSimulationEnabled = (enabled: boolean) => {
+    if (enabled) {
+      setSimulatedCoordinates(HARVARD_YARD);
+      setSimulatedLocationEnabled(true);
+
+      if (mapModeRef.current === 'explore') {
+        cameraRef.current?.flyTo({
+          center: HARVARD_YARD,
+          zoom: cameraViewRef.current.zoom,
+          bearing: cameraViewRef.current.bearing,
+          pitch: LOOK_AROUND_PITCH,
+          duration: 800,
+        });
+      }
+
+      AccessibilityInfo.announceForAccessibility(
+        'Admin test GPS enabled in Harvard Yard.',
+      );
+      return;
+    }
+
+    setSimulatedLocationEnabled(false);
+    const nextCenter = liveCoordinates ?? HARVARD_YARD;
+
+    if (
+      mapModeRef.current === 'explore' ||
+      liveCoordinates === null
+    ) {
+      cameraRef.current?.flyTo({
+        center: nextCenter,
+        zoom: cameraViewRef.current.zoom,
+        bearing: cameraViewRef.current.bearing,
+        pitch: LOOK_AROUND_PITCH,
+        duration: 800,
+      });
+    }
+
+    AccessibilityInfo.announceForAccessibility(
+      liveCoordinates
+        ? 'Admin test GPS disabled. Returned to the device location.'
+        : 'Admin test GPS disabled. Device location is unavailable.',
+    );
+  };
+
+  const moveSimulationTo = (
+    coordinates: [number, number],
+  ) => {
+    setSimulatedCoordinates(coordinates);
+
+    if (mapModeRef.current === 'explore') {
+      cameraRef.current?.flyTo({
+        center: coordinates,
+        zoom: cameraViewRef.current.zoom,
+        bearing: cameraViewRef.current.bearing,
+        pitch: LOOK_AROUND_PITCH,
+        duration: 800,
+      });
+    }
+  };
+
+  const walkSimulatedPlayer = (
+    direction: SimulatorDirection,
+  ) => {
+    const viewBearing = cameraViewRef.current.bearing;
+    const directionOffset: Record<
+      SimulatorDirection,
+      number
+    > = {
+      up: 0,
+      right: 90,
+      down: 180,
+      left: -90,
+    };
+
+    setSimulatedCoordinates((currentCoordinates) =>
+      moveCoordinates(
+        currentCoordinates,
+        viewBearing + directionOffset[direction],
+        SIMULATOR_STEP_METERS,
+      ),
+    );
+  };
+
+  const recenterMap = async () => {
+    const camera = cameraRef.current;
+    const targetCoordinates = userCoordinates;
+
+    if (
+      !camera ||
+      !targetCoordinates ||
+      recenteringRef.current
+    ) {
+      return;
+    }
+
+    recenteringRef.current = true;
+    const targetZoom = cameraViewRef.current.zoom;
+    const targetBearing =
+      mapModeRef.current === 'look'
+        ? lookBearingRef.current
+        : cameraViewRef.current.bearing;
+
+    const visibleView = await mapRef.current
+      ?.getViewState()
+      .catch(() => undefined);
+
+    if (!visibleView) {
+      camera.jumpTo({
+        center: targetCoordinates,
+        zoom: targetZoom,
+        bearing: targetBearing,
+        pitch: LOOK_AROUND_PITCH,
+      });
+      recenteringRef.current = false;
+      return;
+    }
+
+    const startCoordinates = visibleView.center;
+    const distance = distanceBetweenCoordinates(
+      startCoordinates,
+      targetCoordinates,
+    );
+    const duration = Math.min(
+      RECENTER_MAXIMUM_DURATION_MS,
+      Math.max(
+        RECENTER_MINIMUM_DURATION_MS,
+        distance * RECENTER_MILLISECONDS_PER_METER,
+      ),
+    );
+    let startedAt: number | null = null;
+
+    const moveOneFrame = (timestamp: number) => {
+      startedAt ??= timestamp;
+      const progress = Math.min(
+        1,
+        (timestamp - startedAt) / duration,
+      );
+      const easedProgress = easeInOutCubic(progress);
+      const longitudeDelta =
+        ((targetCoordinates[0] -
+          startCoordinates[0] +
+          540) %
+          360) -
+        180;
+      const center: [number, number] = [
+        startCoordinates[0] +
+          longitudeDelta * easedProgress,
+        startCoordinates[1] +
+          (targetCoordinates[1] - startCoordinates[1]) *
+            easedProgress,
+      ];
+
+      camera.jumpTo({
+        center:
+          progress === 1 ? targetCoordinates : center,
+        zoom: targetZoom,
+        bearing: targetBearing,
+        pitch: LOOK_AROUND_PITCH,
+      });
+
+      if (progress < 1) {
+        recenterFrameRef.current = requestAnimationFrame(
+          moveOneFrame,
+        );
+        return;
+      }
+
+      recenterFrameRef.current = null;
+      recenteringRef.current = false;
+    };
+
+    recenterFrameRef.current = requestAnimationFrame(
+      moveOneFrame,
+    );
+  };
+
+  const changeMapZoom = useCallback((nextZoom: number) => {
+    const clampedZoom = Math.min(
+      MAXIMUM_MAP_ZOOM,
+      Math.max(MINIMUM_MAP_ZOOM, nextZoom),
+    );
+
+    mapZoomRef.current = clampedZoom;
+    setMapZoom(clampedZoom);
+    cameraViewRef.current.zoom = clampedZoom;
+
+    cameraRef.current?.jumpTo({
+      center: userCoordinates ?? HARVARD_YARD,
+      zoom: clampedZoom,
+      bearing: cameraViewRef.current.bearing,
+      pitch: LOOK_AROUND_PITCH,
+    });
+  }, [userCoordinates]);
+
+  const toggleMapMode = async () => {
+    if (mapMode === 'look') {
+      setCompassActive(false);
+      setMapMode('explore');
+      AccessibilityInfo.announceForAccessibility(
+        'Explore mode. Swipe to move around the map.',
+      );
+      return;
+    }
+
+    const center =
+      userCoordinates ??
+      (await mapRef.current?.getCenter()) ??
+      HARVARD_YARD;
+
+    lookBearingRef.current = 0;
+    northArrowRotation.setValue(0);
+    setCompassActive(false);
+    cameraViewRef.current = {
+      zoom: LOOK_AROUND_ZOOM,
+      bearing: 0,
+      pitch: LOOK_AROUND_PITCH,
+    };
+    setMapMode('look');
+    cameraRef.current?.flyTo({
+      center,
+      zoom: LOOK_AROUND_ZOOM,
+      bearing: 0,
+      pitch: LOOK_AROUND_PITCH,
+      duration: 900,
+    });
+    AccessibilityInfo.announceForAccessibility(
+      'Look Around mode. Recentered and facing north.',
+    );
+  };
+
+  const confirmResetTestingProgress = () => {
+    Alert.alert(
+      'Reset Your Test Progress?',
+      'This permanently deletes your check-ins, badge progress, and earned badges. No other account is affected.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: () => {
+            setResettingTestProgress(true);
+
+            void resetMyTestingProgress()
+              .then((result) => {
+                setSelectedPlace(null);
+                AccessibilityInfo.announceForAccessibility(
+                  'Your test check-ins and badge progress were reset.',
+                );
+                Alert.alert(
+                  'Test Progress Reset',
+                  `Removed ${result.deletedVisits} check-ins and ${result.deletedAwards} earned badges. You now have a fresh testing slate.`,
+                );
+              })
+              .catch((error) => {
+                Alert.alert(
+                  'Reset Unsuccessful',
+                  error instanceof Error
+                    ? error.message
+                    : 'Your test progress could not be reset.',
+                );
+              })
+              .finally(() => {
+                setResettingTestProgress(false);
+              });
+          },
+        },
+      ],
+    );
+  };
+
+  const awardTestBadge = () => {
+    if (awardingTestBadge) {
+      return;
+    }
+
+    setAwardingTestBadge(true);
+
+    void awardMyTestBadgeLevel()
+      .then((result) => {
+        AccessibilityInfo.announceForAccessibility(
+          `${result.badgeName}, test level ${result.level} awarded.`,
+        );
+      })
+      .catch((error) => {
+        Alert.alert(
+          'Test Award Unsuccessful',
+          error instanceof Error
+            ? error.message
+            : 'The test badge level could not be awarded.',
+        );
+      })
+      .finally(() => {
+        setAwardingTestBadge(false);
+      });
   };
 
   const toggleLocationList = () => {
@@ -291,85 +984,89 @@ export default function MapScreen() {
           modalContentVisible ? 'none' : 'auto'
         }
         style={styles.mapLayer}>
-        <Map
-          accessible={false}
+        <View
+          onLayout={(event) => {
+            const { width, height } =
+              event.nativeEvent.layout;
+            mapViewportRef.current = { width, height };
+          }}
           style={styles.map}
-          mapStyle="https://tiles.openfreemap.org/styles/liberty">
-          <Camera
-            ref={cameraRef}
-            key={
-              userCoordinates
-                ? 'user-location'
-                : 'harvard-yard'
-            }
-            initialViewState={{
-              center: startingCenter,
-              zoom: 15,
+          {...lookAroundPanResponder.panHandlers}>
+          <Map
+            ref={mapRef}
+            accessible={false}
+            attribution={false}
+            compass={false}
+            doubleTapHoldZoom={false}
+            doubleTapZoom={false}
+            dragPan={mapMode === 'explore'}
+            light={{
+              color: '#FFF4DD',
+              intensity: 0.58,
+              position: [1.5, 210, 35],
             }}
-          />
+            mapStyle={STORYBOOK_MAP_STYLE}
+            onRegionIsChanging={(event) => {
+              const { zoom, bearing, pitch } =
+                event.nativeEvent;
 
-          {places.map((place) => {
-            const isVisited =
-              visitedLocationIds.has(place.id);
+              cameraViewRef.current = {
+                zoom,
+                bearing,
+                pitch,
+              };
 
-            const isSelected =
-              selectedPlace?.id === place.id;
+              if (
+                Math.abs(mapZoomRef.current - zoom) > 0.01
+              ) {
+                mapZoomRef.current = zoom;
+                setMapZoom(zoom);
+              }
 
-            return (
+              if (mapModeRef.current === 'look') {
+                lookBearingRef.current = bearing;
+              }
+
+              northArrowRotation.setValue(
+                -normalizeBearing(bearing),
+              );
+            }}
+            style={styles.mapCanvas}
+            touchPitch={false}
+            touchRotate={false}>
+            <Camera
+              ref={cameraRef}
+              initialViewState={{
+                center: startingCenter,
+                zoom: LOOK_AROUND_ZOOM,
+                bearing: 0,
+                pitch: LOOK_AROUND_PITCH,
+              }}
+            />
+
+            <StorybookMapLayers />
+
+            <LocationPinLayer
+              onSelect={(place) =>
+                selectPlace(place, false)
+              }
+              places={places}
+              selectedPlaceId={selectedPlace?.id}
+              visitedLocationIds={visitedLocationIds}
+            />
+
+            {userCoordinates && (
               <Marker
-                key={place.id}
-                id={place.id}
-                lngLat={place.coordinates}
-                anchor="bottom"
-                onPress={() =>
-                  selectPlace(place, false)
-                }>
-                <View
-                  accessible={false}
-                  style={[
-                    styles.pin,
-                    isVisited && styles.visitedPin,
-                    isSelected && styles.selectedPin,
-                    isVisited &&
-                      isSelected &&
-                      styles.selectedVisitedPin,
-                  ]}>
-                  {isVisited ? (
-                    <Text
-                      accessible={false}
-                      allowFontScaling={false}
-                      style={styles.visitedPinCheck}>
-                      ✓
-                    </Text>
-                  ) : (
-                    <View
-                      accessible={false}
-                      style={styles.pinCenter}
-                    />
-                  )}
-                </View>
+                id="current-user-location"
+                lngLat={userCoordinates}
+                anchor="center">
+                <PlayerMarker />
               </Marker>
-            );
-          })}
+            )}
+          </Map>
+        </View>
 
-          {userCoordinates && (
-            <Marker
-              id="current-user-location"
-              lngLat={userCoordinates}
-              anchor="center">
-              <View
-                accessible={false}
-                style={styles.userLocationOuter}>
-                <View
-                  accessible={false}
-                  style={styles.userLocationInner}
-                />
-              </View>
-            </Marker>
-          )}
-        </Map>
-
-        {locationMessage !== '' && (
+        {locationMessage !== '' && !simulationIsActive && (
           <View
             accessibilityLiveRegion="polite"
             style={[
@@ -445,36 +1142,109 @@ export default function MapScreen() {
           </View>
         )}
 
+        {!modalContentVisible ? (
+          <View
+            accessible
+            accessibilityLabel="Map data by OpenStreetMap contributors, map tiles by OpenFreeMap"
+            pointerEvents="none"
+            style={[
+              styles.mapCredit,
+              { bottom: BottomTabInset + 4 },
+            ]}>
+            <Text style={styles.mapCreditText}>
+              © OpenStreetMap · OpenFreeMap
+            </Text>
+          </View>
+        ) : null}
+
+        {!modalContentVisible ? (
+          <MapModeButton
+            compassActive={compassActive}
+            mode={mapMode}
+            northArrowRotation={northArrowRotation}
+            onPress={toggleMapMode}
+            right={16}
+            top={insets.top + 12}
+          />
+        ) : null}
+
+        {!modalContentVisible ? (
+          <MapZoomControl
+            maximumValue={MAXIMUM_MAP_ZOOM}
+            minimumValue={MINIMUM_MAP_ZOOM}
+            onChange={changeMapZoom}
+            top={insets.top + 12 + MAP_CONTROL_STEP}
+            value={mapZoom}
+          />
+        ) : null}
+
         {!locationsAreLoading &&
           places.length > 0 &&
-          !modalContentVisible && (
+          !modalContentVisible ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Open location list"
+              accessibilityLabel="Locations list"
               accessibilityHint="Opens an accessible list of locations on the map"
               accessibilityState={{
                 expanded: locationListVisible,
               }}
               onPress={toggleLocationList}
               style={({ pressed }) => [
-                styles.locationListButton,
+                styles.mapControlButton,
                 {
-                  bottom: BottomTabInset + 12,
+                  top:
+                    insets.top +
+                    12 +
+                    MAP_CONTROL_STEP * 2,
                 },
-                pressed &&
-                  styles.locationListButtonPressed,
+                pressed && styles.mapControlButtonPressed,
               ]}>
-              <Text
-                style={styles.locationListButtonText}>
-                Location list
-              </Text>
+              <View
+                accessible={false}
+                style={styles.locationListIcon}>
+                {[0, 1, 2].map((line) => (
+                  <View
+                    key={line}
+                    style={styles.locationListIconRow}>
+                    <View style={styles.locationListIconDot} />
+                    <View style={styles.locationListIconLine} />
+                  </View>
+                ))}
+              </View>
             </Pressable>
-          )}
+          ) : null}
+
+        {isAdmin && !modalContentVisible && (
+          <AdminLocationSimulator
+            awardingBadge={awardingTestBadge}
+            coordinates={simulatedCoordinates}
+            enabled={simulationIsActive}
+            onAwardBadge={awardTestBadge}
+            onCoordinatesChange={moveSimulationTo}
+            onEnabledChange={changeSimulationEnabled}
+            onResetProgress={confirmResetTestingProgress}
+            onStep={walkSimulatedPlayer}
+            resettingProgress={resettingTestProgress}
+            top={
+              insets.top +
+              12 +
+              MAP_CONTROL_STEP * 4
+            }
+          />
+        )}
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Recenter map on my location"
-          accessibilityHint="Moves the map back to your current position"
+          accessibilityLabel={
+            simulationIsActive
+              ? 'Recenter map on test player'
+              : 'Recenter map on my location'
+          }
+          accessibilityHint={
+            simulationIsActive
+              ? 'Moves the map back to the admin test player'
+              : 'Moves the map back to your current position'
+          }
           accessibilityState={{
             disabled: !userCoordinates,
           }}
@@ -483,7 +1253,10 @@ export default function MapScreen() {
           style={({ pressed }) => [
             styles.recenterButton,
             {
-              bottom: BottomTabInset + 12,
+              top:
+                insets.top +
+                12 +
+                MAP_CONTROL_STEP * 3,
             },
             !userCoordinates &&
               styles.recenterButtonDisabled,
@@ -611,6 +1384,12 @@ export default function MapScreen() {
                   </Pressable>
                 );
               })}
+
+              <Text
+                accessibilityLabel="Map data by OpenStreetMap contributors, map tiles by OpenFreeMap"
+                style={styles.mapAttribution}>
+                Map data © OpenStreetMap contributors · OpenFreeMap
+              </Text>
             </ScrollView>
           </View>
         )}
@@ -619,6 +1398,7 @@ export default function MapScreen() {
         <LocationPopup
           place={selectedPlace}
           userCoordinates={userCoordinates}
+          usingTestCoordinates={simulationIsActive}
           onClose={closeSelectedPlace}
         />
       )}
@@ -636,57 +1416,12 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
-  pin: {
-    width: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#c62828',
-    borderColor: '#ffffff',
-    borderWidth: 3,
-    borderRadius: 14,
-  },
-  visitedPin: {
-    backgroundColor: '#18864B',
-    borderRadius: 6,
-  },
-  selectedPin: {
-    width: 36,
-    height: 36,
-    backgroundColor: '#8b0000',
-    borderRadius: 18,
-  },
-  selectedVisitedPin: {
-    backgroundColor: '#0E5A31',
-    borderRadius: 8,
-  },
-  visitedPinCheck: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '800',
-    lineHeight: 20,
-  },
-  pinCenter: {
-    width: 7,
-    height: 7,
-    backgroundColor: '#ffffff',
-    borderRadius: 4,
-  },
-  userLocationOuter: {
-    width: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(32, 138, 239, 0.25)',
-    borderRadius: 14,
-  },
-  userLocationInner: {
-    width: 16,
-    height: 16,
-    backgroundColor: '#208AEF',
-    borderColor: '#ffffff',
-    borderWidth: 3,
-    borderRadius: 8,
+  mapCanvas: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
   },
   locationMessage: {
     position: 'absolute',
@@ -732,14 +1467,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
   },
-  locationListButton: {
+  mapCredit: {
     position: 'absolute',
-    left: 18,
-    minHeight: 52,
+    left: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    backgroundColor: 'rgba(255, 248, 231, 0.82)',
+    borderRadius: 5,
+  },
+  mapCreditText: {
+    color: '#50615D',
+    fontSize: 9,
+    lineHeight: 12,
+  },
+  mapControlButton: {
+    position: 'absolute',
+    right: 18,
+    width: 52,
+    height: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 18,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FFF8E7',
+    borderColor: '#2F7E78',
+    borderWidth: 2,
     borderRadius: 26,
     elevation: 5,
     shadowColor: '#000000',
@@ -750,13 +1500,29 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
   },
-  locationListButtonPressed: {
+  mapControlButtonPressed: {
     opacity: 0.75,
+    transform: [{ scale: 0.96 }],
   },
-  locationListButtonText: {
-    color: '#174E80',
-    fontSize: 15,
-    fontWeight: '700',
+  locationListIcon: {
+    gap: 4,
+  },
+  locationListIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  locationListIconDot: {
+    width: 4,
+    height: 4,
+    backgroundColor: '#24423F',
+    borderRadius: 2,
+  },
+  locationListIconLine: {
+    width: 21,
+    height: 3,
+    backgroundColor: '#24423F',
+    borderRadius: 2,
   },
   locationListPanel: {
     position: 'absolute',
@@ -818,6 +1584,13 @@ const styles = StyleSheet.create({
     padding: 18,
     paddingBottom: 28,
   },
+  mapAttribution: {
+    paddingTop: 4,
+    color: '#66736F',
+    fontSize: 11,
+    lineHeight: 16,
+    textAlign: 'center',
+  },
   locationListItem: {
     gap: 4,
     minHeight: 56,
@@ -875,7 +1648,9 @@ const styles = StyleSheet.create({
     height: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FFF8E7',
+    borderColor: '#2F7E78',
+    borderWidth: 2,
     borderRadius: 26,
     elevation: 5,
     shadowColor: '#000000',
@@ -891,9 +1666,10 @@ const styles = StyleSheet.create({
   },
   recenterButtonPressed: {
     opacity: 0.75,
+    transform: [{ scale: 0.96 }],
   },
   recenterButtonIcon: {
-    color: '#208AEF',
+    color: '#24423F',
     fontSize: 32,
     fontWeight: '700',
     lineHeight: 34,

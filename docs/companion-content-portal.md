@@ -189,9 +189,13 @@ Whenever a badge is first earned or a repeatable badge reaches another level, it
 
 Specific-location badges remain one-time awards because each location can only be collected once, so they must use the Special Place or Seasonal classification.
 
-### Badge celebration preference
+### Badge celebrations
 
-Collection includes a Use Quick Banner Celebrations toggle. Full-screen celebrations remain the default. When the toggle is on, newly earned badges and levels appear in a compact banner at the top of the app instead of covering the screen. The banner can be dismissed immediately and otherwise closes after six seconds. The preference is stored on the current device and browser.
+Celebration size is automatic. Earning Level 1 of a badge, including a one-time badge, uses the full-screen celebration. Level 2 and every later repeatable level use a compact banner at the top of the app. The banner can be dismissed immediately and otherwise closes after six seconds. Collection does not include a separate celebration preference toggle.
+
+The full-screen celebration presents the badge artwork, badge name, level when applicable, and the selected congratulations message. It does not repeat the badge's editor description, preventing internal drafting notes or scheduling shorthand from appearing in the celebration.
+
+For repeated mobile testing, a signed-in administrator can open Test GPS on the map and choose Reset Test Progress. The action requires destructive confirmation and deletes only that administrator's check-ins, badge progress, and earned badge awards. Clearing check-ins is necessary because badge progress is recalculated from visit history. Award Test Badge then awards sequential levels of an active repeatable badge without check-ins, allowing Level 1 popup and Level 2 banner testing back to back.
 
 ### Badge artwork
 
