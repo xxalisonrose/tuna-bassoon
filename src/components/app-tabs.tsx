@@ -42,7 +42,7 @@ export default function AppTabs() {
 
       <NativeTabs.Trigger name="collection">
         <NativeTabs.Trigger.Label>
-          Collection
+          Passport
         </NativeTabs.Trigger.Label>
 
         <NativeTabs.Trigger.Icon
@@ -50,7 +50,7 @@ export default function AppTabs() {
             default: 'book.closed',
             selected: 'book.closed.fill',
           }}
-          md="collections_bookmark"
+          md="menu_book"
         />
       </NativeTabs.Trigger>
     </NativeTabs>

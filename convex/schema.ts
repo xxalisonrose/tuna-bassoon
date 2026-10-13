@@ -32,6 +32,47 @@ export default defineSchema({
     retiredAt: v.optional(v.number()),
   }).index('by_key', ['key']),
 
+  userProfiles: defineTable({
+    clerkUserId: v.string(),
+    avatarPresetId: v.union(
+      v.literal('explorer'),
+      v.literal('trail_basics'),
+      v.literal('custom'),
+    ),
+    avatarTopId: v.optional(
+      v.union(
+        v.literal('trail_tank'),
+        v.literal('explorer_field'),
+      ),
+    ),
+    avatarBottomId: v.optional(
+      v.union(
+        v.literal('trail_shorts'),
+        v.literal('explorer_cargo'),
+      ),
+    ),
+    avatarShoesId: v.optional(
+      v.union(
+        v.literal('bare_hooves'),
+        v.literal('explorer_boots'),
+      ),
+    ),
+    avatarNeckId: v.optional(
+      v.union(
+        v.literal('none'),
+        v.literal('rust_neckerchief'),
+      ),
+    ),
+    avatarFaceId: v.optional(
+      v.union(
+        v.literal('none'),
+        v.literal('explorer_goggles'),
+      ),
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index('by_user', ['clerkUserId']),
+
   visits: defineTable({
     clerkUserId: v.string(),
     locationId: v.id('locations'),

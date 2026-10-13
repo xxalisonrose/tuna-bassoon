@@ -78,7 +78,7 @@ export default function AppTabsWeb() {
 
           <NavLink href="/" label="Home" />
           <NavLink href="/map" label="Map" />
-          <NavLink href="/collection" label="Collection" />
+          <NavLink href="/collection" label="Passport" />
 
           {currentUser?.isAdmin && (
             <>

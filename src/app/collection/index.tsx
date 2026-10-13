@@ -3,6 +3,7 @@ import {
   useMutation,
   useQuery,
 } from 'convex/react';
+import { type Href, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,15 +14,19 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AvatarPreview } from '@/components/avatar-preview';
 import { BadgeArtwork } from '@/components/badge-artwork';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
   BottomTabInset,
   MaxContentWidth,
+  Palette,
   Spacing,
 } from '@/constants/theme';
-import { api } from '../../convex/_generated/api';
+import { api } from '../../../convex/_generated/api';
+
+const avatarRoute = '/collection/avatar' as Href;
 
 type BadgeFilter =
   | 'all'
@@ -97,11 +102,21 @@ function getBadgeSeriesCandidateName(badge: {
     : badge.name.replace(/\s+\d{4}$/, '');
 }
 
-export default function CollectionScreen() {
+export default function PassportScreen() {
+  const router = useRouter();
   const {
     isAuthenticated,
     isLoading: isAuthenticationLoading,
   } = useConvexAuth();
+
+  const currentUser = useQuery(
+    api.users.getCurrentUser,
+    isAuthenticated ? {} : 'skip',
+  );
+  const avatarProfile = useQuery(
+    api.users.getMyAvatarProfile,
+    isAuthenticated ? {} : 'skip',
+  );
 
   const syncMyAwards = useMutation(api.badges.syncMyAwards);
   const hasSyncedAwards = useRef(false);
@@ -141,7 +156,7 @@ export default function CollectionScreen() {
     return (
       <ThemedView style={styles.centeredContainer}>
         <ActivityIndicator
-          accessibilityLabel="Loading your collection"
+          accessibilityLabel="Loading your passport"
           accessibilityRole="progressbar"
           size="large"
         />
@@ -160,14 +175,14 @@ export default function CollectionScreen() {
               accessibilityRole="header"
               type="title"
               style={styles.centeredText}>
-              Your Collection
+              Your Passport
             </ThemedText>
 
             <ThemedText
               themeColor="textSecondary"
               style={styles.centeredText}>
-              Sign in from the Home tab to view your collected
-              location stamps and badge progress.
+              Sign in from the Home tab to view your explorer,
+              visited places, and badge progress.
             </ThemedText>
           </ThemedView>
         </SafeAreaView>
@@ -177,7 +192,9 @@ export default function CollectionScreen() {
 
   if (
     visits === undefined ||
-    badgeProgress === undefined
+    badgeProgress === undefined ||
+    currentUser === undefined ||
+    avatarProfile === undefined
   ) {
     return (
       <ThemedView style={styles.centeredContainer}>
@@ -190,7 +207,7 @@ export default function CollectionScreen() {
         <ThemedText
           accessibilityLiveRegion="polite"
           themeColor="textSecondary">
-          Loading your collection...
+          Loading your passport...
         </ThemedText>
       </ThemedView>
     );
@@ -204,6 +221,10 @@ export default function CollectionScreen() {
   const earnedBadgeCount = badgeProgress.filter(
     (badge) => badge.earned,
   ).length;
+  const totalBadgeLevels = badgeProgress.reduce(
+    (total, badge) => total + badge.currentLevel,
+    0,
+  );
 
   const getBadgeDisplayStatus = (
     badge: (typeof badgeProgress)[number],
@@ -302,10 +323,11 @@ export default function CollectionScreen() {
       return firstBadge.name.localeCompare(secondBadge.name);
     });
 
-  const collectionSummary =
-    `Collection summary. ${visits.length} location ` +
-    `${visits.length === 1 ? 'stamp' : 'stamps'} collected. ` +
-    `${earnedBadgeCount} of ${badgeProgress.length} badges earned.`;
+  const passportSummary =
+    `Passport summary. ${visits.length} ` +
+    `${visits.length === 1 ? 'place' : 'places'} visited. ` +
+    `${earnedBadgeCount} of ${badgeProgress.length} badges earned. ` +
+    `${totalBadgeLevels} total badge ${totalBadgeLevels === 1 ? 'level' : 'levels'}.`;
 
   return (
     <ThemedView style={styles.container}>
@@ -317,18 +339,60 @@ export default function CollectionScreen() {
             <ThemedText
               accessibilityRole="header"
               type="title">
-              Your Collection
+              Your Passport
             </ThemedText>
 
             <ThemedText themeColor="textSecondary">
-              Track your Harvard location stamps and unlock
-              badges as you explore.
+              Keep your explorer, discoveries, and badge progress
+              together as you travel around Harvard.
             </ThemedText>
           </View>
 
+          <ThemedView
+            type="backgroundElement"
+            style={styles.avatarCard}>
+            <AvatarPreview
+              presetId={avatarProfile.avatarPresetId}
+              selection={avatarProfile.selection}
+              size={184}
+            />
+
+            <View style={styles.avatarDetails}>
+              <ThemedText type="smallBold" themeColor="textSecondary">
+                YOUR EXPLORER
+              </ThemedText>
+              <ThemedText
+                accessibilityRole="header"
+                type="subtitle"
+                style={styles.avatarName}>
+                {currentUser?.name ?? 'Harvard Explorer'}
+              </ThemedText>
+              <ThemedText
+                themeColor="textSecondary"
+                style={styles.avatarDescription}>
+                Mix and match your saved clothing and accessories here.
+                This same look can follow you into future avatar features.
+              </ThemedText>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Customize Avatar"
+                onPress={() => router.push(avatarRoute)}
+                style={({ pressed }) => [
+                  styles.avatarButton,
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText
+                  type="smallBold"
+                  style={styles.avatarButtonText}>
+                  Customize Avatar
+                </ThemedText>
+              </Pressable>
+            </View>
+          </ThemedView>
+
           <View
             accessible
-            accessibilityLabel={collectionSummary}>
+            accessibilityLabel={passportSummary}>
             <ThemedView
               type="backgroundElement"
               style={styles.summaryCard}>
@@ -344,7 +408,7 @@ export default function CollectionScreen() {
                   type="small"
                   themeColor="textSecondary"
                   style={styles.centeredText}>
-                  Stamps
+                  Places
                 </ThemedText>
               </View>
 
@@ -366,7 +430,7 @@ export default function CollectionScreen() {
                   type="small"
                   themeColor="textSecondary"
                   style={styles.centeredText}>
-                  Earned
+                  Badges
                 </ThemedText>
               </View>
 
@@ -381,14 +445,14 @@ export default function CollectionScreen() {
                 importantForAccessibility="no-hide-descendants"
                 style={styles.summaryItem}>
                 <ThemedText type="title">
-                  {badgeProgress.length}
+                  {totalBadgeLevels}
                 </ThemedText>
 
                 <ThemedText
                   type="small"
                   themeColor="textSecondary"
                   style={styles.centeredText}>
-                  Badges
+                  Levels
                 </ThemedText>
               </View>
             </ThemedView>
@@ -664,18 +728,18 @@ export default function CollectionScreen() {
               accessible
               accessibilityRole="header"
               accessibilityLabel={
-                `Location stamps. ${visits.length} ` +
+                `Visited places. ${visits.length} ` +
                 `${
                   visits.length === 1
-                    ? 'stamp'
-                    : 'stamps'
+                    ? 'place'
+                    : 'places'
                 } collected.`
               }
               style={styles.sectionHeading}>
               <ThemedText
                 accessible={false}
                 type="subtitle">
-                Location Stamps
+                Visited Places
               </ThemedText>
 
               <ThemedText
@@ -694,14 +758,14 @@ export default function CollectionScreen() {
                   accessibilityRole="header"
                   type="subtitle"
                   style={styles.centeredText}>
-                  No stamps yet
+                  No visited places yet
                 </ThemedText>
 
                 <ThemedText
                   themeColor="textSecondary"
                   style={styles.centeredText}>
                   Visit a location on the Map tab and check in
-                  while you are within 80 meters.
+                  while you are within 80 meters to add it here.
                 </ThemedText>
               </ThemedView>
             ) : (
@@ -829,6 +893,43 @@ const styles = StyleSheet.create({
   },
   centeredText: {
     textAlign: 'center',
+  },
+  avatarCard: {
+    alignItems: 'center',
+    borderRadius: Spacing.four,
+    flexDirection: 'column',
+    gap: Spacing.three,
+    padding: Spacing.four,
+  },
+  avatarDetails: {
+    alignItems: 'center',
+    gap: Spacing.two,
+    width: '100%',
+  },
+  avatarName: {
+    fontSize: 28,
+    lineHeight: 34,
+    textAlign: 'center',
+  },
+  avatarDescription: {
+    maxWidth: 520,
+    textAlign: 'center',
+  },
+  avatarButton: {
+    alignItems: 'center',
+    alignSelf: 'center',
+    backgroundColor: Palette.lightBronze,
+    borderRadius: Spacing.two,
+    justifyContent: 'center',
+    marginTop: Spacing.one,
+    maxWidth: 360,
+    minHeight: 50,
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.two,
+    width: '100%',
+  },
+  avatarButtonText: {
+    color: Palette.ink,
   },
   summaryCard: {
     flexDirection: 'row',

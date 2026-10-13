@@ -1464,7 +1464,7 @@ function BadgeForm({
         items={[
           {
             label: 'Name',
-            description: 'The public badge title visitors see in Collection and in the celebration popup.',
+            description: 'The public badge title visitors see in Passport and in the celebration popup.',
           },
           {
             label: 'Stable Key',
@@ -1802,7 +1802,7 @@ function BadgeForm({
         items={[
           {
             label: 'Description',
-            description: 'The public explanation of what this badge recognizes and how the visitor earns it. Keep it concise enough to read comfortably in Collection.',
+            description: 'The public explanation of what this badge recognizes and how the visitor earns it. Keep it concise enough to read comfortably in Passport.',
           },
         ]}
       />

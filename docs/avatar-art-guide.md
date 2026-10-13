@@ -136,3 +136,16 @@ The approved concept and reference PNGs were generated from Dan's original hand-
 3. Test the Avatar page, home preview, and map presentation.
 4. Record the artist, creation date, permission or license, and replacement path in `docs/artwork-provenance.md`.
 5. Move the superseded entry out of the active-placeholder section only after the replacement is live and verified.
+
+
+## Current prototype wardrobe layers
+
+The first item-level prototype uses the neutral reference as its base and stacks five 1254 × 1254 transparent overlays:
+
+- `items/top/avatar-top-explorer-field.png`
+- `items/bottom/avatar-bottom-explorer-cargo.png`
+- `items/shoes/avatar-shoes-explorer-boots.png`
+- `items/neck/avatar-neck-rust-neckerchief.png`
+- `items/face/avatar-face-explorer-goggles.png`
+
+The Trail Tank and Trail Shorts remain baked into the neutral reference during this prototype. Final production artwork should split those garments from the body layer while preserving the current stable item IDs.

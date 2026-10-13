@@ -13,6 +13,11 @@ Only assets with confirmed provenance belong in a specific section. Do not guess
 | `assets/images/avatar/concepts/explorer-cow-concept-v1.png` | Approved visual-direction sheet for the future avatar system; not currently shown at runtime | Generated on October 13, 2026 with OpenAI image generation from Dan's original hand-drawn cow-avatar sketch and the agreed explorer direction | Replace with a human-created or commissioned character model sheet before final art is locked |
 | `assets/images/avatar/references/avatar-neutral-reference.png` | Transparent neutral fitting reference for avatar proportions and clothing alignment; not currently shown at runtime | Generated on October 13, 2026 from the approved concept sheet and Dan's original sketch | Replace with a final human-drawn neutral body while preserving the 2048 template geometry and stable body ID |
 | `assets/images/avatar/references/avatar-explorer-reference.png` | Transparent reference for the default explorer outfit; intended for prototype fitting and future avatar-page work | Generated on October 13, 2026 by dressing the approved neutral reference while preserving its pose and character design | Replace each visible clothing component with aligned human-created layers using the avatar art kit |
+| `assets/images/avatar/items/top/avatar-top-explorer-field.png` | Layered wardrobe prototype: explorer field shirt and olive utility vest | Generated on October 13, 2026 from the neutral and explorer references, then iteratively scaled and aligned on the shared transparent canvas | Replace with a human-created top layer while preserving the stable item ID and full-canvas alignment |
+| `assets/images/avatar/items/bottom/avatar-bottom-explorer-cargo.png` | Layered wardrobe prototype: tan cargo shorts and belt | Generated on October 13, 2026 from the neutral and explorer references, then scaled and aligned on the shared transparent canvas | Replace with a human-created bottom layer while preserving the stable item ID and full-canvas alignment |
+| `assets/images/avatar/items/shoes/avatar-shoes-explorer-boots.png` | Layered wardrobe prototype: brown walking boots and sock cuffs | Generated on October 13, 2026 from the neutral and explorer references, then scaled and aligned on the shared transparent canvas | Replace with a human-created shoe layer while preserving the stable item ID and full-canvas alignment |
+| `assets/images/avatar/items/neck/avatar-neck-rust-neckerchief.png` | Layered wardrobe prototype: rust-red neckerchief | Generated on October 13, 2026 from the neutral and explorer references, then scaled and aligned on the shared transparent canvas | Replace with a human-created neck layer while preserving the stable item ID and full-canvas alignment |
+| `assets/images/avatar/items/face/avatar-face-explorer-goggles.png` | Layered wardrobe prototype: round bronze explorer goggles | Generated on October 13, 2026 from the neutral and explorer references, then scaled and aligned on the shared transparent canvas | Replace with a human-created face-accessory layer while preserving the stable item ID and full-canvas alignment |
 
 ### Generation notes
 
@@ -42,3 +47,8 @@ No other repository artwork has been added here yet. Older bundled badge images,
 ## Adding future placeholders
 
 For each new placeholder, record its repository path, where it appears, how it was created, the date it was introduced, and the intended replacement. Move an entry out of the placeholder list only after the replacement is in the application and has been tested.
+
+
+### Layered avatar generation notes
+
+Each wardrobe prompt requested one isolated garment or accessory from the approved Explorer reference, genuine transparency, the complete square canvas, and alignment to the neutral fitting reference. Follow-up edits changed only scale and position so the pieces could be stacked in the app. These files remain prototype placeholders even when their alignment is sufficient for testing.
