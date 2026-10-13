@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2048" height="2048" viewBox="0 0 2048 2048">
+  <title>Tuna Bassoon Avatar Proportion Guide</title>
+  <desc>Deterministic 2048 pixel front-facing cow avatar template with centerline, safe zones, joint guides, and accessory anchor points.</desc>
+  <defs>
+    <style>
+      .background { fill: #fffdf2; }
+      .outer-safe { fill: none; stroke: #855b38; stroke-width: 8; stroke-dasharray: 24 18; }
+      .map-safe { fill: #e9edc9; fill-opacity: .34; stroke: #8a8068; stroke-width: 6; stroke-dasharray: 14 14; }
+      .center { stroke: #a43c32; stroke-width: 6; stroke-dasharray: 20 14; }
+      .guide { stroke: #c8bf9a; stroke-width: 4; stroke-dasharray: 12 14; }
+      .guide-label { fill: #625f50; font: 30px system-ui, sans-serif; }
+      .title { fill: #2e2d25; font: 700 48px system-ui, sans-serif; }
+      .subtitle { fill: #625f50; font: 30px system-ui, sans-serif; }
+      .mannequin-fill { fill: #faedcd; stroke: #2e2d25; stroke-width: 14; }
+      .mannequin-line { fill: none; stroke: #2e2d25; stroke-width: 82; stroke-linecap: round; stroke-linejoin: round; }
+      .joint { fill: #fffdf2; stroke: #2e2d25; stroke-width: 10; }
+      .anchor { fill: #d4a373; stroke: #2e2d25; stroke-width: 8; }
+      .anchor-label { fill: #2e2d25; font: 700 28px system-ui, sans-serif; }
+      .note { fill: #625f50; font: 26px system-ui, sans-serif; }
+    </style>
+  </defs>
+
+  <g id="canvas-background">
+    <rect class="background" width="2048" height="2048" />
+  </g>
+
+  <g id="safe-zones">
+    <rect class="outer-safe" x="256" y="96" width="1536" height="1844" rx="28" />
+    <rect class="map-safe" x="452" y="210" width="1144" height="1660" rx="36" />
+    <text class="guide-label" x="276" y="140">FULL AVATAR SAFE ZONE</text>
+    <text class="guide-label" x="472" y="254">SMALL MAP READABILITY ZONE</text>
+  </g>
+
+  <g id="measurement-guides">
+    <line class="center" x1="1024" y1="96" x2="1024" y2="1940" />
+    <line class="guide" x1="256" y1="180" x2="1792" y2="180" />
+    <line class="guide" x1="256" y1="400" x2="1792" y2="400" />
+    <line class="guide" x1="256" y1="570" x2="1792" y2="570" />
+    <line class="guide" x1="256" y1="650" x2="1792" y2="650" />
+    <line class="guide" x1="256" y1="1050" x2="1792" y2="1050" />
+    <line class="guide" x1="256" y1="1160" x2="1792" y2="1160" />
+    <line class="guide" x1="256" y1="1260" x2="1792" y2="1260" />
+    <line class="guide" x1="256" y1="1515" x2="1792" y2="1515" />
+    <line class="guide" x1="256" y1="1800" x2="1792" y2="1800" />
+    <line class="center" x1="256" y1="1920" x2="1792" y2="1920" />
+    <text class="guide-label" x="270" y="171">Headwear top</text>
+    <text class="guide-label" x="270" y="391">Face</text>
+    <text class="guide-label" x="270" y="561">Neck</text>
+    <text class="guide-label" x="270" y="641">Shoulders</text>
+    <text class="guide-label" x="270" y="1041">Waist</text>
+    <text class="guide-label" x="270" y="1151">Hips</text>
+    <text class="guide-label" x="270" y="1251">Hands</text>
+    <text class="guide-label" x="270" y="1506">Knees</text>
+    <text class="guide-label" x="270" y="1791">Ankles</text>
+    <text class="guide-label" x="270" y="1911">Ground baseline</text>
+  </g>
+
+  <g id="blank-cow-mannequin">
+    <path class="mannequin-fill" d="M884 302 C810 258 732 270 668 336 C742 380 812 390 884 354 Z" />
+    <path class="mannequin-fill" d="M1164 302 C1238 258 1316 270 1380 336 C1306 380 1236 390 1164 354 Z" />
+    <path class="mannequin-fill" d="M900 220 C852 146 848 104 878 76 C922 134 936 176 930 232 Z" />
+    <path class="mannequin-fill" d="M1148 220 C1196 146 1200 104 1170 76 C1126 134 1112 176 1118 232 Z" />
+    <ellipse class="mannequin-fill" cx="1024" cy="352" rx="174" ry="202" />
+    <ellipse class="mannequin-fill" cx="1024" cy="442" rx="118" ry="76" />
+    <rect class="mannequin-fill" x="948" y="520" width="152" height="148" rx="58" />
+    <path class="mannequin-fill" d="M790 650 Q1024 580 1258 650 L1188 1090 Q1024 1140 860 1090 Z" />
+    <path class="mannequin-fill" d="M854 1090 Q1024 1048 1194 1090 L1224 1200 Q1024 1254 824 1200 Z" />
+
+    <polyline class="mannequin-line" points="806,676 704,914 676,1258" />
+    <polyline class="mannequin-line" points="1242,676 1344,914 1372,1258" />
+    <ellipse class="mannequin-fill" cx="676" cy="1268" rx="58" ry="76" />
+    <ellipse class="mannequin-fill" cx="1372" cy="1268" rx="58" ry="76" />
+
+    <polyline class="mannequin-line" points="916,1190 878,1515 850,1830" />
+    <polyline class="mannequin-line" points="1132,1190 1170,1515 1198,1830" />
+    <ellipse class="mannequin-fill" cx="842" cy="1880" rx="108" ry="64" />
+    <ellipse class="mannequin-fill" cx="1206" cy="1880" rx="108" ry="64" />
+
+    <path class="mannequin-line" d="M852 1160 C670 1300 640 1510 726 1638" style="stroke-width:52" />
+
+    <circle class="joint" cx="806" cy="676" r="24" />
+    <circle class="joint" cx="1242" cy="676" r="24" />
+    <circle class="joint" cx="704" cy="914" r="24" />
+    <circle class="joint" cx="1344" cy="914" r="24" />
+    <circle class="joint" cx="916" cy="1190" r="24" />
+    <circle class="joint" cx="1132" cy="1190" r="24" />
+    <circle class="joint" cx="878" cy="1515" r="24" />
+    <circle class="joint" cx="1170" cy="1515" r="24" />
+  </g>
+
+  <g id="attachment-anchors">
+    <circle class="anchor" cx="1024" cy="180" r="22" />
+    <text class="anchor-label" x="1060" y="190">Headwear</text>
+    <circle class="anchor" cx="1024" cy="400" r="22" />
+    <text class="anchor-label" x="1060" y="410">Face</text>
+    <circle class="anchor" cx="1024" cy="570" r="22" />
+    <text class="anchor-label" x="1060" y="580">Neck</text>
+    <circle class="anchor" cx="1270" cy="760" r="22" />
+    <text class="anchor-label" x="1306" y="770">Back</text>
+    <circle class="anchor" cx="676" cy="1260" r="22" />
+    <text class="anchor-label" x="480" y="1310">Left hand</text>
+    <circle class="anchor" cx="1372" cy="1260" r="22" />
+    <text class="anchor-label" x="1408" y="1310">Right hand</text>
+    <circle class="anchor" cx="1024" cy="1050" r="22" />
+    <text class="anchor-label" x="1060" y="1040">Waist</text>
+  </g>
+
+  <g id="template-notes">
+    <text class="title" x="80" y="2000">Tuna Bassoon Avatar Template · 2048 × 2048 · Front View</text>
+    <text class="subtitle" x="1380" y="2000">Keep the full canvas. Never trim layers.</text>
+  </g>
+</svg>
