@@ -23,6 +23,18 @@ The portal has separate Locations and Badges sections. Administrators can switch
 
 The location and Gemini workflows continue to work after adding badge management.
 
+### Word import and private review queue
+
+Locations and Badges each include an **Import & Review** workspace beside the regular management view. An administrator can select a `.docx` file in the web portal; the file is read locally, converted into private proposals, and stored in Convex without publishing any location or badge to the app.
+
+The location importer recognizes numbered entries and the Category, Description, Fun Fact, Lore, Latitude, Longitude, and Source fields used by the content team's working document. It suggests a controlled category, badge tags, lore status, and map pin type. Crossed-out source entries, skipped numbering, incomplete records, and repeated names are called out for review. The badge importer recognizes the General, Theme, Special Place, and Seasonal sections, applies the normal classification presets, and flags unfinished drafts, long congratulations messages, and seasonal scheduling reminders.
+
+Each proposal is labeled Ready to Review, Needs Attention, Possible Duplicate, Already Published, Published, Kept Existing, or Dismissed. Exact stable-key and normalized-name matches are detected automatically. Location proposals can also show a nearby published location when their coordinates are within 75 meters. Possible or exact matches appear in a side-by-side Proposed / Currently Published comparison so reviewers can keep the existing record, add only missing information, deliberately replace it, or create a separate record. Replacing a record preserves its established stable key. Every replacement requires a second confirmation.
+
+Every open proposal also has an **Edit Proposal** action. Location proposals can correct the name, stable key, description, fun fact, source, lore marker, coordinates, controlled category, reusable badge tags, and map pin type without publishing. Badge proposals can correct the name, stable key, shared tag, description, classification, required visits, and congratulations message pool. Classification changes apply the same visit and repeatable-level presets as the regular badge editor, and each congratulations message keeps its 160-character counter. Saving an edit reruns missing-field checks and duplicate matching, then returns the proposal to the appropriate review status. The administrator must still use a separate approval action before the edited proposal becomes live.
+
+Publishing remains an explicit per-item action. Incomplete proposals stay private, and finalized proposals can be reopened. Each proposal retains its original document text, source filename, batch, creator, reviewer, and timestamps. The shared batch model includes a `user_submission` source type so future visitor-submitted location or badge ideas can enter the same private review workflow instead of bypassing editorial approval.
+
 ### Build information panel
 
 The top of the administrator portal includes a Build Information panel so an editor can identify the exact app session they have open. It displays the public app version, short Git source revision, branch when available, platform, run type, and source status. Local development sessions show whether the checkout was clean or contained uncommitted changes when Expo started; EAS builds are labeled as packaged builds.

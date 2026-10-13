@@ -20,6 +20,7 @@ import {
   normalizeBadgeTagValue,
 } from '@/components/admin/badge-tag-picker';
 import { BuildInfoPanel } from '@/components/admin/build-info-panel';
+import { IngestReviewPanel } from '@/components/admin/ingest-review-panel';
 import {
   getCanonicalLocationCategory,
   LocationCategoryPicker,
@@ -52,6 +53,7 @@ const MAX_LOCATION_BADGE_TAGS = 25;
 
 type FormMode = 'create' | 'edit';
 type PortalSection = 'locations' | 'badges';
+type WorkspaceMode = 'manage' | 'ingest';
 type LocationStatusFilter = 'all' | 'active' | 'retired';
 type ViewMode = 'list' | 'grid';
 
@@ -177,6 +179,7 @@ export default function AdminPortalScreen() {
   const theme = useTheme();
   const [search, setSearch] = useState('');
   const [portalSection, setPortalSection] = useState<PortalSection>('locations');
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('manage');
   const [formMode, setFormMode] = useState<FormMode | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const {
@@ -1022,7 +1025,10 @@ export default function AdminPortalScreen() {
               accessibilityRole="tab"
               accessibilityLabel={section === 'locations' ? 'Locations' : 'Badges'}
               accessibilityState={{ selected: portalSection === section }}
-              onPress={() => setPortalSection(section)}
+              onPress={() => {
+                setPortalSection(section);
+                setWorkspaceMode('manage');
+              }}
               style={({ pressed }) => [
                 styles.sectionTab,
                 portalSection === section && styles.sectionTabSelected,
@@ -1036,7 +1042,36 @@ export default function AdminPortalScreen() {
           ))}
         </ThemedView>
 
-        {portalSection === 'locations' ? (
+        <ThemedView
+          accessibilityRole="tablist"
+          accessibilityLabel={`${portalSection === 'locations' ? 'Location' : 'Badge'} workspace views`}
+          style={styles.workspaceTabs}>
+          {(
+            [
+              ['manage', portalSection === 'locations' ? 'Manage Locations' : 'Manage Badges'],
+              ['ingest', 'Import & Review'],
+            ] as [WorkspaceMode, string][]
+          ).map(([mode, label]) => (
+            <Pressable
+              key={mode}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: workspaceMode === mode }}
+              onPress={() => setWorkspaceMode(mode)}
+              style={({ pressed }) => [
+                styles.workspaceTab,
+                workspaceMode === mode && styles.workspaceTabSelected,
+                pressed && styles.pressed,
+              ]}>
+              <ThemedText
+                type="smallBold"
+                style={workspaceMode === mode ? styles.workspaceTabTextSelected : undefined}>
+                {label}
+              </ThemedText>
+            </Pressable>
+          ))}
+        </ThemedView>
+
+        {portalSection === 'locations' && workspaceMode === 'manage' ? (
           <>
 
         <ThemedView
@@ -2189,7 +2224,14 @@ export default function AdminPortalScreen() {
           </>
         ) : null}
 
-        <BadgeManager visible={portalSection === 'badges'} />
+        <BadgeManager
+          visible={portalSection === 'badges' && workspaceMode === 'manage'}
+        />
+
+        <IngestReviewPanel
+          contentType={portalSection === 'locations' ? 'location' : 'badge'}
+          visible={workspaceMode === 'ingest'}
+        />
       </ScrollView>
     </ThemedView>
   );
@@ -2273,6 +2315,29 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.lightBronze,
   },
   sectionTabTextSelected: {
+    color: Palette.ink,
+  },
+  workspaceTabs: {
+    width: '100%',
+    maxWidth: PortalContentWidth,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.one,
+  },
+  workspaceTab: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    backgroundColor: Palette.teaGreen,
+  },
+  workspaceTabSelected: {
+    backgroundColor: Palette.lightBronze,
+  },
+  workspaceTabTextSelected: {
     color: Palette.ink,
   },
   linkButton: {
