@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
 import {
   StyleSheet,
+  View,
   type ImageStyle,
   type StyleProp,
   type ViewStyle,
@@ -19,9 +20,7 @@ const avatarImages = {
   explorerReference: require('../../assets/images/avatar/references/avatar-explorer-reference.png'),
   explorerTop: require('../../assets/images/avatar/items/top/avatar-top-explorer-field.png'),
   explorerBottom: require('../../assets/images/avatar/items/bottom/avatar-bottom-explorer-cargo.png'),
-  explorerShoes: require('../../assets/images/avatar/items/shoes/avatar-shoes-explorer-boots.png'),
   rustNeckerchief: require('../../assets/images/avatar/items/neck/avatar-neck-rust-neckerchief.png'),
-  explorerGoggles: require('../../assets/images/avatar/items/face/avatar-face-explorer-goggles.png'),
 } as const;
 
 function getAvatarDescription(selection: AvatarSelection) {
@@ -62,6 +61,41 @@ function AvatarLayer({
       source={source}
       style={[styles.layer, style]}
     />
+  );
+}
+
+function FittedExplorerBoots() {
+  return (
+    <View
+      accessible={false}
+      importantForAccessibility="no-hide-descendants"
+      style={styles.bootSlice}>
+      <Image
+        accessible={false}
+        contentFit="contain"
+        importantForAccessibility="no"
+        source={avatarImages.explorerReference}
+        style={styles.bootSliceImage}
+      />
+    </View>
+  );
+}
+
+
+function FittedExplorerGoggles() {
+  return (
+    <View
+      accessible={false}
+      importantForAccessibility="no-hide-descendants"
+      style={styles.goggleSlice}>
+      <Image
+        accessible={false}
+        contentFit="contain"
+        importantForAccessibility="no"
+        source={avatarImages.explorerReference}
+        style={styles.goggleSliceImage}
+      />
+    </View>
   );
 }
 
@@ -107,10 +141,7 @@ export function AvatarPreview({
             />
           ) : null}
           {activeSelection.shoesId === 'explorer_boots' ? (
-            <AvatarLayer
-              source={avatarImages.explorerShoes}
-              style={styles.shoesLayer}
-            />
+            <FittedExplorerBoots />
           ) : null}
           {activeSelection.topId === 'explorer_field' ? (
             <AvatarLayer
@@ -125,10 +156,7 @@ export function AvatarPreview({
             />
           ) : null}
           {activeSelection.faceId === 'explorer_goggles' ? (
-            <AvatarLayer
-              source={avatarImages.explorerGoggles}
-              style={styles.faceLayer}
-            />
+            <FittedExplorerGoggles />
           ) : null}
         </>
       )}
@@ -165,11 +193,20 @@ const styles = StyleSheet.create({
     top: '19%',
     width: '63%',
   },
-  shoesLayer: {
-    height: '75%',
-    left: '12.5%',
-    top: '27%',
-    width: '75%',
+  bootSlice: {
+    bottom: 0,
+    height: '25%',
+    left: 0,
+    overflow: 'hidden',
+    position: 'absolute',
+    width: '100%',
+  },
+  bootSliceImage: {
+    height: '400%',
+    left: 0,
+    position: 'absolute',
+    top: '-300%',
+    width: '100%',
   },
   neckLayer: {
     height: '60%',
@@ -177,10 +214,19 @@ const styles = StyleSheet.create({
     top: '9%',
     width: '60%',
   },
-  faceLayer: {
-    height: '45%',
-    left: '28%',
-    top: '2%',
-    width: '45%',
+  goggleSlice: {
+    height: '18%',
+    left: 0,
+    overflow: 'hidden',
+    position: 'absolute',
+    top: 0,
+    width: '100%',
+  },
+  goggleSliceImage: {
+    height: '555.556%',
+    left: 0,
+    position: 'absolute',
+    top: 0,
+    width: '100%',
   },
 });
