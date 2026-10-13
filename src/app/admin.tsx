@@ -19,6 +19,7 @@ import {
   BadgeTagPicker,
   normalizeBadgeTagValue,
 } from '@/components/admin/badge-tag-picker';
+import { BuildInfoPanel } from '@/components/admin/build-info-panel';
 import {
   getCanonicalLocationCategory,
   LocationCategoryPicker,
@@ -1007,6 +1008,8 @@ export default function AdminPortalScreen() {
             the Tuna Bassoon app.
           </ThemedText>
         </ThemedView>
+
+        <BuildInfoPanel />
 
         <ThemedView
           accessibilityRole="tablist"

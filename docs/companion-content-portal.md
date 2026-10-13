@@ -23,6 +23,12 @@ The portal has separate Locations and Badges sections. Administrators can switch
 
 The location and Gemini workflows continue to work after adding badge management.
 
+### Build information panel
+
+The top of the administrator portal includes a Build Information panel so an editor can identify the exact app session they have open. It displays the public app version, short Git source revision, branch when available, platform, run type, and source status. Local development sessions show whether the checkout was clean or contained uncommitted changes when Expo started; EAS builds are labeled as packaged builds.
+
+When reporting a portal problem, administrators should include the Source Revision shown in this panel. After pulling newer code, restart Expo and confirm that the revision changed. A missing revision prompts the editor to restart Expo because the dynamic app configuration has not yet been loaded into that session.
+
 ### Inline field help
 
 Location and badge editors group their guidance behind a question-mark button in each major section heading, so related explanations can be reviewed together without repeating help controls throughout the form. Seasonal-availability controls continue to provide contextual help through their input headings.
