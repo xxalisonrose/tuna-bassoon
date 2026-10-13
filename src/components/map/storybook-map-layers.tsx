@@ -4,6 +4,15 @@ export function StorybookMapLayers() {
   return (
     <>
       <Layer
+        id="storybook-ground"
+        type="background"
+        beforeId="park"
+        paint={{
+          'background-color': '#D7D7D2',
+        }}
+      />
+
+      <Layer
         id="storybook-woods"
         type="fill"
         source="openmaptiles"

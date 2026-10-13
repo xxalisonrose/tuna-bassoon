@@ -48,6 +48,7 @@ Administrators can search and browse locations, create new locations, and edit a
 - Optional source citation, publication, or URL
 - Lore or legend marker
 - Category
+- Map pin type
 - Latitude
 - Longitude
 - Badge tags
@@ -75,6 +76,26 @@ The portal uses a single-select category dropdown instead of free text. Convex i
 The category selector uses the same compact dropdown pattern as the badge editor: it shows the saved choice while closed and expands to display the available categories when opened. Typing in the expanded selector highlights the closest matching category without hiding the rest of the controlled list. Location section-help question marks sit directly beside their headings, field labels remain visible for clarity, and repetitive explanatory copy stays inside the relevant help panel.
 
 The administrator-only `previewLocationCategoryStandardization` query reports every proposed legacy-category change and any value that is not recognized. The `applyLocationCategoryStandardization` mutation refuses to run while unknown values remain, then updates recognized values without changing any other location content.
+
+### Location map pin types
+
+Each location also has one required Map pin type. This is separate from the broad public-facing Category field: Category organizes content, while Map pin type chooses the visual family visitors see on the map.
+
+| Map pin type | Suggested for | Planned unvisited / visited artwork |
+| --- | --- | --- |
+| Historic Sites | Historic buildings, homes, landmarks, architecture, libraries, and major events | Closed antique book / open antique book |
+| Monuments & Public Art | Statues, sculpture, memorials, monuments, plaques, and public art | Covered monument / revealed cow statue |
+| Mystery & Lore | Ghost stories, folklore, legends, mysteries, strange history, and lore-marked content | Question story cloud / discovered story cloud |
+| Noteworthy People | Activists, artists, writers, scientists, musicians, entrepreneurs, and other people-centered stories | Unrevealed person / discovered person |
+| Other Discoveries | Locations that do not fit one of the more specific visual families | Red discovery gem / green discovery gem |
+
+The editor suggests a Map pin type from the location's tags, broad Category, and Lore or legend marker. More specific monument and mystery matches take priority over the broader historic fallback. The suggestion only assists the editor: an administrator can select any pin type, and the saved choice remains stable if the tags change later. Existing locations without a stored choice receive the same suggestion when queried, so all public map locations have a usable pin type before they are edited again.
+
+The location mutations temporarily accept saves from an older portal session that does not yet send Map pin type. An update preserves the location's saved pin type when one exists; otherwise, the server derives the same suggestion from its submitted tags, category, and lore marker. New portal sessions continue sending the administrator's explicit selection. This compatibility path prevents an open pre-update browser session from blocking unrelated location edits during rollout.
+
+The discovery gem is the default artwork for every map pin type until that family receives its own custom artwork: an unvisited location appears as a red faceted gem, and a checked-in location appears as the matching green gem. The saved Map pin type remains in place, so each family can be given distinct artwork later without recategorizing locations. Locations that do not match a more specific family still fall back to Other Discoveries. The original red and green circles remain underneath the artwork as a defensive fallback if an image cannot load.
+
+The map uses a soft warm-gray ground color instead of the base style's near-white land color. Parks, grass, woods, water, roads, and three-dimensional buildings remain distinct above it, while paved and open areas are easier to read and less visually bright.
 
 Locations and badges share a searchable badge-tag dropdown populated from the location and badge content already loaded in the portal. Administrators can reuse an existing tag or add a new lowercase, hyphenated tag. Locations support multiple selected tags, while each badge selects one tag. Multiple badges can intentionally share a tag, so the same qualifying locations can support both a year-round badge and a seasonal badge such as Women’s History Month or Black History Month.
 

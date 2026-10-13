@@ -23,6 +23,7 @@ import {
   getCanonicalLocationCategory,
   LocationCategoryPicker,
 } from '@/components/admin/location-category-picker';
+import { LocationMapPinPicker } from '@/components/admin/location-map-pin-picker';
 import { SectionHelpHeading } from '@/components/admin/section-help-heading';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -36,6 +37,12 @@ import {
 import { useFormUndoShortcuts } from '@/hooks/use-form-undo-shortcuts';
 import { useTheme } from '@/hooks/use-theme';
 import { useUndoableState } from '@/hooks/use-undoable-state';
+import {
+  getCanonicalLocationMapPinType,
+  getLocationMapPinTypeOption,
+  suggestLocationMapPinType,
+  type LocationMapPinType,
+} from '@/lib/location-map-pin';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 
@@ -57,6 +64,7 @@ type LocationFormState = {
   latitude: string;
   longitude: string;
   category: string;
+  mapPinType: string;
   badgesText: string;
   storyKey: string;
   regionKey: string;
@@ -77,6 +85,7 @@ const emptyForm: LocationFormState = {
   latitude: '',
   longitude: '',
   category: '',
+  mapPinType: 'other_discoveries',
   badgesText: '',
   storyKey: '',
   regionKey: '',
@@ -185,6 +194,8 @@ export default function AdminPortalScreen() {
     useState(false);
   const [locationStableKeyEditingUnlocked, setLocationStableKeyEditingUnlocked] =
     useState(false);
+  const [locationMapPinTypeManuallyEdited, setLocationMapPinTypeManuallyEdited] =
+    useState(false);
   const [saving, setSaving] = useState(false);
   const [locationStatusFilter, setLocationStatusFilter] =
     useState<LocationStatusFilter>('all');
@@ -224,6 +235,15 @@ export default function AdminPortalScreen() {
         );
       }
 
+      setLocationMapPinTypeManuallyEdited(
+        restoredForm.mapPinType !==
+          suggestLocationMapPinType({
+            badges: parseBadgeTags(restoredForm.badgesText),
+            category: restoredForm.category,
+            isLore: restoredForm.isLore,
+          }),
+      );
+
       setStatusMessage('Undid the last unsaved location change.');
       setFormValidation(null);
       announce('Undid the last unsaved location change.');
@@ -241,6 +261,15 @@ export default function AdminPortalScreen() {
           restoredForm.key !== createStableKey(restoredForm.name),
         );
       }
+
+      setLocationMapPinTypeManuallyEdited(
+        restoredForm.mapPinType !==
+          suggestLocationMapPinType({
+            badges: parseBadgeTags(restoredForm.badgesText),
+            category: restoredForm.category,
+            isLore: restoredForm.isLore,
+          }),
+      );
 
       setStatusMessage('Redid the last unsaved location change.');
       setFormValidation(null);
@@ -283,6 +312,7 @@ export default function AdminPortalScreen() {
         location.name,
         location.key,
         location.category,
+        getLocationMapPinTypeOption(location.mapPinType)?.label,
         location.funFact,
         location.source,
         location.isLore ? 'lore legend folklore' : '',
@@ -302,6 +332,11 @@ export default function AdminPortalScreen() {
   );
 
   const suggestedLocationStableKey = createStableKey(form.name);
+  const suggestedLocationMapPinType = suggestLocationMapPinType({
+    badges: selectedBadgeTags,
+    category: form.category,
+    isLore: form.isLore,
+  });
   const editingLocation = editingId === null
     ? undefined
     : adminLocations?.find((location) => location._id === editingId);
@@ -347,6 +382,7 @@ export default function AdminPortalScreen() {
     setLocationStableKeyManuallyEdited(false);
     setLocationStableKeyChangeRequested(false);
     setLocationStableKeyEditingUnlocked(false);
+    setLocationMapPinTypeManuallyEdited(false);
     setAdvancedGroupingOpen(false);
     setConfirmingLocationId(null);
     resetGeminiState();
@@ -363,6 +399,7 @@ export default function AdminPortalScreen() {
     latitude?: number;
     longitude?: number;
     category?: string;
+    mapPinType?: string;
     badges?: string[];
     storyKey?: string | null;
     regionKey?: string | null;
@@ -381,6 +418,13 @@ export default function AdminPortalScreen() {
       latitude: location.latitude != null ? String(location.latitude) : '',
       longitude: location.longitude != null ? String(location.longitude) : '',
       category: getCanonicalLocationCategory(location.category) ?? '',
+      mapPinType:
+        getCanonicalLocationMapPinType(location.mapPinType) ??
+        suggestLocationMapPinType({
+          badges: location.badges ?? [],
+          category: location.category,
+          isLore: location.isLore,
+        }),
       badgesText: parseBadgeTags(
         (location.badges ?? []).join(', '),
       ).join(', '),
@@ -392,6 +436,9 @@ export default function AdminPortalScreen() {
     setLocationStableKeyManuallyEdited(false);
     setLocationStableKeyChangeRequested(false);
     setLocationStableKeyEditingUnlocked(false);
+    setLocationMapPinTypeManuallyEdited(
+      getCanonicalLocationMapPinType(location.mapPinType) !== null,
+    );
     setAdvancedGroupingOpen(Boolean(location.storyKey || location.regionKey));
     setConfirmingLocationId(null);
     resetGeminiState();
@@ -406,6 +453,7 @@ export default function AdminPortalScreen() {
     setLocationStableKeyManuallyEdited(false);
     setLocationStableKeyChangeRequested(false);
     setLocationStableKeyEditingUnlocked(false);
+    setLocationMapPinTypeManuallyEdited(false);
     setAdvancedGroupingOpen(false);
     resetGeminiState();
   };
@@ -502,15 +550,33 @@ export default function AdminPortalScreen() {
       field === 'name' &&
       formMode === 'create' &&
       !locationStableKeyManuallyEdited;
+    const shouldSuggestMapPinType =
+      !locationMapPinTypeManuallyEdited &&
+      (field === 'badgesText' ||
+        field === 'category' ||
+        field === 'isLore');
 
     updateLocationForm(
-      (current) => ({
-        ...current,
-        [field]: value,
-        ...(shouldSuggestStableKey
-          ? { key: createStableKey(String(value)) }
-          : {}),
-      }),
+      (current) => {
+        const next = {
+          ...current,
+          [field]: value,
+          ...(shouldSuggestStableKey
+            ? { key: createStableKey(String(value)) }
+            : {}),
+        };
+
+        return shouldSuggestMapPinType
+          ? {
+              ...next,
+              mapPinType: suggestLocationMapPinType({
+                badges: parseBadgeTags(next.badgesText),
+                category: next.category,
+                isLore: next.isLore,
+              }),
+            }
+          : next;
+      },
       { groupKey: `location-${String(field)}` },
     );
 
@@ -527,6 +593,10 @@ export default function AdminPortalScreen() {
 
       if (shouldSuggestStableKey) {
         fieldsToClear.add('key');
+      }
+
+      if (shouldSuggestMapPinType) {
+        fieldsToClear.add('mapPinType');
       }
 
       if (
@@ -575,6 +645,16 @@ export default function AdminPortalScreen() {
     updateField('key', suggestedLocationStableKey);
   };
 
+  const updateLocationMapPinType = (value: LocationMapPinType) => {
+    setLocationMapPinTypeManuallyEdited(true);
+    updateField('mapPinType', value);
+  };
+
+  const useSuggestedLocationMapPinType = () => {
+    setLocationMapPinTypeManuallyEdited(false);
+    updateField('mapPinType', suggestedLocationMapPinType);
+  };
+
   const validateForm = (): LocationFormValidation | null => {
     const fieldMessages: LocationFormValidation['fieldMessages'] = {};
     const requiredFields: [keyof LocationFormState, string][] = [
@@ -584,6 +664,7 @@ export default function AdminPortalScreen() {
       ['latitude', 'Latitude'],
       ['longitude', 'Longitude'],
       ['category', 'Location category'],
+      ['mapPinType', 'Map pin type'],
     ];
 
     for (const [field, label] of requiredFields) {
@@ -706,6 +787,7 @@ export default function AdminPortalScreen() {
           latitude: Number(form.latitude),
           longitude: Number(form.longitude),
           category: form.category.trim(),
+          mapPinType: form.mapPinType,
           badges,
           storyKey,
           regionKey,
@@ -724,6 +806,7 @@ export default function AdminPortalScreen() {
           latitude: Number(form.latitude),
           longitude: Number(form.longitude),
           category: form.category.trim(),
+          mapPinType: form.mapPinType,
           badges,
           storyKey,
           regionKey,
@@ -1703,6 +1786,32 @@ export default function AdminPortalScreen() {
               {renderFieldError('badgesText')}
             </ThemedView>
 
+            <SectionHelpHeading
+              label="MAP PIN TYPE"
+              items={[
+                {
+                  label: 'Map Pin Type',
+                  description: 'Controls the visual family used for this location on the map. The portal suggests a type from the current tags, but you can override it when another visual fits the story better. A saved choice stays stable when tags change later.',
+                },
+              ]}
+            />
+
+            <ThemedText type="smallBold">
+              Map Pin Type (Required)
+            </ThemedText>
+            <LocationMapPinPicker
+              disabled={saving}
+              hasError={Boolean(
+                formValidation?.fieldMessages.mapPinType,
+              )}
+              onChange={updateLocationMapPinType}
+              onUseSuggestion={useSuggestedLocationMapPinType}
+              suggestedValue={suggestedLocationMapPinType}
+              value={form.mapPinType}
+            />
+
+            {renderFieldError('mapPinType')}
+
             <ThemedView style={styles.advancedSection}>
               <Pressable
                 accessibilityRole="button"
@@ -1929,6 +2038,13 @@ export default function AdminPortalScreen() {
                       {`Latitude ${location.latitude}, Longitude ${location.longitude}`}
                     </ThemedText>
                   )}
+
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {`Map Pin: ${
+                      getLocationMapPinTypeOption(location.mapPinType)?.label ??
+                      'Other Discoveries'
+                    }`}
+                  </ThemedText>
 
                   {location.retired && retiredDate ? (
                     <ThemedText type="small" themeColor="textSecondary">

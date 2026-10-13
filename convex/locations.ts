@@ -5,6 +5,7 @@ import {
   internalQuery,
   query,
 } from './_generated/server';
+import { resolveLocationMapPinType } from './lib/locationMapPin';
 
 export const addLocation = internalMutation({
   args: {
@@ -25,6 +26,7 @@ export const addLocation = internalMutation({
       latitude: args.latitude,
       longitude: args.longitude,
       category: args.category,
+      mapPinType: 'other_discoveries',
       badges: [],
       retired: false,
     });
@@ -37,9 +39,17 @@ export const getLocations = query({
   handler: async (ctx) => {
     const locations = await ctx.db.query('locations').collect();
 
-    return locations.filter(
-      (location) => location.retired !== true,
-    );
+    return locations
+      .filter((location) => location.retired !== true)
+      .map((location) => ({
+        ...location,
+        mapPinType: resolveLocationMapPinType({
+          mapPinType: location.mapPinType,
+          badges: location.badges,
+          category: location.category,
+          isLore: location.isLore,
+        }),
+      }));
   },
 });
 

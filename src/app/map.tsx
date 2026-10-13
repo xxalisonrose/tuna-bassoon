@@ -330,6 +330,7 @@ export default function MapScreen() {
             source: location.source,
             isLore: location.isLore === true,
             category: location.category,
+            mapPinType: location.mapPinType,
             badges: location.badges,
             coordinates: [
               location.longitude,

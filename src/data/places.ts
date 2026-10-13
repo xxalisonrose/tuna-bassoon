@@ -1,4 +1,5 @@
 import type { Id } from '../../convex/_generated/dataModel';
+import type { LocationMapPinType } from '@/lib/location-map-pin';
 
 export type Place = {
   id: Id<'locations'>;
@@ -9,5 +10,6 @@ export type Place = {
   isLore?: boolean;
   coordinates: [number, number];
   category?: string;
+  mapPinType: LocationMapPinType;
   badges: string[];
 };

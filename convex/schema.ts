@@ -17,6 +17,15 @@ export default defineSchema({
     badges: v.array(v.string()),
 
     category: v.optional(v.string()),
+    mapPinType: v.optional(
+      v.union(
+        v.literal('historic_sites'),
+        v.literal('monuments_public_art'),
+        v.literal('mystery_lore'),
+        v.literal('noteworthy_people'),
+        v.literal('other_discoveries'),
+      ),
+    ),
     storyKey: v.optional(v.string()),
     regionKey: v.optional(v.string()),
     retired: v.optional(v.boolean()),

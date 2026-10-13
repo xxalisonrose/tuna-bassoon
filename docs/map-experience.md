@@ -49,3 +49,5 @@ The recenter control uses a direct eased camera move with zero viewport padding.
 The next map passes can add repeating grass and pavement patterns, richer building surfaces, seasonal color variants, and updated location markers. Those treatments should be tested on physical iOS and Android devices for legibility and frame rate before becoming the default.
 
 The later avatar system can replace the temporary player marker with character artwork and animation while keeping the same live-location, Look Around, Explore, and recenter behavior.
+
+AI-generated and other temporary visual assets are tracked in `docs/artwork-provenance.md` so they can be deliberately replaced with final artwork rather than becoming permanent by accident.

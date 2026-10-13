@@ -2,6 +2,11 @@ import { ConvexError, v } from 'convex/values';
 
 import { mutation, query } from './_generated/server';
 import { requireAdmin } from './lib/auth';
+import {
+  isLocationMapPinType,
+  resolveLocationMapPinType,
+  type LocationMapPinType,
+} from './lib/locationMapPin';
 
 const MAX_STRING_LENGTH = 120;
 const MAX_DESCRIPTION_LENGTH = 5000;
@@ -86,6 +91,16 @@ function normalizeLocationCategory(value: string): LocationCategory {
   }
 
   return category;
+}
+
+function normalizeLocationMapPinType(value: string): LocationMapPinType {
+  if (!isLocationMapPinType(value)) {
+    throw new ConvexError(
+      'Map pin type must be Historic Sites, Monuments & Public Art, Mystery & Lore, Noteworthy People, or Other Discoveries.',
+    );
+  }
+
+  return value;
 }
 
 function normalizeRequiredString(
@@ -233,6 +248,7 @@ function normalizeLocationInput(args: {
   latitude: number;
   longitude: number;
   category: string;
+  mapPinType?: string;
   badges: string[];
   storyKey?: string;
   regionKey?: string;
@@ -268,6 +284,14 @@ function normalizeLocationInput(args: {
   const latitude = normalizeLatitude(args.latitude);
   const longitude = normalizeLongitude(args.longitude);
   const badges = normalizeBadgeTags(args.badges);
+  const mapPinType =
+    args.mapPinType === undefined
+      ? resolveLocationMapPinType({
+          badges,
+          category,
+          isLore,
+        })
+      : normalizeLocationMapPinType(args.mapPinType);
 
   return {
     name,
@@ -279,6 +303,7 @@ function normalizeLocationInput(args: {
     latitude,
     longitude,
     category,
+    mapPinType,
     badges,
     storyKey,
     regionKey,
@@ -297,6 +322,12 @@ export const getLocationsForAdmin = query({
       .map((location) => ({
         ...location,
         isLore: location.isLore === true,
+        mapPinType: resolveLocationMapPinType({
+          mapPinType: location.mapPinType,
+          badges: location.badges,
+          category: location.category,
+          isLore: location.isLore,
+        }),
         retired: location.retired === true,
       }))
       .sort((left, right) =>
@@ -425,6 +456,7 @@ export const createLocation = mutation({
     latitude: v.number(),
     longitude: v.number(),
     category: v.string(),
+    mapPinType: v.optional(v.string()),
     badges: v.array(v.string()),
     storyKey: v.optional(v.string()),
     regionKey: v.optional(v.string()),
@@ -456,6 +488,7 @@ export const createLocation = mutation({
       latitude: normalized.latitude,
       longitude: normalized.longitude,
       category: normalized.category,
+      mapPinType: normalized.mapPinType,
       badges: normalized.badges,
       storyKey: normalized.storyKey,
       regionKey: normalized.regionKey,
@@ -478,6 +511,7 @@ export const updateLocation = mutation({
     latitude: v.number(),
     longitude: v.number(),
     category: v.string(),
+    mapPinType: v.optional(v.string()),
     badges: v.array(v.string()),
     storyKey: v.optional(v.string()),
     regionKey: v.optional(v.string()),
@@ -492,7 +526,11 @@ export const updateLocation = mutation({
       throw new ConvexError('Location not found.');
     }
 
-    const normalized = normalizeLocationInput(args);
+    const normalized = normalizeLocationInput({
+      ...args,
+      mapPinType:
+        args.mapPinType ?? existingLocation.mapPinType,
+    });
 
     const duplicateKey = await ctx.db
       .query('locations')
@@ -519,6 +557,7 @@ export const updateLocation = mutation({
       latitude: normalized.latitude,
       longitude: normalized.longitude,
       category: normalized.category,
+      mapPinType: normalized.mapPinType,
       badges: normalized.badges,
       storyKey: normalized.storyKey,
       regionKey: normalized.regionKey,

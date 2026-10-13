@@ -20,6 +20,7 @@ import type * as crons from "../crons.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_badge_congratulations from "../lib/badge_congratulations.js";
 import type * as lib_badge_rules from "../lib/badge_rules.js";
+import type * as lib_locationMapPin from "../lib/locationMapPin.js";
 import type * as locationAgent from "../locationAgent.js";
 import type * as locations from "../locations.js";
 import type * as seed from "../seed.js";
@@ -45,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   "lib/auth": typeof lib_auth;
   "lib/badge_congratulations": typeof lib_badge_congratulations;
   "lib/badge_rules": typeof lib_badge_rules;
+  "lib/locationMapPin": typeof lib_locationMapPin;
   locationAgent: typeof locationAgent;
   locations: typeof locations;
   seed: typeof seed;
