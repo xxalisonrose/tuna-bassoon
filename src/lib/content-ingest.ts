@@ -9,6 +9,8 @@ export type WordParagraph = {
   mostlyStruck: boolean;
 };
 
+export type ImportConfidence = 'high' | 'medium' | 'low';
+
 export type ParsedLocationDraft = {
   sourceOrdinal?: number;
   sourceText: string;
@@ -25,14 +27,13 @@ export type ParsedLocationDraft = {
   category?: string;
   mapPinType?: LocationMapPinType;
   badges: string[];
+  importConfidence: ImportConfidence;
+  suggestionNotes: string[];
   issues: string[];
 };
 
 export type BadgeClassification =
-  | 'general'
-  | 'theme'
-  | 'special_place'
-  | 'seasonal';
+  'general' | 'theme' | 'special_place' | 'seasonal';
 
 export type ParsedBadgeDraft = {
   sourceOrdinal?: number;
@@ -46,6 +47,8 @@ export type ParsedBadgeDraft = {
   requiredVisits: number;
   levelsEnabled: boolean;
   congratulationsMessages: string[];
+  importConfidence: ImportConfidence;
+  suggestionNotes: string[];
   issues: string[];
 };
 
@@ -57,6 +60,10 @@ export type ParsedIngestResult<T> = {
 type SourceLine = {
   text: string;
   mostlyStruck: boolean;
+};
+
+export type LocationImportOptions = {
+  availableBadgeTags?: string[];
 };
 
 const canonicalLocationCategories = [
@@ -196,23 +203,146 @@ const categoryKeywordGroups = [
 
 const keywordTagSuggestions: {
   pattern: RegExp;
-  tag: string;
+  aliases: readonly string[];
 }[] = [
-  { pattern: /american revolution|revolutionary war/i, tag: 'american-revolution' },
-  { pattern: /black history|black community|african american/i, tag: 'black-history' },
-  { pattern: /cemeter|burial|burying ground|grave/i, tag: 'cemeteries' },
-  { pattern: /civil war/i, tag: 'civil-war' },
-  { pattern: /ghost|haunt/i, tag: 'ghost-stories' },
-  { pattern: /harvard/i, tag: 'harvard-history' },
-  { pattern: /indigenous|native american|nipmuc|massachusett/i, tag: 'indigenous-history' },
-  { pattern: /legend|folklore|local lore|pirate lore/i, tag: 'folklore-legends' },
-  { pattern: /library|books?\b/i, tag: 'books-libraries' },
-  { pattern: /memorial|monument/i, tag: 'memorials-monuments' },
-  { pattern: /mystery|unresolved|unsolved/i, tag: 'unsolved-mysteries' },
-  { pattern: /plaque|marker/i, tag: 'plaque' },
-  { pattern: /public art|mural|installation/i, tag: 'public-art' },
-  { pattern: /statue|sculpture/i, tag: 'statues-sculpture' },
-  { pattern: /women'?s history|woman'?s history/i, tag: 'women-s-history' },
+  {
+    pattern: /american revolution|revolutionary war/i,
+    aliases: ['american-revolution'],
+  },
+  {
+    pattern: /black history|black community|african american/i,
+    aliases: ['black-history'],
+  },
+  {
+    pattern: /cemeter|burial|burying ground|grave/i,
+    aliases: ['cemeteries', 'cemetery'],
+  },
+  { pattern: /civil war/i, aliases: ['civil-war'] },
+  { pattern: /ghost|haunt/i, aliases: ['ghost-stories'] },
+  { pattern: /harvard/i, aliases: ['harvard-university', 'harvard-history'] },
+  {
+    pattern: /indigenous|native american|nipmuc|massachusett/i,
+    aliases: ['indigenous-history', 'native-american-landmarks'],
+  },
+  {
+    pattern: /legend|folklore|local lore|pirate lore/i,
+    aliases: ['folklore-and-legends', 'folklore-legends'],
+  },
+  {
+    pattern: /library|books?\b/i,
+    aliases: ['books-and-libraries', 'books-libraries'],
+  },
+  {
+    pattern: /memorial|monument/i,
+    aliases: ['memorials-and-monuments', 'memorials-monuments'],
+  },
+  { pattern: /mystery|unresolved|unsolved/i, aliases: ['unsolved-mysteries'] },
+  { pattern: /plaque|historical marker/i, aliases: ['plaque'] },
+  { pattern: /public art|mural|installation/i, aliases: ['public-art'] },
+  {
+    pattern: /statue|sculpture/i,
+    aliases: ['statues-and-sculpture', 'statues-sculpture'],
+  },
+  {
+    pattern: /women'?s history|woman'?s history/i,
+    aliases: ['women-s-history'],
+  },
+  {
+    pattern: /industrial|manufactur|factor(?:y|ies)/i,
+    aliases: ['industrial-history'],
+  },
+  {
+    pattern: /maritime|navy|naval|sailor|shipbuilding/i,
+    aliases: ['maritime-history'],
+  },
+  {
+    pattern: /military|soldier|veteran|world war|\bwwii?\b/i,
+    aliases: ['military-history'],
+  },
+  { pattern: /president|presidential/i, aliases: ['presidential-history'] },
+  { pattern: /immigra|refugee/i, aliases: ['immigration-history'] },
+  { pattern: /labor|workers?|strike|union/i, aliases: ['labor-history'] },
+  {
+    pattern: /transportation|railroad|railway|automobile|aviation/i,
+    aliases: ['transportation-history'],
+  },
+  {
+    pattern: /historic disaster|\bdisaster|flood|catastrophe/i,
+    aliases: ['historic-disasters'],
+  },
+  {
+    pattern: /inventor|scientist|scientific|research laborator/i,
+    aliases: ['inventors-and-scientists', 'inventors-scientists', 'scientists'],
+  },
+  {
+    pattern: /writer|poet|journalist|literary/i,
+    aliases: ['writers-and-poets', 'writers-poets'],
+  },
+  {
+    pattern: /artist|architect/i,
+    aliases: ['artists-and-architects', 'artists-architects'],
+  },
+  { pattern: /educator|teacher|professor|education/i, aliases: ['educators'] },
+  { pattern: /activist|abolitionist|civil rights/i, aliases: ['activists'] },
+  { pattern: /explorer|expedition/i, aliases: ['explorers'] },
+  {
+    pattern: /athlete|sports?|baseball|football|basketball/i,
+    aliases: ['athletes'],
+  },
+  { pattern: /entrepreneur|business founder/i, aliases: ['entrepreneurs'] },
+  {
+    pattern: /musician|performer|concert|theater|theatre|film|television/i,
+    aliases: [
+      'musicians-and-performers',
+      'musicians-performers',
+      'theater-music-film',
+    ],
+  },
+  {
+    pattern: /museum|collection|gallery/i,
+    aliases: ['museums-and-collections', 'museums-collections', 'museums'],
+  },
+  {
+    pattern: /cultural heritage|cultural tradition/i,
+    aliases: ['cultural-heritage'],
+  },
+  { pattern: /national park/i, aliases: ['national-parks'] },
+  {
+    pattern: /national historic landmark/i,
+    aliases: ['national-historic-landmarks'],
+  },
+  { pattern: /lighthouse/i, aliases: ['lighthouses'] },
+  {
+    pattern: /bridge|tunnel|dam|infrastructure/i,
+    aliases: ['bridges-and-infrastructure', 'bridges-infrastructure'],
+  },
+  {
+    pattern: /church|religious site|meeting house|chapel/i,
+    aliases: [
+      'churches-and-religious-sites',
+      'churches-religious-sites',
+      'churches',
+    ],
+  },
+  { pattern: /archaeolog/i, aliases: ['archaeological-sites'] },
+  {
+    pattern: /strange history|weird history|bizarre/i,
+    aliases: ['strange-history'],
+  },
+  {
+    pattern: /famous crime|crime scene|criminal|murder|trial/i,
+    aliases: ['famous-crimes'],
+  },
+  { pattern: /oddity|oddities|peculiar|curiosit/i, aliases: ['oddities'] },
+  {
+    pattern: /lost place|demolished|no longer (?:exists|survives)/i,
+    aliases: ['lost-places'],
+  },
+  {
+    pattern: /hidden gem|lesser-known|easy to (?:miss|overlook)/i,
+    aliases: ['hidden-gem'],
+  },
+  { pattern: /scenic view|vista|skyline|overlook/i, aliases: ['scenic-view'] },
 ];
 
 function slugify(value: string) {
@@ -279,25 +409,73 @@ function inferLocationCategory(rawCategory: string | undefined) {
   return bestCategory;
 }
 
-function suggestTags(rawCategory: string | undefined, text: string) {
+function normalizeTagSignature(value: string) {
+  return slugify(value)
+    .split('-')
+    .filter((part) => part !== 'and' && part !== 'the')
+    .join('-');
+}
+
+function suggestTags(
+  rawCategory: string | undefined,
+  text: string,
+  availableBadgeTags: string[] | undefined,
+) {
   const tags = new Set<string>();
+  const catalogProvided = availableBadgeTags !== undefined;
+  const availableTags = Array.from(
+    new Set(
+      (availableBadgeTags ?? [])
+        .map((tag) => tag.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  );
+  const availableTagSet = new Set(availableTags);
+  const tagsBySignature = new Map<string, string>();
+
+  for (const tag of availableTags) {
+    const signature = normalizeTagSignature(tag);
+
+    if (!tagsBySignature.has(signature)) {
+      tagsBySignature.set(signature, tag);
+    }
+  }
+
+  const addSuggestion = (aliases: readonly string[]) => {
+    if (!catalogProvided) {
+      const fallback = aliases[0];
+
+      if (fallback) {
+        tags.add(fallback);
+      }
+      return;
+    }
+
+    for (const alias of aliases) {
+      const exact = slugify(alias);
+      const matched =
+        (availableTagSet.has(exact) ? exact : undefined) ??
+        tagsBySignature.get(normalizeTagSignature(alias));
+
+      if (matched) {
+        tags.add(matched);
+        return;
+      }
+    }
+  };
 
   for (const categoryPart of (rawCategory ?? '').split('/')) {
     const tag = slugify(categoryPart);
 
-    if (tag) {
+    if (tag && availableTagSet.has(tag)) {
       tags.add(tag);
     }
   }
 
   for (const suggestion of keywordTagSuggestions) {
     if (suggestion.pattern.test(text)) {
-      tags.add(suggestion.tag);
+      addSuggestion(suggestion.aliases);
     }
-  }
-
-  if (tags.size === 0) {
-    tags.add('local-history');
   }
 
   return Array.from(tags).slice(0, 25);
@@ -309,6 +487,7 @@ function uniqueIssues(values: string[]) {
 
 export function parseLocationWordDocument(
   paragraphs: WordParagraph[],
+  options: LocationImportOptions = {},
 ): ParsedIngestResult<ParsedLocationDraft> {
   const lines = flattenParagraphs(paragraphs);
   const rawRecords: {
@@ -392,7 +571,11 @@ export function parseLocationWordDocument(
     ]
       .filter(Boolean)
       .join(' ');
-    const badges = suggestTags(rawCategory, combinedText);
+    const badges = suggestTags(
+      rawCategory,
+      combinedText,
+      options.availableBadgeTags,
+    );
     const isLore =
       Boolean(loreText) ||
       /ghost|legend|lore|mystery|paranormal|witch/i.test(
@@ -414,18 +597,61 @@ export function parseLocationWordDocument(
     if (!category) {
       issues.push('A standard location category could not be suggested.');
     }
+    if (badges.length === 0) {
+      issues.push(
+        'No existing badge tag could be suggested. Choose at least one badge tag before publishing.',
+      );
+    }
     if (record.sourceWasMarkedComplete) {
       issues.push(
         'This entry is crossed out in the source document and may already be published.',
       );
     }
     if (
-      (nameCounts.get(
-        record.name.normalize('NFKC').trim().toLowerCase(),
-      ) ?? 0) > 1
+      (nameCounts.get(record.name.normalize('NFKC').trim().toLowerCase()) ??
+        0) > 1
     ) {
       issues.push('The source document contains another entry with this name.');
     }
+
+    const missingRequiredInformation =
+      !description ||
+      latitude === undefined ||
+      latitude < -90 ||
+      latitude > 90 ||
+      longitude === undefined ||
+      longitude < -180 ||
+      longitude > 180 ||
+      !category ||
+      badges.length === 0;
+    const rawCategoryKey = (rawCategory ?? '')
+      .normalize('NFKC')
+      .trim()
+      .replace(/\s+/g, ' ')
+      .toLowerCase();
+    const categoryWasDirectlyMapped = Boolean(
+      canonicalLocationCategories.some(
+        (value) => value.toLowerCase() === rawCategoryKey,
+      ) || legacyLocationCategoryMap[rawCategoryKey],
+    );
+    const importConfidence: ImportConfidence = missingRequiredInformation
+      ? 'low'
+      : categoryWasDirectlyMapped && badges.length > 0
+        ? 'high'
+        : 'medium';
+    const suggestionNotes = uniqueIssues([
+      category
+        ? categoryWasDirectlyMapped
+          ? `Category matched directly to ${category}.`
+          : `Category was inferred as ${category} from “${rawCategory ?? 'the source text'}.”`
+        : 'No controlled location category matched automatically.',
+      badges.length > 0
+        ? `Matched existing badge ${badges.length === 1 ? 'tag' : 'tags'}: ${badges.join(', ')}.`
+        : 'No existing badge tag matched automatically.',
+      record.sourceWasMarkedComplete
+        ? 'The source heading is crossed out, so this may already be published.'
+        : '',
+    ]);
 
     return {
       sourceOrdinal: record.sourceOrdinal,
@@ -448,6 +674,8 @@ export function parseLocationWordDocument(
         ? suggestLocationMapPinType({ badges, category, isLore })
         : undefined,
       badges,
+      importConfidence,
+      suggestionNotes,
       issues: uniqueIssues(issues),
     };
   });
@@ -468,7 +696,11 @@ function getBadgePreset(classification: BadgeClassification) {
 }
 
 function cleanBadgeMessage(value: string) {
-  return value.replace(/^Badge (?:message|description):\s*/i, '').trim();
+  const cleaned = value
+    .replace(/^Badge (?:message|description):\s*/i, '')
+    .trim();
+
+  return cleaned.replace(/^["“](.*)["”]$/s, '$1').trim();
 }
 
 function parseBadgeDefinition(value: string) {
@@ -492,9 +724,7 @@ function parseBadgeDefinition(value: string) {
 
   return {
     name: normalized.slice(0, separatorIndex).trim(),
-    description: normalized
-      .slice(separatorIndex + separator.length)
-      .trim(),
+    description: normalized.slice(separatorIndex + separator.length).trim(),
   };
 }
 
@@ -581,7 +811,8 @@ export function parseBadgeWordDocument(
         .join(' — ')
         .trim();
       description =
-        categoryDescription || categoryLine.replace(/^Category:\s*/i, '').trim();
+        categoryDescription ||
+        categoryLine.replace(/^Category:\s*/i, '').trim();
       definition = {
         name,
         description,
@@ -602,6 +833,8 @@ export function parseBadgeWordDocument(
     sourceOrdinal += 1;
     const preset = getBadgePreset(draftClassification);
     const issues: string[] = [];
+    const unfinishedDraft =
+      isNumberedDraft || /^Badge name:/i.test(paragraph.text);
 
     if (!description) {
       issues.push('Description is missing.');
@@ -616,9 +849,25 @@ export function parseBadgeWordDocument(
     if (draftClassification === 'seasonal') {
       issues.push('Confirm the badge availability dates before publishing.');
     }
-    if (isNumberedDraft || /^Badge name:/i.test(paragraph.text)) {
-      issues.push('This appears in an unfinished draft section and needs review.');
+    if (unfinishedDraft) {
+      issues.push(
+        'This appears in an unfinished draft section and needs review.',
+      );
     }
+
+    const importConfidence: ImportConfidence =
+      !description || !message || unfinishedDraft
+        ? 'low'
+        : message.length > 160
+          ? 'medium'
+          : 'high';
+    const suggestionNotes = uniqueIssues([
+      `Classification was read as ${draftClassification.replace('_', ' ')}.`,
+      `Stable key and badge tag were suggested from “${definition.name}.”`,
+      unfinishedDraft
+        ? 'This uses an unfinished-draft format and needs a careful review.'
+        : '',
+    ]);
 
     drafts.push({
       sourceOrdinal,
@@ -635,6 +884,8 @@ export function parseBadgeWordDocument(
       requiredVisits: preset.requiredVisits,
       levelsEnabled: preset.levelsEnabled,
       congratulationsMessages: message ? [message] : [],
+      importConfidence,
+      suggestionNotes,
       issues: uniqueIssues(issues),
     });
 

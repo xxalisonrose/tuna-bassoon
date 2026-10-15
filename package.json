@@ -41,7 +41,9 @@
     "react-native-worklets": "0.10.1"
   },
   "devDependencies": {
+    "@xmldom/xmldom": "^0.8.11",
     "@types/react": "~19.2.2",
+    "esbuild": "^0.27.0",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.2",
     "typescript": "~6.0.3"
@@ -52,7 +54,8 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "validate:importer": "node scripts/validate-content-import.mjs"
   },
   "private": true
 }

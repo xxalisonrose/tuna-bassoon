@@ -40,35 +40,20 @@ export default defineSchema({
       v.literal('custom'),
     ),
     avatarTopId: v.optional(
-      v.union(
-        v.literal('trail_tank'),
-        v.literal('explorer_field'),
+      v.union(v.literal('trail_tank'), v.literal('explorer_field')),
       ),
-    ),
     avatarBottomId: v.optional(
-      v.union(
-        v.literal('trail_shorts'),
-        v.literal('explorer_cargo'),
+      v.union(v.literal('trail_shorts'), v.literal('explorer_cargo')),
       ),
-    ),
     avatarShoesId: v.optional(
-      v.union(
-        v.literal('bare_hooves'),
-        v.literal('explorer_boots'),
+      v.union(v.literal('bare_hooves'), v.literal('explorer_boots')),
       ),
-    ),
     avatarNeckId: v.optional(
-      v.union(
-        v.literal('none'),
-        v.literal('rust_neckerchief'),
+      v.union(v.literal('none'), v.literal('rust_neckerchief')),
       ),
-    ),
     avatarFaceId: v.optional(
-      v.union(
-        v.literal('none'),
-        v.literal('explorer_goggles'),
+      v.union(v.literal('none'), v.literal('explorer_goggles')),
       ),
-    ),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index('by_user', ['clerkUserId']),
@@ -80,10 +65,7 @@ export default defineSchema({
     distanceMeters: v.number(),
   })
     .index('by_user', ['clerkUserId'])
-    .index('by_user_and_location', [
-      'clerkUserId',
-      'locationId',
-    ]),
+    .index('by_user_and_location', ['clerkUserId', 'locationId']),
 
   badgeDefinitions: defineTable({
     name: v.string(),
@@ -151,10 +133,7 @@ export default defineSchema({
     })
       .index('by_tag', ['tag'])
       .index('by_key', ['key'])
-      .index('by_annual_series_and_year', [
-        'annualSeriesId',
-        'editionYear',
-      ]),
+    .index('by_annual_series_and_year', ['annualSeriesId', 'editionYear']),
 
     badgeAnnualSeries: defineTable({
     key: v.string(),
@@ -172,10 +151,7 @@ export default defineSchema({
       endsAt: v.number(),
     })
       .index('by_badge', ['badgeDefinitionId'])
-      .index('by_badge_and_key', [
-        'badgeDefinitionId',
-        'key',
-      ]),
+    .index('by_badge_and_key', ['badgeDefinitionId', 'key']),
 
     badgeProgress: defineTable({
       clerkUserId: v.string(),
@@ -186,10 +162,7 @@ export default defineSchema({
       updatedAt: v.number(),
     })
       .index('by_user', ['clerkUserId'])
-      .index('by_user_and_badge', [
-        'clerkUserId',
-        'badgeDefinitionId',
-      ]),
+    .index('by_user_and_badge', ['clerkUserId', 'badgeDefinitionId']),
 
     badgeAwards: defineTable({
       clerkUserId: v.string(),
@@ -199,10 +172,7 @@ export default defineSchema({
       announcedAt: v.optional(v.number()),
     })
       .index('by_user', ['clerkUserId'])
-      .index('by_user_and_badge', [
-        'clerkUserId',
-        'badgeDefinitionId',
-      ])
+    .index('by_user_and_badge', ['clerkUserId', 'badgeDefinitionId'])
       .index('by_user_badge_and_level', [
         'clerkUserId',
         'badgeDefinitionId',
@@ -225,10 +195,7 @@ export default defineSchema({
 
     ingestBatches: defineTable({
       contentType: v.union(v.literal('location'), v.literal('badge')),
-      sourceType: v.union(
-        v.literal('document'),
-        v.literal('user_submission'),
-      ),
+    sourceType: v.union(v.literal('document'), v.literal('user_submission')),
       sourceName: v.string(),
       warnings: v.array(v.string()),
       createdAt: v.number(),
@@ -262,11 +229,16 @@ export default defineSchema({
         ),
       ),
       badges: v.array(v.string()),
+    importConfidence: v.optional(
+      v.union(v.literal('high'), v.literal('medium'), v.literal('low')),
+    ),
+    suggestionNotes: v.optional(v.array(v.string())),
       issues: v.array(v.string()),
       status: v.union(
         v.literal('ready'),
         v.literal('needs_attention'),
         v.literal('possible_duplicate'),
+      v.literal('suggested_edit'),
         v.literal('already_published'),
         v.literal('published'),
         v.literal('kept_existing'),
@@ -302,11 +274,16 @@ export default defineSchema({
       requiredVisits: v.number(),
       levelsEnabled: v.boolean(),
       congratulationsMessages: v.array(v.string()),
+    importConfidence: v.optional(
+      v.union(v.literal('high'), v.literal('medium'), v.literal('low')),
+    ),
+    suggestionNotes: v.optional(v.array(v.string())),
       issues: v.array(v.string()),
       status: v.union(
         v.literal('ready'),
         v.literal('needs_attention'),
         v.literal('possible_duplicate'),
+      v.literal('suggested_edit'),
         v.literal('already_published'),
         v.literal('published'),
         v.literal('kept_existing'),

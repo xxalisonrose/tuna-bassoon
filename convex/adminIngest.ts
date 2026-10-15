@@ -10,6 +10,7 @@ const reviewStatusValidator = v.union(
   v.literal('ready'),
   v.literal('needs_attention'),
   v.literal('possible_duplicate'),
+  v.literal('suggested_edit'),
   v.literal('already_published'),
   v.literal('published'),
   v.literal('kept_existing'),
@@ -31,6 +32,12 @@ const mapPinTypeValidator = v.union(
   v.literal('other_discoveries'),
 );
 
+const importConfidenceValidator = v.union(
+  v.literal('high'),
+  v.literal('medium'),
+  v.literal('low'),
+);
+
 const locationDraftValidator = v.object({
   sourceOrdinal: v.optional(v.number()),
   sourceText: v.string(),
@@ -47,6 +54,8 @@ const locationDraftValidator = v.object({
   category: v.optional(v.string()),
   mapPinType: v.optional(mapPinTypeValidator),
   badges: v.array(v.string()),
+  importConfidence: v.optional(importConfidenceValidator),
+  suggestionNotes: v.optional(v.array(v.string())),
   issues: v.array(v.string()),
 });
 
@@ -62,6 +71,8 @@ const badgeDraftValidator = v.object({
   requiredVisits: v.number(),
   levelsEnabled: v.boolean(),
   congratulationsMessages: v.array(v.string()),
+  importConfidence: v.optional(importConfidenceValidator),
+  suggestionNotes: v.optional(v.array(v.string())),
   issues: v.array(v.string()),
 });
 
@@ -99,6 +110,102 @@ function normalizedText(value: string | undefined) {
     .trim()
     .replace(/\s+/g, ' ')
     .toLowerCase();
+}
+
+function comparableText(value: string | undefined) {
+  return (value ?? '').normalize('NFKC').trim().replace(/\s+/g, ' ');
+}
+
+function comparableStringList(values: string[] | undefined) {
+  return (values ?? [])
+    .map((value) => comparableText(value).toLowerCase())
+    .filter(Boolean)
+    .sort();
+}
+
+type ComparableLocation = {
+  name: string;
+  key?: string;
+  description: string;
+  funFact?: string;
+  source?: string;
+  isLore?: boolean;
+  latitude?: number;
+  longitude?: number;
+  category?: string;
+  mapPinType?: string;
+  badges: string[];
+};
+
+type ComparableBadge = {
+  name: string;
+  key?: string;
+  tag: string;
+  description: string;
+  classification?: 'general' | 'theme' | 'special_place' | 'seasonal';
+  requiredVisits: number;
+  levelsEnabled?: boolean;
+  congratulationsMessages?: string[];
+};
+
+function locationFingerprint(value: ComparableLocation) {
+  return JSON.stringify({
+    name: comparableText(value.name),
+    key: comparableText(value.key),
+    description: comparableText(value.description),
+    funFact: comparableText(value.funFact),
+    source: comparableText(value.source),
+    isLore: value.isLore === true,
+    latitude: value.latitude ?? null,
+    longitude: value.longitude ?? null,
+    category: comparableText(value.category),
+    mapPinType: comparableText(value.mapPinType),
+    badges: comparableStringList(value.badges),
+  });
+}
+
+function badgeFingerprint(value: ComparableBadge) {
+  return JSON.stringify({
+    name: comparableText(value.name),
+    key: comparableText(value.key),
+    tag: comparableText(value.tag).toLowerCase(),
+    description: comparableText(value.description),
+    classification: value.classification ?? 'general',
+    requiredVisits: value.requiredVisits,
+    levelsEnabled: value.levelsEnabled === true,
+    congratulationsMessages: (value.congratulationsMessages ?? []).map(
+      comparableText,
+    ),
+  });
+}
+
+function badgeMatchesPublished(
+  draft: ComparableBadge,
+  published: Doc<'badgeDefinitions'>,
+) {
+  const draftMessages = (draft.congratulationsMessages ?? []).map(
+    comparableText,
+  );
+  const publishedMessages = (published.congratulationsMessages ?? []).map(
+    comparableText,
+  );
+
+  return (
+    comparableText(draft.name) === comparableText(published.name) &&
+    comparableText(draft.key) === comparableText(published.key) &&
+    comparableText(draft.tag).toLowerCase() ===
+      comparableText(published.tag).toLowerCase() &&
+    comparableText(draft.description) ===
+      comparableText(published.description) &&
+    (draft.classification ?? 'general') ===
+      (published.classification ?? 'general') &&
+    draft.requiredVisits === published.requiredVisits &&
+    (draft.levelsEnabled === true) === (published.levelsEnabled === true) &&
+    draftMessages.length > 0 &&
+    draftMessages.every(
+      (message, index) => message === publishedMessages[index],
+    )
+  );
 }
 
 function isUsableSlug(value: string) {
@@ -192,7 +299,7 @@ function getInitialStatus(
   match: { exact: boolean } | null,
 ) {
   if (match?.exact) {
-    return 'already_published' as const;
+    return 'suggested_edit' as const;
   }
   if (match) {
     return 'possible_duplicate' as const;
@@ -483,10 +590,32 @@ export const stageLocationDrafts = mutation({
     }
 
     const locations = await ctx.db.query('locations').collect();
+    const existingDrafts = await ctx.db.query('locationIngestDrafts').collect();
+    const seenFingerprints = new Set(existingDrafts.map(locationFingerprint));
     const createdAt = Date.now();
+    let staged = 0;
+    let skippedDuplicates = 0;
+    let suggestedEdits = 0;
 
     for (const draft of args.drafts) {
+      const fingerprint = locationFingerprint(draft);
+
+      if (seenFingerprints.has(fingerprint)) {
+        skippedDuplicates += 1;
+        continue;
+      }
+
       const match = getLocationMatch(draft, locations);
+
+      if (
+        match?.exact &&
+        locationFingerprint(draft) === locationFingerprint(match.location)
+      ) {
+        skippedDuplicates += 1;
+        seenFingerprints.add(fingerprint);
+        continue;
+      }
+
       await ctx.db.insert('locationIngestDrafts', {
         ...draft,
         batchId: args.batchId,
@@ -496,9 +625,15 @@ export const stageLocationDrafts = mutation({
         createdAt,
         updatedAt: createdAt,
       });
+      seenFingerprints.add(fingerprint);
+      staged += 1;
+
+      if (match?.exact) {
+        suggestedEdits += 1;
+      }
     }
 
-    return { staged: args.drafts.length };
+    return { staged, skippedDuplicates, suggestedEdits };
   },
 });
 
@@ -516,10 +651,29 @@ export const stageBadgeDrafts = mutation({
     }
 
     const definitions = await ctx.db.query('badgeDefinitions').collect();
+    const existingDrafts = await ctx.db.query('badgeIngestDrafts').collect();
+    const seenFingerprints = new Set(existingDrafts.map(badgeFingerprint));
     const createdAt = Date.now();
+    let staged = 0;
+    let skippedDuplicates = 0;
+    let suggestedEdits = 0;
 
     for (const draft of args.drafts) {
+      const fingerprint = badgeFingerprint(draft);
+
+      if (seenFingerprints.has(fingerprint)) {
+        skippedDuplicates += 1;
+        continue;
+      }
+
       const match = getBadgeMatch(draft, definitions);
+
+      if (match && badgeMatchesPublished(draft, match)) {
+        skippedDuplicates += 1;
+        seenFingerprints.add(fingerprint);
+        continue;
+      }
+
       await ctx.db.insert('badgeIngestDrafts', {
         ...draft,
         batchId: args.batchId,
@@ -531,9 +685,45 @@ export const stageBadgeDrafts = mutation({
         createdAt,
         updatedAt: createdAt,
       });
+      seenFingerprints.add(fingerprint);
+      staged += 1;
+
+      if (match) {
+        suggestedEdits += 1;
+      }
     }
 
-    return { staged: args.drafts.length };
+    return { staged, skippedDuplicates, suggestedEdits };
+  },
+});
+
+export const discardEmptyBatch = mutation({
+  args: { batchId: v.id('ingestBatches') },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const batch = await ctx.db.get(args.batchId);
+
+    if (!batch) {
+      return false;
+    }
+
+    const draft =
+      batch.contentType === 'location'
+        ? await ctx.db
+            .query('locationIngestDrafts')
+            .withIndex('by_batch', (q) => q.eq('batchId', args.batchId))
+            .first()
+        : await ctx.db
+            .query('badgeIngestDrafts')
+            .withIndex('by_batch', (q) => q.eq('batchId', args.batchId))
+            .first();
+
+    if (draft) {
+      return false;
+    }
+
+    await ctx.db.delete(batch._id);
+    return true;
   },
 });
 
@@ -765,7 +955,7 @@ export const reviewLocationDraft = mutation({
       await ctx.db.patch(draft._id, {
         status: draft.matchedLocationId
           ? draft.matchDistanceMeters === 0
-            ? 'already_published'
+            ? 'suggested_edit'
             : 'possible_duplicate'
           : draft.issues.length > 0
             ? 'needs_attention'
@@ -870,7 +1060,7 @@ export const reviewBadgeDraft = mutation({
     if (args.action === 'reopen') {
       await ctx.db.patch(draft._id, {
         status: draft.matchedBadgeDefinitionId
-          ? 'already_published'
+          ? 'suggested_edit'
           : draft.issues.length > 0
             ? 'needs_attention'
             : 'ready',

@@ -25,15 +25,21 @@ The location and Gemini workflows continue to work after adding badge management
 
 ### Word import and private review queue
 
-Locations and Badges each include an **Import & Review** workspace beside the regular management view. An administrator can select a `.docx` file in the web portal; the file is read locally, converted into private proposals, and stored in Convex without publishing any location or badge to the app.
+Locations and Badges each include an **Import & Review** workspace beside the regular management view. An administrator can select a `.docx` file in the web portal; the file is read locally and summarized in an Import Preview before anything is saved. The preview reports the number of recognized proposals, confidence totals, entries with review notes, crossed-out entries, document warnings, and whether proposals from the same filename are already in the queue. The administrator can cancel the preview or deliberately add it to the private Convex review queue. Neither action publishes a location or badge to the app.
 
-The location importer recognizes numbered entries and the Category, Description, Fun Fact, Lore, Latitude, Longitude, and Source fields used by the content team's working document. It suggests a controlled category, badge tags, lore status, and map pin type. Crossed-out source entries, skipped numbering, incomplete records, and repeated names are called out for review. The badge importer recognizes the General, Theme, Special Place, and Seasonal sections, applies the normal classification presets, and flags unfinished drafts, long congratulations messages, and seasonal scheduling reminders.
+The location importer recognizes numbered entries and the Category, Description, Fun Fact, Lore, Latitude, Longitude, and Source fields used by the content team's working document. It suggests a controlled category, badge tags, lore status, and map pin type. Automatic badge-tag suggestions are constrained to the shared tag catalog already saved on badge definitions or locations. Common aliases such as `books-libraries` / `books-and-libraries` can resolve to the real saved tag, but the importer does not invent an orphan tag when no saved tag matches. That proposal instead receives a clear note requiring the editor to choose at least one badge tag. Crossed-out source entries, skipped numbering, incomplete records, and repeated names are called out for review. The badge importer recognizes the General, Theme, Special Place, and Seasonal sections, applies the normal classification presets, removes wrapping quotation marks from congratulations copy, and flags unfinished drafts, long congratulations messages, and seasonal scheduling reminders.
 
-Each proposal is labeled Ready to Review, Needs Attention, Possible Duplicate, Already Published, Published, Kept Existing, or Dismissed. Exact stable-key and normalized-name matches are detected automatically. Location proposals can also show a nearby published location when their coordinates are within 75 meters. Possible or exact matches appear in a side-by-side Proposed / Currently Published comparison so reviewers can keep the existing record, add only missing information, deliberately replace it, or create a separate record. Replacing a record preserves its established stable key. Every replacement requires a second confirmation.
+Every newly imported proposal receives a High, Medium, or Low Confidence label plus plain-language Automatic Suggestion Notes explaining what the parser inferred. Confidence describes the completeness and strength of the automatic suggestions; it never approves or publishes a record. Older proposals remain compatible and simply omit the label.
+
+Duplicate protection runs on the Convex server before each proposal is inserted. An imported location or badge is skipped when the same content already exists in published content or anywhere in the review queue, including a proposal from an earlier upload. Re-importing an unchanged document therefore adds no duplicate proposals, and an all-duplicate upload does not leave an empty batch behind. The completion message reports how many proposals were added, how many exact duplicates were skipped, and how many are suggested edits.
+
+The review workspace is organized into New Entries, Possible Duplicates, Suggested Edits, and History. New Entries combines complete new proposals with new proposals that still need attention. A location within 75 meters of a published location appears under Possible Duplicates for a human decision. A stable-key, tag, or normalized-name match with different content appears under Suggested Edits. Exact unchanged matches do not populate any tab. Suggested Edit comparisons highlight only the proposed fields that differ from the currently published record, while unchanged fields retain the normal background. Reviewers can keep the existing record, add only missing information, deliberately replace it, or create a separate record. Replacing a record preserves its established stable key. Every replacement requires a second confirmation.
 
 Every open proposal also has an **Edit Proposal** action. Location proposals can correct the name, stable key, description, fun fact, source, lore marker, coordinates, controlled category, reusable badge tags, and map pin type without publishing. Badge proposals can correct the name, stable key, shared tag, description, classification, required visits, and congratulations message pool. Classification changes apply the same visit and repeatable-level presets as the regular badge editor, and each congratulations message keeps its 160-character counter. Saving an edit reruns missing-field checks and duplicate matching, then returns the proposal to the appropriate review status. The administrator must still use a separate approval action before the edited proposal becomes live.
 
 Publishing remains an explicit per-item action. Incomplete proposals stay private, and finalized proposals can be reopened. Each proposal retains its original document text, source filename, batch, creator, reviewer, and timestamps. The shared batch model includes a `user_submission` source type so future visitor-submitted location or badge ideas can enter the same private review workflow instead of bypassing editorial approval.
+
+The importer has a read-only command-line validation check for its working documents. It opens the `.docx` files through the same Word XML and content parsers used by the portal, reports proposal and confidence counts, verifies expected totals when supplied, confirms suggested location tags exist in the badge document, and fails if badge messages retain wrapping quotation marks. The check never connects to Convex and cannot stage or publish content. The current reference documents validate as 239 location proposals from `Pins.docx` and 83 badge proposals from `Capstone Plan.docx`.
 
 ### Build information panel
 
@@ -79,15 +85,15 @@ The forms validate required fields, coordinate ranges, stable-key format, badge 
 
 Every location has one required, broad public-facing category selected from a fixed list. Category answers “What general kind of place or story is this?” Narrower subjects belong in badge tags, so a Public Art location uses the Culture & Arts category while retaining `public-art` as a tag.
 
-| Category | Use for |
-| --- | --- |
-| History & Heritage | Historic events, artifacts, memorials, transportation, and heritage |
-| Culture & Arts | Art, public art, museums, and cultural expression |
-| Literature & Libraries | Books, libraries, writers, poets, and literary history |
-| People & Community | People, civic life, neighborhoods, and community stories |
-| Science & Nature | Science, natural features, gardens, and the environment |
-| Architecture & Places | Notable buildings, historic homes, landmarks, and built spaces |
-| Weird & Curious | Oddities, folklore, legends, mysteries, and unusual discoveries |
+| Category               | Use for                                                             |
+| ---------------------- | ------------------------------------------------------------------- |
+| History & Heritage     | Historic events, artifacts, memorials, transportation, and heritage |
+| Culture & Arts         | Art, public art, museums, and cultural expression                   |
+| Literature & Libraries | Books, libraries, writers, poets, and literary history              |
+| People & Community     | People, civic life, neighborhoods, and community stories            |
+| Science & Nature       | Science, natural features, gardens, and the environment             |
+| Architecture & Places  | Notable buildings, historic homes, landmarks, and built spaces      |
+| Weird & Curious        | Oddities, folklore, legends, mysteries, and unusual discoveries     |
 
 The portal uses a single-select category dropdown instead of free text. Convex independently rejects values outside this list, preventing spelling, capitalization, and singular/plural duplicates.
 
@@ -99,13 +105,13 @@ The administrator-only `previewLocationCategoryStandardization` query reports ev
 
 Each location also has one required Map pin type. This is separate from the broad public-facing Category field: Category organizes content, while Map pin type chooses the visual family visitors see on the map.
 
-| Map pin type | Suggested for | Planned unvisited / visited artwork |
-| --- | --- | --- |
-| Historic Sites | Historic buildings, homes, landmarks, architecture, libraries, and major events | Closed antique book / open antique book |
-| Monuments & Public Art | Statues, sculpture, memorials, monuments, plaques, and public art | Covered monument / revealed cow statue |
-| Mystery & Lore | Ghost stories, folklore, legends, mysteries, strange history, and lore-marked content | Question story cloud / discovered story cloud |
-| Noteworthy People | Activists, artists, writers, scientists, musicians, entrepreneurs, and other people-centered stories | Unrevealed person / discovered person |
-| Other Discoveries | Locations that do not fit one of the more specific visual families | Red discovery gem / green discovery gem |
+| Map pin type           | Suggested for                                                                                        | Planned unvisited / visited artwork           |
+| ---------------------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| Historic Sites         | Historic buildings, homes, landmarks, architecture, libraries, and major events                      | Closed antique book / open antique book       |
+| Monuments & Public Art | Statues, sculpture, memorials, monuments, plaques, and public art                                    | Covered monument / revealed cow statue        |
+| Mystery & Lore         | Ghost stories, folklore, legends, mysteries, strange history, and lore-marked content                | Question story cloud / discovered story cloud |
+| Noteworthy People      | Activists, artists, writers, scientists, musicians, entrepreneurs, and other people-centered stories | Unrevealed person / discovered person         |
+| Other Discoveries      | Locations that do not fit one of the more specific visual families                                   | Red discovery gem / green discovery gem       |
 
 The editor suggests a Map pin type from the location's tags, broad Category, and Lore or legend marker. More specific monument and mystery matches take priority over the broader historic fallback. The suggestion only assists the editor: an administrator can select any pin type, and the saved choice remains stable if the tags change later. Existing locations without a stored choice receive the same suggestion when queried, so all public map locations have a usable pin type before they are edited again.
 
@@ -177,12 +183,12 @@ Badge forms support:
 
 Classification applies a consistent starting configuration:
 
-| Classification | Required visits | Repeatable levels | Starting congratulations pool | Availability |
-| --- | ---: | --- | ---: | --- |
-| General | 5 | On | 10 messages | Always available unless retired |
-| Theme | 2 | On | 10 messages | Always available unless retired |
-| Special Place | 1 | Off | 1 message | Always available unless retired |
-| Seasonal | 1 | Off | 1 message | Optional scheduled availability windows |
+| Classification | Required visits | Repeatable levels | Starting congratulations pool | Availability                            |
+| -------------- | --------------: | ----------------- | ----------------------------: | --------------------------------------- |
+| General        |               5 | On                |                   10 messages | Always available unless retired         |
+| Theme          |               2 | On                |                   10 messages | Always available unless retired         |
+| Special Place  |               1 | Off               |                     1 message | Always available unless retired         |
+| Seasonal       |               1 | Off               |                     1 message | Optional scheduled availability windows |
 
 General starts at five required visits, but an administrator can adjust that value for a badge that needs a shorter or longer progression. Theme is fixed at two visits per level. Special Place and Seasonal remain fixed at one visit and do not use repeatable levels.
 The congratulations count is a starting preset rather than a permanent

@@ -1,10 +1,6 @@
 import { useMutation, useQuery } from 'convex/react';
 import { useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-} from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
 
 import {
   createBadgeProposalEdit,
@@ -20,6 +16,9 @@ import { useTheme } from '@/hooks/use-theme';
 import {
   parseBadgeWordDocument,
   parseLocationWordDocument,
+  type ImportConfidence,
+  type ParsedBadgeDraft,
+  type ParsedLocationDraft,
 } from '@/lib/content-ingest';
 import { pickAndReadWordDocument } from '@/lib/word-document-import';
 import { api } from '../../../convex/_generated/api';
@@ -30,11 +29,27 @@ type ReviewStatus =
   | 'ready'
   | 'needs_attention'
   | 'possible_duplicate'
+  | 'suggested_edit'
   | 'already_published'
   | 'published'
   | 'kept_existing'
   | 'dismissed';
-type StatusFilter = ReviewStatus | 'open' | 'all';
+type StatusFilter =
+  'new_entries' | 'possible_duplicates' | 'suggested_edits' | 'history';
+
+type PendingImport =
+  | {
+      contentType: 'location';
+      fileName: string;
+      warnings: string[];
+      drafts: ParsedLocationDraft[];
+    }
+  | {
+      contentType: 'badge';
+      fileName: string;
+      warnings: string[];
+      drafts: ParsedBadgeDraft[];
+    };
 
 type ReviewCard = {
   id: string;
@@ -42,6 +57,8 @@ type ReviewCard = {
   name: string;
   key: string;
   status: ReviewStatus;
+  importConfidence?: ImportConfidence;
+  suggestionNotes: string[];
   issues: string[];
   sourceName: string;
   sourceOrdinal?: number;
@@ -51,6 +68,7 @@ type ReviewCard = {
   matchDistanceMeters?: number;
   proposalDetails: { label: string; value: string }[];
   matchDetails: { label: string; value: string }[];
+  changedLabels: string[];
   publishable: boolean;
   locationEdit?: LocationProposalEdit;
   badgeEdit?: BadgeProposalEdit;
@@ -60,16 +78,24 @@ const statusLabels: Record<ReviewStatus, string> = {
   ready: 'Ready to Review',
   needs_attention: 'Needs Attention',
   possible_duplicate: 'Possible Duplicate',
-  already_published: 'Already Published',
+  suggested_edit: 'Suggested Edit',
+  already_published: 'Suggested Edit',
   published: 'Published',
   kept_existing: 'Kept Existing',
   dismissed: 'Dismissed',
+};
+
+const confidenceLabels: Record<ImportConfidence, string> = {
+  high: 'High Confidence',
+  medium: 'Medium Confidence',
+  low: 'Low Confidence',
 };
 
 const openStatuses = new Set<ReviewStatus>([
   'ready',
   'needs_attention',
   'possible_duplicate',
+  'suggested_edit',
   'already_published',
 ]);
 
@@ -110,6 +136,35 @@ function formatValue(value: unknown) {
   return String(value);
 }
 
+function comparableText(value: string | undefined) {
+  return (value ?? '').normalize('NFKC').trim().replace(/\s+/g, ' ');
+}
+
+function sameText(left: string | undefined, right: string | undefined) {
+  return comparableText(left) === comparableText(right);
+}
+
+function sameStringList(left: string[], right: string[]) {
+  const normalize = (values: string[]) =>
+    values
+      .map((value) => comparableText(value).toLowerCase())
+      .filter(Boolean)
+      .sort();
+
+  return JSON.stringify(normalize(left)) === JSON.stringify(normalize(right));
+}
+
+function importedMessagesMatch(imported: string[], published: string[]) {
+  return imported.every(
+    (message, index) =>
+      comparableText(message) === comparableText(published[index]),
+  );
+}
+
+function getChangedLabels(values: [string, boolean][]) {
+  return values.filter(([, changed]) => changed).map(([label]) => label);
+}
+
 function chunkValues<T>(values: T[], size: number) {
   const chunks: T[][] = [];
 
@@ -145,20 +200,18 @@ export function IngestReviewPanel({
     visible ? {} : 'skip',
   );
   const createBatch = useMutation(api.adminIngest.createBatch);
-  const stageLocationDrafts = useMutation(
-    api.adminIngest.stageLocationDrafts,
-  );
+  const stageLocationDrafts = useMutation(api.adminIngest.stageLocationDrafts);
   const stageBadgeDrafts = useMutation(api.adminIngest.stageBadgeDrafts);
-  const reviewLocationDraft = useMutation(
-    api.adminIngest.reviewLocationDraft,
-  );
+  const discardEmptyBatch = useMutation(api.adminIngest.discardEmptyBatch);
+  const reviewLocationDraft = useMutation(api.adminIngest.reviewLocationDraft);
   const reviewBadgeDraft = useMutation(api.adminIngest.reviewBadgeDraft);
-  const updateLocationDraft = useMutation(
-    api.adminIngest.updateLocationDraft,
-  );
+  const updateLocationDraft = useMutation(api.adminIngest.updateLocationDraft);
   const updateBadgeDraft = useMutation(api.adminIngest.updateBadgeDraft);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('open');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('new_entries');
   const [isImporting, setIsImporting] = useState(false);
+  const [pendingImport, setPendingImport] = useState<PendingImport | null>(
+    null,
+  );
   const [busyDraftId, setBusyDraftId] = useState<string | null>(null);
   const [confirmReplaceId, setConfirmReplaceId] = useState<string | null>(null);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
@@ -170,13 +223,13 @@ export function IngestReviewPanel({
         const match = draft.matchedLocation;
         const publishable = Boolean(
           draft.name.trim() &&
-            slugPattern.test(draft.key) &&
-            draft.description.trim() &&
-            draft.latitude !== undefined &&
-            draft.longitude !== undefined &&
-            draft.category &&
-            draft.mapPinType &&
-            draft.badges.length > 0,
+          slugPattern.test(draft.key) &&
+          draft.description.trim() &&
+          draft.latitude !== undefined &&
+          draft.longitude !== undefined &&
+          draft.category &&
+          draft.mapPinType &&
+          draft.badges.length > 0,
         );
 
         return {
@@ -185,6 +238,8 @@ export function IngestReviewPanel({
           name: draft.name,
           key: draft.key,
           status: draft.status,
+          importConfidence: draft.importConfidence,
+          suggestionNotes: draft.suggestionNotes ?? [],
           issues: draft.issues,
           sourceName: draft.batch?.sourceName ?? 'Imported document',
           sourceOrdinal: draft.sourceOrdinal,
@@ -193,6 +248,7 @@ export function IngestReviewPanel({
           matchKey: match?.key,
           matchDistanceMeters: draft.matchDistanceMeters,
           proposalDetails: [
+            { label: 'Name', value: draft.name },
             { label: 'Stable Key', value: draft.key },
             { label: 'Category', value: formatValue(draft.category) },
             { label: 'Badge Tags', value: formatValue(draft.badges) },
@@ -211,6 +267,7 @@ export function IngestReviewPanel({
           ],
           matchDetails: match
             ? [
+                { label: 'Name', value: match.name },
                 { label: 'Stable Key', value: formatValue(match.key) },
                 { label: 'Category', value: formatValue(match.category) },
                 { label: 'Badge Tags', value: formatValue(match.badges) },
@@ -225,6 +282,30 @@ export function IngestReviewPanel({
                 { label: 'Map Pin', value: formatValue(match.mapPinType) },
               ]
             : [],
+          changedLabels: match
+            ? getChangedLabels([
+                ['Name', !sameText(draft.name, match.name)],
+                ['Stable Key', !sameText(draft.key, match.key)],
+                ['Category', !sameText(draft.category, match.category)],
+                ['Badge Tags', !sameStringList(draft.badges, match.badges)],
+                [
+                  'Description',
+                  !sameText(draft.description, match.description),
+                ],
+                ['Fun Fact', !sameText(draft.funFact, match.funFact)],
+                ['Source', !sameText(draft.source, match.source)],
+                [
+                  'Includes Lore',
+                  (draft.isLore === true) !== (match.isLore === true),
+                ],
+                [
+                  'Coordinates',
+                  draft.latitude !== match.latitude ||
+                    draft.longitude !== match.longitude,
+                ],
+                ['Map Pin', !sameText(draft.mapPinType, match.mapPinType)],
+              ])
+            : [],
           publishable,
           locationEdit: createLocationProposalEdit(draft),
         };
@@ -235,22 +316,22 @@ export function IngestReviewPanel({
       const match = draft.matchedBadge;
       const publishable = Boolean(
         draft.name.trim() &&
-          draft.description.trim() &&
-          slugPattern.test(draft.key) &&
-          slugPattern.test(draft.tag) &&
-          Number.isInteger(draft.requiredVisits) &&
-          draft.requiredVisits > 0 &&
-          (draft.classification !== 'theme' || draft.requiredVisits === 2) &&
-          ((draft.classification !== 'special_place' &&
-            draft.classification !== 'seasonal') ||
-            draft.requiredVisits === 1) &&
-          draft.levelsEnabled ===
-            (draft.classification === 'general' ||
-              draft.classification === 'theme') &&
-          draft.congratulationsMessages.length > 0 &&
-          draft.congratulationsMessages.every(
-            (message) => message.trim().length > 0 && message.length <= 160,
-          ),
+        draft.description.trim() &&
+        slugPattern.test(draft.key) &&
+        slugPattern.test(draft.tag) &&
+        Number.isInteger(draft.requiredVisits) &&
+        draft.requiredVisits > 0 &&
+        (draft.classification !== 'theme' || draft.requiredVisits === 2) &&
+        ((draft.classification !== 'special_place' &&
+          draft.classification !== 'seasonal') ||
+          draft.requiredVisits === 1) &&
+        draft.levelsEnabled ===
+          (draft.classification === 'general' ||
+            draft.classification === 'theme') &&
+        draft.congratulationsMessages.length > 0 &&
+        draft.congratulationsMessages.every(
+          (message) => message.trim().length > 0 && message.length <= 160,
+        ),
       );
 
       return {
@@ -259,6 +340,8 @@ export function IngestReviewPanel({
         name: draft.name,
         key: draft.key,
         status: draft.status,
+        importConfidence: draft.importConfidence,
+        suggestionNotes: draft.suggestionNotes ?? [],
         issues: draft.issues,
         sourceName: draft.batch?.sourceName ?? 'Imported document',
         sourceOrdinal: draft.sourceOrdinal,
@@ -266,6 +349,7 @@ export function IngestReviewPanel({
         matchName: match?.name,
         matchKey: match?.key,
         proposalDetails: [
+          { label: 'Name', value: draft.name },
           { label: 'Stable Key', value: draft.key },
           { label: 'Tag', value: draft.tag },
           { label: 'Classification', value: draft.classification },
@@ -279,6 +363,7 @@ export function IngestReviewPanel({
         ],
         matchDetails: match
           ? [
+              { label: 'Name', value: match.name },
               { label: 'Stable Key', value: formatValue(match.key) },
               { label: 'Tag', value: match.tag },
               {
@@ -300,6 +385,33 @@ export function IngestReviewPanel({
               },
             ]
           : [],
+        changedLabels: match
+          ? getChangedLabels([
+              ['Name', !sameText(draft.name, match.name)],
+              ['Stable Key', !sameText(draft.key, match.key)],
+              ['Tag', !sameText(draft.tag, match.tag)],
+              [
+                'Classification',
+                draft.classification !== (match.classification ?? 'general'),
+              ],
+              [
+                'Required Visits',
+                draft.requiredVisits !== match.requiredVisits,
+              ],
+              [
+                'Leveling',
+                draft.levelsEnabled !== (match.levelsEnabled === true),
+              ],
+              ['Description', !sameText(draft.description, match.description)],
+              [
+                'Congratulations',
+                !importedMessagesMatch(
+                  draft.congratulationsMessages,
+                  match.congratulationsMessages ?? [],
+                ),
+              ],
+            ])
+          : [],
         publishable,
         badgeEdit: createBadgeProposalEdit({
           name: draft.name,
@@ -315,38 +427,88 @@ export function IngestReviewPanel({
     });
   }, [badgeDrafts, contentType, locationDrafts]);
 
+  const reviewableCards = useMemo(
+    () =>
+      cards.filter(
+        (card) =>
+          !(
+            (card.status === 'suggested_edit' ||
+              card.status === 'already_published') &&
+            card.changedLabels.length === 0
+          ),
+      ),
+    [cards],
+  );
   const filteredCards = useMemo(
     () =>
-      cards.filter((card) => {
-        if (statusFilter === 'all') {
-          return true;
+      reviewableCards.filter((card) => {
+        if (statusFilter === 'new_entries') {
+          return card.status === 'ready' || card.status === 'needs_attention';
         }
-        if (statusFilter === 'open') {
-          return openStatuses.has(card.status);
+        if (statusFilter === 'possible_duplicates') {
+          return card.status === 'possible_duplicate';
         }
-        return card.status === statusFilter;
+        if (statusFilter === 'suggested_edits') {
+          return (
+            card.status === 'suggested_edit' ||
+            card.status === 'already_published'
+          );
+        }
+        return finalizedStatuses.has(card.status);
       }),
-    [cards, statusFilter],
+    [reviewableCards, statusFilter],
   );
   const importWarnings = useMemo(() => {
     const drafts = contentType === 'location' ? locationDrafts : badgeDrafts;
 
     return Array.from(
-      new Set(
-        (drafts ?? []).flatMap((draft) => draft.batch?.warnings ?? []),
-      ),
+      new Set((drafts ?? []).flatMap((draft) => draft.batch?.warnings ?? [])),
     );
   }, [badgeDrafts, contentType, locationDrafts]);
-  const availableTags = useMemo(
+  const savedTagCatalog = useMemo(
     () =>
-      Array.from(
-        new Set([
-          ...(adminLocations ?? []).flatMap((location) => location.badges),
-          ...(adminBadges ?? []).map((badge) => badge.tag),
-        ]),
-      ).sort((left, right) => left.localeCompare(right)),
+      adminLocations && adminBadges
+        ? Array.from(
+            new Set([
+              ...adminLocations.flatMap((location) => location.badges),
+              ...adminBadges.map((badge) => badge.tag),
+            ]),
+          ).sort((left, right) => left.localeCompare(right))
+        : undefined,
     [adminBadges, adminLocations],
   );
+  const availableTags = savedTagCatalog ?? [];
+  const pendingSummary = useMemo(() => {
+    if (!pendingImport) {
+      return null;
+    }
+
+    const confidenceCounts = pendingImport.drafts.reduce(
+      (counts, draft) => {
+        counts[draft.importConfidence] += 1;
+        return counts;
+      },
+      { high: 0, medium: 0, low: 0 },
+    );
+    const needsAttention = pendingImport.drafts.filter(
+      (draft) => draft.issues.length > 0,
+    ).length;
+    const markedComplete = pendingImport.drafts.filter(
+      (draft) => draft.sourceWasMarkedComplete,
+    ).length;
+    const previousImports = (
+      pendingImport.contentType === 'location' ? locationDrafts : badgeDrafts
+    )?.filter(
+      (draft) => draft.batch?.sourceName === pendingImport.fileName,
+    ).length;
+
+    return {
+      confidenceCounts,
+      needsAttention,
+      markedComplete,
+      previousImports: previousImports ?? 0,
+    };
+  }, [badgeDrafts, locationDrafts, pendingImport]);
 
   if (!visible) {
     return null;
@@ -364,38 +526,82 @@ export function IngestReviewPanel({
       }
 
       if (contentType === 'location') {
-        const parsed = parseLocationWordDocument(document.paragraphs);
-        const batchId = await createBatch({
-          contentType,
-          sourceType: 'document',
-          sourceName: document.fileName,
-          warnings: parsed.warnings,
+        const parsed = parseLocationWordDocument(document.paragraphs, {
+          availableBadgeTags: savedTagCatalog,
         });
-
-        for (const drafts of chunkValues(parsed.drafts, 30)) {
-          await stageLocationDrafts({ batchId, drafts });
-        }
-
-        setStatusMessage(
-          `${parsed.drafts.length} location proposals were added to the private review queue. Nothing was published.`,
-        );
+        setPendingImport({
+          contentType,
+          fileName: document.fileName,
+          warnings: parsed.warnings,
+          drafts: parsed.drafts,
+        });
       } else {
         const parsed = parseBadgeWordDocument(document.paragraphs);
-        const batchId = await createBatch({
+        setPendingImport({
           contentType,
-          sourceType: 'document',
-          sourceName: document.fileName,
+          fileName: document.fileName,
           warnings: parsed.warnings,
+          drafts: parsed.drafts,
         });
-
-        for (const drafts of chunkValues(parsed.drafts, 30)) {
-          await stageBadgeDrafts({ batchId, drafts });
-        }
-
-        setStatusMessage(
-          `${parsed.drafts.length} badge proposals were added to the private review queue. Nothing was published.`,
-        );
       }
+
+      setStatusMessage(
+        `Preview ready for ${document.fileName}. Nothing has been added or published yet.`,
+      );
+    } catch (error) {
+      setStatusMessage(getErrorMessage(error));
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const addPendingImportToQueue = async () => {
+    if (!pendingImport || pendingImport.drafts.length === 0) {
+      return;
+    }
+
+    setIsImporting(true);
+    setStatusMessage('');
+
+    try {
+      const batchId = await createBatch({
+        contentType: pendingImport.contentType,
+        sourceType: 'document',
+        sourceName: pendingImport.fileName,
+        warnings: pendingImport.warnings,
+      });
+      let stagedCount = 0;
+      let skippedDuplicateCount = 0;
+      let suggestedEditCount = 0;
+
+      if (pendingImport.contentType === 'location') {
+        for (const drafts of chunkValues(pendingImport.drafts, 30)) {
+          const result = await stageLocationDrafts({ batchId, drafts });
+          stagedCount += result.staged;
+          skippedDuplicateCount += result.skippedDuplicates;
+          suggestedEditCount += result.suggestedEdits;
+        }
+      } else {
+        for (const drafts of chunkValues(pendingImport.drafts, 30)) {
+          const result = await stageBadgeDrafts({ batchId, drafts });
+          stagedCount += result.staged;
+          skippedDuplicateCount += result.skippedDuplicates;
+          suggestedEditCount += result.suggestedEdits;
+        }
+      }
+
+      const importedType = pendingImport.contentType;
+
+      if (stagedCount === 0) {
+        await discardEmptyBatch({ batchId });
+      }
+
+      setPendingImport(null);
+      setStatusMessage(
+        stagedCount === 0
+          ? `Nothing was added. All ${skippedDuplicateCount} ${importedType} proposals already exist unchanged in published content or the review queue.`
+          : `${stagedCount} ${importedType} proposals were added to the private review queue, including ${suggestedEditCount} suggested ${suggestedEditCount === 1 ? 'edit' : 'edits'}. ${skippedDuplicateCount} exact ${skippedDuplicateCount === 1 ? 'duplicate was' : 'duplicates were'} skipped. Nothing was published.`,
+      );
     } catch (error) {
       setStatusMessage(getErrorMessage(error));
     } finally {
@@ -531,14 +737,18 @@ export function IngestReviewPanel({
     }
   };
 
-  const currentDrafts = contentType === 'location' ? locationDrafts : badgeDrafts;
-  const openCount = cards.filter((card) => openStatuses.has(card.status)).length;
+  const currentDrafts =
+    contentType === 'location' ? locationDrafts : badgeDrafts;
+  const openCount = reviewableCards.filter((card) =>
+    openStatuses.has(card.status),
+  ).length;
 
   return (
     <ThemedView style={styles.panel}>
       <ThemedView
         type="backgroundElement"
-        style={[styles.introCard, { borderColor: theme.border }]}>
+        style={[styles.introCard, { borderColor: theme.border }]}
+      >
         <ThemedText accessibilityRole="header" type="subtitle">
           Import & Review {contentType === 'location' ? 'Locations' : 'Badges'}
         </ThemedText>
@@ -551,39 +761,142 @@ export function IngestReviewPanel({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Import ${contentType === 'location' ? 'locations' : 'badges'} from Word`}
-            disabled={isImporting}
+            disabled={
+              isImporting ||
+              (contentType === 'location' && savedTagCatalog === undefined)
+            }
             onPress={importDocument}
             style={({ pressed }) => [
               styles.primaryButton,
-              isImporting && styles.disabled,
+              (isImporting ||
+                (contentType === 'location' &&
+                  savedTagCatalog === undefined)) &&
+                styles.disabled,
               pressed && styles.pressed,
-            ]}>
+            ]}
+          >
             {isImporting ? (
               <ActivityIndicator color={Palette.ink} />
             ) : (
               <ThemedText style={styles.buttonText}>
-                Import Word Document
+                Preview Word Document
               </ThemedText>
             )}
           </Pressable>
           <ThemedText type="small" themeColor="textSecondary">
-            {openCount} awaiting review · {cards.length} total proposals
+            {openCount} awaiting review · {reviewableCards.length} total
+            proposals
           </ThemedText>
         </ThemedView>
       </ThemedView>
+
+      {pendingImport && pendingSummary ? (
+        <ThemedView
+          type="backgroundElement"
+          style={[styles.previewCard, { borderColor: theme.borderStrong }]}
+        >
+          <ThemedText accessibilityRole="header" type="subtitle">
+            Import Preview
+          </ThemedText>
+          <ThemedText type="smallBold" selectable>
+            {pendingImport.fileName}
+          </ThemedText>
+          <ThemedText>
+            {pendingImport.drafts.length} {pendingImport.contentType}{' '}
+            {pendingImport.drafts.length === 1 ? 'proposal' : 'proposals'} found
+          </ThemedText>
+          <ThemedView style={styles.previewStats}>
+            <ThemedText type="small">
+              High confidence: {pendingSummary.confidenceCounts.high}
+            </ThemedText>
+            <ThemedText type="small">
+              Medium confidence: {pendingSummary.confidenceCounts.medium}
+            </ThemedText>
+            <ThemedText type="small">
+              Low confidence: {pendingSummary.confidenceCounts.low}
+            </ThemedText>
+            <ThemedText type="small">
+              With review notes: {pendingSummary.needsAttention}
+            </ThemedText>
+            <ThemedText type="small">
+              Crossed out in source: {pendingSummary.markedComplete}
+            </ThemedText>
+          </ThemedView>
+          {pendingSummary.previousImports > 0 ? (
+            <ThemedText type="small" style={{ color: theme.danger }}>
+              This filename already has {pendingSummary.previousImports}{' '}
+              proposals in the queue. Check the existing batch before adding it
+              again.
+            </ThemedText>
+          ) : null}
+          {pendingImport.warnings.map((warning) => (
+            <ThemedText key={warning} type="small">
+              • {warning}
+            </ThemedText>
+          ))}
+          {pendingImport.drafts.length === 0 ? (
+            <ThemedText type="small" style={{ color: theme.danger }}>
+              No {pendingImport.contentType} proposals were recognized. Choose a
+              different document or importer.
+            </ThemedText>
+          ) : null}
+          <ThemedText type="small" themeColor="textSecondary">
+            Review this summary before adding anything. Importing creates only
+            private proposals; it does not publish content.
+          </ThemedText>
+          <ThemedView style={styles.actions}>
+            <Pressable
+              accessibilityRole="button"
+              disabled={isImporting || pendingImport.drafts.length === 0}
+              onPress={() => void addPendingImportToQueue()}
+              style={({ pressed }) => [
+                styles.primaryButton,
+                (isImporting || pendingImport.drafts.length === 0) &&
+                  styles.disabled,
+                pressed && styles.pressed,
+              ]}
+            >
+              {isImporting ? (
+                <ActivityIndicator color={Palette.ink} />
+              ) : (
+                <ThemedText style={styles.buttonText}>
+                  Add to Review Queue
+                </ThemedText>
+              )}
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              disabled={isImporting}
+              onPress={() => {
+                setPendingImport(null);
+                setStatusMessage('Import preview canceled. Nothing was added.');
+              }}
+              style={({ pressed }) => [
+                styles.secondaryButton,
+                isImporting && styles.disabled,
+                pressed && styles.pressed,
+              ]}
+            >
+              <ThemedText style={styles.buttonText}>Cancel Preview</ThemedText>
+            </Pressable>
+          </ThemedView>
+        </ThemedView>
+      ) : null}
 
       {statusMessage ? (
         <ThemedText
           accessibilityLiveRegion="assertive"
           accessibilityRole="alert"
-          style={styles.statusMessage}>
+          style={styles.statusMessage}
+        >
           {statusMessage}
         </ThemedText>
       ) : null}
 
       {importWarnings.length > 0 ? (
         <ThemedView
-          style={[styles.issueBox, { borderColor: theme.borderStrong }]}>
+          style={[styles.issueBox, { borderColor: theme.borderStrong }]}
+        >
           <ThemedText type="smallBold">Import Warnings</ThemedText>
           {importWarnings.map((warning) => (
             <ThemedText key={warning} type="small">
@@ -596,15 +909,14 @@ export function IngestReviewPanel({
       <ThemedView
         accessibilityRole="tablist"
         accessibilityLabel="Proposal status filters"
-        style={styles.filters}>
+        style={styles.filters}
+      >
         {(
           [
-            ['open', 'Open'],
-            ['needs_attention', 'Needs Attention'],
-            ['possible_duplicate', 'Possible Duplicates'],
-            ['already_published', 'Already Published'],
-            ['published', 'Published'],
-            ['all', 'All'],
+            ['new_entries', 'New Entries'],
+            ['possible_duplicates', 'Possible Duplicates'],
+            ['suggested_edits', 'Suggested Edits'],
+            ['history', 'History'],
           ] as [StatusFilter, string][]
         ).map(([value, label]) => (
           <Pressable
@@ -616,7 +928,8 @@ export function IngestReviewPanel({
               styles.filterButton,
               statusFilter === value && styles.filterButtonSelected,
               pressed && styles.pressed,
-            ]}>
+            ]}
+          >
             <ThemedText style={styles.buttonText}>{label}</ThemedText>
           </Pressable>
         ))}
@@ -627,7 +940,8 @@ export function IngestReviewPanel({
       ) : filteredCards.length === 0 ? (
         <ThemedView
           type="backgroundElement"
-          style={[styles.emptyCard, { borderColor: theme.border }]}>
+          style={[styles.emptyCard, { borderColor: theme.border }]}
+        >
           <ThemedText type="smallBold">No proposals in this view.</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             Import a Word document or select another status filter.
@@ -638,12 +952,16 @@ export function IngestReviewPanel({
           const isBusy = busyDraftId === card.id;
           const hasMatch = Boolean(card.matchName);
           const isFinalized = finalizedStatuses.has(card.status);
+          const isSuggestedEdit =
+            card.status === 'suggested_edit' ||
+            card.status === 'already_published';
 
           return (
             <ThemedView
               key={card.id}
               type="backgroundElement"
-              style={[styles.reviewCard, { borderColor: theme.border }]}>
+              style={[styles.reviewCard, { borderColor: theme.border }]}
+            >
               <ThemedView style={styles.cardHeadingRow}>
                 <ThemedView style={styles.cardHeadingCopy}>
                   <ThemedText type="subtitle">{card.name}</ThemedText>
@@ -661,16 +979,48 @@ export function IngestReviewPanel({
                           ? theme.accentSoft
                           : theme.surfaceWarm,
                     },
-                  ]}>
+                  ]}
+                >
                   <ThemedText type="smallBold">
                     {statusLabels[card.status]}
                   </ThemedText>
                 </ThemedView>
+                {card.importConfidence ? (
+                  <ThemedView
+                    style={[
+                      styles.statusPill,
+                      {
+                        backgroundColor:
+                          card.importConfidence === 'high'
+                            ? theme.accentSoft
+                            : theme.surfaceWarm,
+                      },
+                    ]}
+                  >
+                    <ThemedText type="smallBold">
+                      {confidenceLabels[card.importConfidence]}
+                    </ThemedText>
+                  </ThemedView>
+                ) : null}
               </ThemedView>
+
+              {card.suggestionNotes.length > 0 ? (
+                <ThemedView style={styles.suggestionBox}>
+                  <ThemedText type="smallBold">
+                    Automatic Suggestion Notes
+                  </ThemedText>
+                  {card.suggestionNotes.map((note) => (
+                    <ThemedText key={note} type="small">
+                      • {note}
+                    </ThemedText>
+                  ))}
+                </ThemedView>
+              ) : null}
 
               {card.issues.length > 0 ? (
                 <ThemedView
-                  style={[styles.issueBox, { borderColor: theme.borderStrong }]}>
+                  style={[styles.issueBox, { borderColor: theme.borderStrong }]}
+                >
                   <ThemedText type="smallBold">Review Notes</ThemedText>
                   {card.issues.map((issue) => (
                     <ThemedText key={issue} type="small">
@@ -705,29 +1055,67 @@ export function IngestReviewPanel({
               <ThemedView style={styles.comparisonRow}>
                 <ThemedView
                   type="backgroundSelected"
-                  style={[styles.comparisonColumn, { borderColor: theme.border }]}>
+                  style={[
+                    styles.comparisonColumn,
+                    { borderColor: theme.border },
+                  ]}
+                >
                   <ThemedText type="smallBold">PROPOSED</ThemedText>
-                  {card.proposalDetails.map((detail) => (
-                    <ThemedView key={detail.label} style={styles.detailRow}>
-                      <ThemedText type="smallBold">{detail.label}</ThemedText>
-                      <ThemedText type="small" selectable>
-                        {detail.value}
-                      </ThemedText>
-                    </ThemedView>
-                  ))}
+                  {card.proposalDetails.map((detail) => {
+                    const isChanged =
+                      isSuggestedEdit &&
+                      card.changedLabels.includes(detail.label);
+
+                    return (
+                      <ThemedView
+                        key={detail.label}
+                        style={[
+                          styles.detailRow,
+                          isChanged && styles.changedDetailRow,
+                          isChanged && {
+                            backgroundColor: theme.surfaceWarm,
+                            borderColor: theme.accent,
+                          },
+                        ]}
+                      >
+                        <ThemedView style={styles.changedDetailHeading}>
+                          <ThemedText type="smallBold">
+                            {detail.label}
+                          </ThemedText>
+                          {isChanged ? (
+                            <ThemedText
+                              type="smallBold"
+                              style={{ color: theme.link }}
+                            >
+                              Suggested Change
+                            </ThemedText>
+                          ) : null}
+                        </ThemedView>
+                        <ThemedText type="small" selectable>
+                          {detail.value}
+                        </ThemedText>
+                      </ThemedView>
+                    );
+                  })}
                 </ThemedView>
 
                 {hasMatch ? (
                   <ThemedView
                     type="backgroundSelected"
-                    style={[styles.comparisonColumn, { borderColor: theme.border }]}>
-                    <ThemedText type="smallBold">CURRENTLY PUBLISHED</ThemedText>
+                    style={[
+                      styles.comparisonColumn,
+                      { borderColor: theme.border },
+                    ]}
+                  >
+                    <ThemedText type="smallBold">
+                      CURRENTLY PUBLISHED
+                    </ThemedText>
                     <ThemedText type="smallBold">{card.matchName}</ThemedText>
                     {card.matchDistanceMeters !== undefined &&
                     card.matchDistanceMeters > 0 ? (
                       <ThemedText type="small" themeColor="textSecondary">
-                        Approximately {Math.round(card.matchDistanceMeters)} meters
-                        from the proposed coordinates
+                        Approximately {Math.round(card.matchDistanceMeters)}{' '}
+                        meters from the proposed coordinates
                       </ThemedText>
                     ) : null}
                     {card.matchDetails.map((detail) => (
@@ -759,14 +1147,17 @@ export function IngestReviewPanel({
                       styles.secondaryButton,
                       isBusy && styles.disabled,
                       pressed && styles.pressed,
-                    ]}>
+                    ]}
+                  >
                     <ThemedText style={styles.buttonText}>Reopen</ThemedText>
                   </Pressable>
                 ) : (
                   <>
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityState={{ expanded: editingDraftId === card.id }}
+                      accessibilityState={{
+                        expanded: editingDraftId === card.id,
+                      }}
                       disabled={isBusy}
                       onPress={() =>
                         setEditingDraftId((current) =>
@@ -777,7 +1168,8 @@ export function IngestReviewPanel({
                         styles.secondaryButton,
                         isBusy && styles.disabled,
                         pressed && styles.pressed,
-                      ]}>
+                      ]}
+                    >
                       <ThemedText style={styles.buttonText}>
                         {editingDraftId === card.id
                           ? 'Close Editor'
@@ -795,7 +1187,8 @@ export function IngestReviewPanel({
                             styles.secondaryButton,
                             isBusy && styles.disabled,
                             pressed && styles.pressed,
-                          ]}>
+                          ]}
+                        >
                           <ThemedText style={styles.buttonText}>
                             Keep Existing
                           </ThemedText>
@@ -808,7 +1201,8 @@ export function IngestReviewPanel({
                             styles.secondaryButton,
                             (isBusy || !card.publishable) && styles.disabled,
                             pressed && styles.pressed,
-                          ]}>
+                          ]}
+                        >
                           <ThemedText style={styles.buttonText}>
                             Add Missing Information
                           </ThemedText>
@@ -827,7 +1221,8 @@ export function IngestReviewPanel({
                             styles.warningButton,
                             (isBusy || !card.publishable) && styles.disabled,
                             pressed && styles.pressed,
-                          ]}>
+                          ]}
+                        >
                           <ThemedText style={styles.warningButtonText}>
                             {confirmReplaceId === card.id
                               ? 'Confirm Replace'
@@ -845,7 +1240,8 @@ export function IngestReviewPanel({
                         styles.primaryButton,
                         (isBusy || !card.publishable) && styles.disabled,
                         pressed && styles.pressed,
-                      ]}>
+                      ]}
+                    >
                       <ThemedText style={styles.buttonText}>
                         {hasMatch ? 'Create Separate' : 'Approve & Publish'}
                       </ThemedText>
@@ -859,7 +1255,8 @@ export function IngestReviewPanel({
                         styles.secondaryButton,
                         isBusy && styles.disabled,
                         pressed && styles.pressed,
-                      ]}>
+                      ]}
+                    >
                       <ThemedText style={styles.buttonText}>Dismiss</ThemedText>
                     </Pressable>
                   </>
@@ -902,6 +1299,17 @@ const styles = StyleSheet.create({
   },
   statusMessage: {
     paddingHorizontal: Spacing.one,
+  },
+  previewCard: {
+    gap: Spacing.two,
+    padding: Spacing.four,
+    borderWidth: 2,
+    borderRadius: Spacing.three,
+  },
+  previewStats: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.three,
   },
   filters: {
     flexDirection: 'row',
@@ -955,6 +1363,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: Spacing.two,
   },
+  suggestionBox: {
+    gap: Spacing.one,
+    padding: Spacing.three,
+    borderRadius: Spacing.two,
+  },
   comparisonRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -971,6 +1384,17 @@ const styles = StyleSheet.create({
   },
   detailRow: {
     gap: Spacing.half,
+  },
+  changedDetailRow: {
+    padding: Spacing.two,
+    borderWidth: 2,
+    borderRadius: Spacing.two,
+  },
+  changedDetailHeading: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
   },
   sourceBox: {
     gap: Spacing.one,
