@@ -153,7 +153,7 @@ export default function CustomizeAvatarScreen() {
               Sign In to Customize
             </ThemedText>
             <ThemedText themeColor="textSecondary">
-              Sign in from the Home tab before choosing an avatar.
+              Sign in before choosing an avatar.
             </ThemedText>
             <Pressable
               accessibilityRole="button"

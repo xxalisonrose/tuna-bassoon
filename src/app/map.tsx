@@ -294,6 +294,11 @@ export default function MapScreen() {
     isAuthenticated ? {} : 'skip',
   );
 
+  const avatarProfile = useQuery(
+    api.users.getMyAvatarProfile,
+    isAuthenticated ? {} : 'skip',
+  );
+
   const isAdmin = currentUser?.isAdmin === true;
   const simulationIsActive =
     isAdmin && simulatedLocationEnabled;
@@ -1060,8 +1065,11 @@ export default function MapScreen() {
               <Marker
                 id="current-user-location"
                 lngLat={userCoordinates}
-                anchor="center">
-                <PlayerMarker />
+                anchor="bottom">
+                <PlayerMarker
+                  presetId={avatarProfile?.avatarPresetId}
+                  selection={avatarProfile?.selection}
+                />
               </Marker>
             )}
           </Map>

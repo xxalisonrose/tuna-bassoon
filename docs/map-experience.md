@@ -4,7 +4,15 @@
 
 The map uses a warm, storybook-inspired presentation while preserving the location pins, location details, accessible location list, and check-in workflow. It opens at a 55-degree angle so parks, water, pedestrian areas, and the available OpenStreetMap building heights read as a small navigable world instead of a flat utility map.
 
-The temporary player marker is intentionally built as a replaceable component. It gives the current GPS position a character-like focal point now without deciding the later avatar system's artwork, customization, storage, or animation model.
+The player marker renders the signed-in user's saved layered cow avatar at the active real or simulated GPS position. While an avatar profile is loading or has never been saved, the Traditional Explorer selection provides a stable fallback so the map never loses its player focal point.
+
+## Web testing companion
+
+The web build now includes a functional companion map for faster browser testing. It reads the same live Convex locations, visits, avatar profile, and badge-test tools as the native experience. Testers can pan, rotate, pitch, and zoom the map; open the searchable Locations list; select red or green location markers; read location details; and complete eligible check-ins without opening an iOS or Android simulator.
+
+Browser location is used when permission is available. Browsers normally allow precise location only from a secure page or from localhost, so a hosted test build must use HTTPS. Administrators can use the same Harvard Yard Test GPS controls when real browser location is unavailable or when a repeatable test position is preferable.
+
+The web controls intentionally follow familiar desktop map behavior rather than duplicating every touch-specific native gesture. Native iOS and Android retain the circular Look Around interaction, compass behavior, zoom slider, and mobile control layout described below.
 
 ## Interaction modes
 
@@ -48,6 +56,6 @@ The recenter control uses a direct eased camera move with zero viewport padding.
 
 The next map passes can add repeating grass and pavement patterns, richer building surfaces, seasonal color variants, and updated location markers. Those treatments should be tested on physical iOS and Android devices for legibility and frame rate before becoming the default.
 
-The later avatar system can replace the temporary player marker with character artwork and animation while keeping the same live-location, Look Around, Explore, and recenter behavior.
+Future animation can build on the saved player marker while keeping the same live-location, Look Around, Explore, and recenter behavior.
 
 AI-generated and other temporary visual assets are tracked in `docs/artwork-provenance.md` so they can be deliberately replaced with final artwork rather than becoming permanent by accident.

@@ -9,9 +9,11 @@ import {
   ActivityIndicator,
   Pressable,
   ScrollView,
+  type StyleProp,
   StyleSheet,
   Text,
   View,
+  type ViewStyle,
 } from 'react-native';
 
 import type { Place } from '@/data/places';
@@ -22,6 +24,7 @@ type LocationPopupProps = {
   userCoordinates: [number, number] | null;
   usingTestCoordinates?: boolean;
   onClose: () => void;
+  style?: StyleProp<ViewStyle>;
 };
 
 type CheckInMessage = {
@@ -34,6 +37,7 @@ export function LocationPopup({
   userCoordinates,
   usingTestCoordinates = false,
   onClose,
+  style,
 }: LocationPopupProps) {
   const {
     isAuthenticated,
@@ -85,7 +89,7 @@ export function LocationPopup({
   const handleCheckIn = async () => {
     if (!isAuthenticated) {
       showCheckInMessage({
-        text: 'Sign in from the Home tab before checking in.',
+        text: 'Sign in before checking in.',
         type: 'information',
       });
       return;
@@ -187,7 +191,7 @@ export function LocationPopup({
     <View
       accessible={false}
       accessibilityViewIsModal
-      style={styles.card}>
+      style={[styles.card, style]}>
       <View style={styles.header}>
         <Text
           accessibilityRole="header"

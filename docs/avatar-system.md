@@ -6,6 +6,8 @@ The user-facing Collection tab is presented as Passport. The existing `/collecti
 
 Passport begins with an explorer card showing the signed-in user's saved avatar and a Customize Avatar action. It summarizes visited places, earned badges, and total earned badge levels before preserving the existing badge filters, progress cards, and visited-place history.
 
+The same saved look appears as the player's marker on the native map. The marker immediately falls back to the Traditional Explorer while profile data is unavailable, so customization never blocks the map.
+
 The visible navigation label is Passport on native and web. Existing links and bookmarks to `/collection` continue working.
 
 ## Layered avatar selection
@@ -46,7 +48,6 @@ The five Explorer item overlays are registered AI-assisted placeholders. They us
 
 - Move the baked-in Trail Tank and Trail Shorts out of the neutral body reference and into independent layers.
 - Add coat patterns, hats, backpacks, and handheld categories.
-- Display the saved layered avatar on the map in place of the temporary player marker.
 - Add unlock requirements without hiding or deleting a user's currently equipped item.
 - Add additional Passport sections for saved stories, favorites, themed trails, and personal notes.
 - Test avatar presentation and selection on physical iOS and Android devices.

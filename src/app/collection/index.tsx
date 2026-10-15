@@ -3,7 +3,7 @@ import {
   useMutation,
   useQuery,
 } from 'convex/react';
-import { type Href, useRouter } from 'expo-router';
+import { type Href, useRouter, useScrollToTop } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AvatarPreview } from '@/components/avatar-preview';
 import { BadgeArtwork } from '@/components/badge-artwork';
+import { DraggableScrollView } from '@/components/draggable-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
@@ -104,6 +105,8 @@ function getBadgeSeriesCandidateName(badge: {
 
 export default function PassportScreen() {
   const router = useRouter();
+  const scrollViewRef = useRef<ScrollView>(null);
+  useScrollToTop(scrollViewRef);
   const {
     isAuthenticated,
     isLoading: isAuthenticationLoading,
@@ -181,8 +184,8 @@ export default function PassportScreen() {
             <ThemedText
               themeColor="textSecondary"
               style={styles.centeredText}>
-              Sign in from the Home tab to view your explorer,
-              visited places, and badge progress.
+              Sign in to view your explorer, visited places, and badge
+              progress.
             </ThemedText>
           </ThemedView>
         </SafeAreaView>
@@ -332,9 +335,9 @@ export default function PassportScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}>
+        <DraggableScrollView
+          scrollViewRef={scrollViewRef}
+          contentContainerStyle={styles.scrollContent}>
           <View style={styles.heading}>
             <ThemedText
               accessibilityRole="header"
@@ -846,7 +849,8 @@ export default function PassportScreen() {
               })
             )}
           </View>
-        </ScrollView>
+
+        </DraggableScrollView>
       </SafeAreaView>
     </ThemedView>
   );

@@ -1,14 +1,24 @@
-import { Link, Slot, type Href } from 'expo-router';
+import { useAuth } from '@clerk/expo';
+import {
+  Link,
+  Slot,
+  type Href,
+  usePathname,
+  useRouter,
+} from 'expo-router';
 import { useConvexAuth, useQuery } from 'convex/react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import AuthenticationEntryScreen from './authentication-entry-screen';
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
 import { PortalContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '../../convex/_generated/api';
+
+const settingsRoute = '/settings' as Href;
 
 function NavLink({
   href,
@@ -56,13 +66,58 @@ function NavLink({
 }
 
 export default function AppTabsWeb() {
-  const { isAuthenticated } = useConvexAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+  const { isLoaded, isSignedIn } = useAuth();
+  const {
+    isAuthenticated,
+    isLoading: isConvexLoading,
+  } = useConvexAuth();
+  const signedOutDuringSessionRef = useRef(false);
+  const authenticationReady =
+    isLoaded &&
+    isSignedIn === true &&
+    !isConvexLoading &&
+    isAuthenticated;
   const currentUser = useQuery(
     api.users.getCurrentUser,
-    isAuthenticated ? {} : 'skip',
+    authenticationReady ? {} : 'skip',
   );
 
   const theme = useTheme();
+
+  useEffect(() => {
+    if (!isLoaded) {
+      return;
+    }
+
+    if (!isSignedIn) {
+      signedOutDuringSessionRef.current = true;
+      return;
+    }
+
+    if (!authenticationReady) {
+      return;
+    }
+
+    if (
+      pathname === '/' ||
+      signedOutDuringSessionRef.current
+    ) {
+      signedOutDuringSessionRef.current = false;
+      router.replace('/map');
+    }
+  }, [
+    authenticationReady,
+    isLoaded,
+    isSignedIn,
+    pathname,
+    router,
+  ]);
+
+  if (!authenticationReady) {
+    return <AuthenticationEntryScreen />;
+  }
 
   return (
     <ThemedView style={[styles.shell, { backgroundColor: theme.background }]}>
@@ -76,9 +131,9 @@ export default function AppTabsWeb() {
             Tuna Bassoon
           </ThemedText>
 
-          <NavLink href="/" label="Home" />
           <NavLink href="/map" label="Map" />
           <NavLink href="/collection" label="Passport" />
+          <NavLink href={settingsRoute} label="Settings" />
 
           {currentUser?.isAdmin && (
             <>
