@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -195,7 +196,8 @@ export default function CustomizeAvatarScreen() {
       <SafeAreaView style={styles.safeArea}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}>
+          nativeID={Platform.OS === 'web' ? 'app-page-scroll-view' : undefined}
+          showsVerticalScrollIndicator={Platform.OS === 'web'}>
           <View style={styles.heading}>
             <ThemedText accessibilityRole="header" type="title">
               Customize Avatar
@@ -452,9 +454,7 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
   },
   safeArea: {
-    alignSelf: 'center',
     flex: 1,
-    maxWidth: MaxContentWidth,
     width: '100%',
   },
   signedOutSafeArea: {
@@ -466,10 +466,13 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   scrollContent: {
+    alignSelf: 'center',
     gap: Spacing.five,
+    maxWidth: MaxContentWidth,
     paddingBottom: BottomTabInset + Spacing.five,
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.four,
+    width: '100%',
   },
   heading: { gap: Spacing.two },
   messageCard: {

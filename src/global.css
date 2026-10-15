@@ -7,3 +7,31 @@
   --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
   --font-serif: Georgia, 'Times New Roman', serif;
 }
+
+/* Keep page-level web scrolling easy to see and grab without changing the map. */
+#app-page-scroll-view {
+  scrollbar-color: #7f8f68 transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+}
+
+#app-page-scroll-view::-webkit-scrollbar {
+  width: 14px;
+}
+
+#app-page-scroll-view::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#app-page-scroll-view::-webkit-scrollbar-thumb {
+  background: #7f8f68;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  min-height: 48px;
+}
+
+#app-page-scroll-view::-webkit-scrollbar-thumb:hover {
+  background: #657451;
+  background-clip: padding-box;
+}

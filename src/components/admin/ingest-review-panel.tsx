@@ -25,6 +25,11 @@ import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 
 type IngestContentType = 'location' | 'badge';
+type ImportMode = IngestContentType | 'mixed';
+type ReviewQueue =
+  | 'community_submissions'
+  | 'location_imports'
+  | 'badge_imports';
 type ReviewStatus =
   | 'ready'
   | 'needs_attention'
@@ -33,23 +38,22 @@ type ReviewStatus =
   | 'already_published'
   | 'published'
   | 'kept_existing'
-  | 'dismissed';
+  | 'dismissed'
+  | 'rejected_by_filter';
 type StatusFilter =
-  'new_entries' | 'possible_duplicates' | 'suggested_edits' | 'history';
+  | 'new_entries'
+  | 'possible_duplicates'
+  | 'suggested_edits'
+  | 'filtered'
+  | 'history';
 
-type PendingImport =
-  | {
-      contentType: 'location';
-      fileName: string;
-      warnings: string[];
-      drafts: ParsedLocationDraft[];
-    }
-  | {
-      contentType: 'badge';
-      fileName: string;
-      warnings: string[];
-      drafts: ParsedBadgeDraft[];
-    };
+type PendingImport = {
+  mode: ImportMode;
+  fileName: string;
+  warnings: string[];
+  locationDrafts: ParsedLocationDraft[];
+  badgeDrafts: ParsedBadgeDraft[];
+};
 
 type ReviewCard = {
   id: string;
@@ -61,6 +65,7 @@ type ReviewCard = {
   suggestionNotes: string[];
   issues: string[];
   sourceName: string;
+  sourceType?: 'document' | 'user_submission';
   sourceOrdinal?: number;
   sourceText: string;
   matchName?: string;
@@ -69,6 +74,7 @@ type ReviewCard = {
   proposalDetails: { label: string; value: string }[];
   matchDetails: { label: string; value: string }[];
   changedLabels: string[];
+  moderationFlags: string[];
   publishable: boolean;
   locationEdit?: LocationProposalEdit;
   badgeEdit?: BadgeProposalEdit;
@@ -83,6 +89,7 @@ const statusLabels: Record<ReviewStatus, string> = {
   published: 'Published',
   kept_existing: 'Kept Existing',
   dismissed: 'Dismissed',
+  rejected_by_filter: 'Rejected by Filter',
 };
 
 const confidenceLabels: Record<ImportConfidence, string> = {
@@ -103,6 +110,7 @@ const finalizedStatuses = new Set<ReviewStatus>([
   'published',
   'kept_existing',
   'dismissed',
+  'rejected_by_filter',
 ]);
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -176,20 +184,23 @@ function chunkValues<T>(values: T[], size: number) {
 }
 
 export function IngestReviewPanel({
-  contentType,
   visible,
 }: {
-  contentType: IngestContentType;
   visible: boolean;
 }) {
   const theme = useTheme();
+  const [reviewQueue, setReviewQueue] = useState<ReviewQueue>(
+    'community_submissions',
+  );
+  const contentType: IngestContentType =
+    reviewQueue === 'badge_imports' ? 'badge' : 'location';
   const locationDrafts = useQuery(
     api.adminIngest.getLocationDrafts,
-    visible && contentType === 'location' ? {} : 'skip',
+    visible ? {} : 'skip',
   );
   const badgeDrafts = useQuery(
     api.adminIngest.getBadgeDrafts,
-    visible && contentType === 'badge' ? {} : 'skip',
+    visible ? {} : 'skip',
   );
   const adminLocations = useQuery(
     api.adminLocations.getLocationsForAdmin,
@@ -242,6 +253,7 @@ export function IngestReviewPanel({
           suggestionNotes: draft.suggestionNotes ?? [],
           issues: draft.issues,
           sourceName: draft.batch?.sourceName ?? 'Imported document',
+          sourceType: draft.batch?.sourceType,
           sourceOrdinal: draft.sourceOrdinal,
           sourceText: draft.sourceText,
           matchName: match?.name,
@@ -264,6 +276,22 @@ export function IngestReviewPanel({
                   : `${draft.latitude}, ${draft.longitude}`,
             },
             { label: 'Map Pin', value: formatValue(draft.mapPinType) },
+            ...(draft.submittedLocationInput
+              ? [
+                  {
+                    label: 'Submitted Address or Map Link',
+                    value: draft.submittedLocationInput,
+                  },
+                ]
+              : []),
+            ...(draft.submitterLocationNotes
+              ? [
+                  {
+                    label: 'Additional Location Details',
+                    value: draft.submitterLocationNotes,
+                  },
+                ]
+              : []),
           ],
           matchDetails: match
             ? [
@@ -306,6 +334,7 @@ export function IngestReviewPanel({
                 ['Map Pin', !sameText(draft.mapPinType, match.mapPinType)],
               ])
             : [],
+          moderationFlags: draft.moderationFlags ?? [],
           publishable,
           locationEdit: createLocationProposalEdit(draft),
         };
@@ -344,6 +373,7 @@ export function IngestReviewPanel({
         suggestionNotes: draft.suggestionNotes ?? [],
         issues: draft.issues,
         sourceName: draft.batch?.sourceName ?? 'Imported document',
+        sourceType: draft.batch?.sourceType,
         sourceOrdinal: draft.sourceOrdinal,
         sourceText: draft.sourceText,
         matchName: match?.name,
@@ -412,6 +442,7 @@ export function IngestReviewPanel({
               ],
             ])
           : [],
+        moderationFlags: [],
         publishable,
         badgeEdit: createBadgeProposalEdit({
           name: draft.name,
@@ -427,9 +458,18 @@ export function IngestReviewPanel({
     });
   }, [badgeDrafts, contentType, locationDrafts]);
 
+  const queueCards = useMemo(
+    () =>
+      cards.filter((card) =>
+        reviewQueue === 'community_submissions'
+          ? card.sourceType === 'user_submission'
+          : card.sourceType === 'document',
+      ),
+    [cards, reviewQueue],
+  );
   const reviewableCards = useMemo(
     () =>
-      cards.filter(
+      queueCards.filter(
         (card) =>
           !(
             (card.status === 'suggested_edit' ||
@@ -437,7 +477,7 @@ export function IngestReviewPanel({
             card.changedLabels.length === 0
           ),
       ),
-    [cards],
+    [queueCards],
   );
   const filteredCards = useMemo(
     () =>
@@ -454,17 +494,26 @@ export function IngestReviewPanel({
             card.status === 'already_published'
           );
         }
-        return finalizedStatuses.has(card.status);
+        if (statusFilter === 'filtered') {
+          return card.status === 'rejected_by_filter';
+        }
+        return (
+          finalizedStatuses.has(card.status) &&
+          card.status !== 'rejected_by_filter'
+        );
       }),
     [reviewableCards, statusFilter],
   );
   const importWarnings = useMemo(() => {
+    if (reviewQueue === 'community_submissions') {
+      return [];
+    }
     const drafts = contentType === 'location' ? locationDrafts : badgeDrafts;
 
     return Array.from(
       new Set((drafts ?? []).flatMap((draft) => draft.batch?.warnings ?? [])),
     );
-  }, [badgeDrafts, contentType, locationDrafts]);
+  }, [badgeDrafts, contentType, locationDrafts, reviewQueue]);
   const savedTagCatalog = useMemo(
     () =>
       adminLocations && adminBadges
@@ -483,26 +532,34 @@ export function IngestReviewPanel({
       return null;
     }
 
-    const confidenceCounts = pendingImport.drafts.reduce(
+    const drafts = [
+      ...pendingImport.locationDrafts,
+      ...pendingImport.badgeDrafts,
+    ];
+    const confidenceCounts = drafts.reduce(
       (counts, draft) => {
         counts[draft.importConfidence] += 1;
         return counts;
       },
       { high: 0, medium: 0, low: 0 },
     );
-    const needsAttention = pendingImport.drafts.filter(
+    const needsAttention = drafts.filter(
       (draft) => draft.issues.length > 0,
     ).length;
-    const markedComplete = pendingImport.drafts.filter(
+    const markedComplete = drafts.filter(
       (draft) => draft.sourceWasMarkedComplete,
     ).length;
-    const previousImports = (
-      pendingImport.contentType === 'location' ? locationDrafts : badgeDrafts
-    )?.filter(
-      (draft) => draft.batch?.sourceName === pendingImport.fileName,
+    const previousImports = [
+      ...(pendingImport.locationDrafts.length > 0 ? locationDrafts ?? [] : []),
+      ...(pendingImport.badgeDrafts.length > 0 ? badgeDrafts ?? [] : []),
+    ].filter(
+      (draft) =>
+        draft.batch?.sourceType === 'document' &&
+        draft.batch.sourceName === pendingImport.fileName,
     ).length;
 
     return {
+      total: drafts.length,
       confidenceCounts,
       needsAttention,
       markedComplete,
@@ -514,7 +571,7 @@ export function IngestReviewPanel({
     return null;
   }
 
-  const importDocument = async () => {
+  const importDocument = async (mode: ImportMode) => {
     setIsImporting(true);
     setStatusMessage('');
 
@@ -525,25 +582,34 @@ export function IngestReviewPanel({
         return;
       }
 
-      if (contentType === 'location') {
-        const parsed = parseLocationWordDocument(document.paragraphs, {
-          availableBadgeTags: savedTagCatalog,
-        });
-        setPendingImport({
-          contentType,
-          fileName: document.fileName,
-          warnings: parsed.warnings,
-          drafts: parsed.drafts,
-        });
-      } else {
-        const parsed = parseBadgeWordDocument(document.paragraphs);
-        setPendingImport({
-          contentType,
-          fileName: document.fileName,
-          warnings: parsed.warnings,
-          drafts: parsed.drafts,
-        });
-      }
+      const locations =
+        mode === 'location' || mode === 'mixed'
+          ? parseLocationWordDocument(document.paragraphs, {
+              availableBadgeTags: savedTagCatalog,
+            })
+          : { drafts: [], warnings: [] };
+      const badges =
+        mode === 'badge' || mode === 'mixed'
+          ? parseBadgeWordDocument(document.paragraphs)
+          : { drafts: [], warnings: [] };
+      const warnings = Array.from(
+        new Set([
+          ...locations.warnings.map((warning) =>
+            mode === 'mixed' ? `Locations: ${warning}` : warning,
+          ),
+          ...badges.warnings.map((warning) =>
+            mode === 'mixed' ? `Badges: ${warning}` : warning,
+          ),
+        ]),
+      );
+
+      setPendingImport({
+        mode,
+        fileName: document.fileName,
+        warnings,
+        locationDrafts: locations.drafts,
+        badgeDrafts: badges.drafts,
+      });
 
       setStatusMessage(
         `Preview ready for ${document.fileName}. Nothing has been added or published yet.`,
@@ -556,7 +622,7 @@ export function IngestReviewPanel({
   };
 
   const addPendingImportToQueue = async () => {
-    if (!pendingImport || pendingImport.drafts.length === 0) {
+    if (!pendingImport || pendingSummary?.total === 0) {
       return;
     }
 
@@ -564,43 +630,62 @@ export function IngestReviewPanel({
     setStatusMessage('');
 
     try {
-      const batchId = await createBatch({
-        contentType: pendingImport.contentType,
-        sourceType: 'document',
-        sourceName: pendingImport.fileName,
-        warnings: pendingImport.warnings,
-      });
       let stagedCount = 0;
       let skippedDuplicateCount = 0;
       let suggestedEditCount = 0;
 
-      if (pendingImport.contentType === 'location') {
-        for (const drafts of chunkValues(pendingImport.drafts, 30)) {
+      if (pendingImport.locationDrafts.length > 0) {
+        const batchId = await createBatch({
+          contentType: 'location',
+          sourceType: 'document',
+          sourceName: pendingImport.fileName,
+          warnings: pendingImport.warnings,
+        });
+        let locationStagedCount = 0;
+        for (const drafts of chunkValues(pendingImport.locationDrafts, 30)) {
           const result = await stageLocationDrafts({ batchId, drafts });
           stagedCount += result.staged;
+          locationStagedCount += result.staged;
           skippedDuplicateCount += result.skippedDuplicates;
           suggestedEditCount += result.suggestedEdits;
         }
-      } else {
-        for (const drafts of chunkValues(pendingImport.drafts, 30)) {
+        if (locationStagedCount === 0) {
+          await discardEmptyBatch({ batchId });
+        }
+      }
+
+      if (pendingImport.badgeDrafts.length > 0) {
+        const batchId = await createBatch({
+          contentType: 'badge',
+          sourceType: 'document',
+          sourceName: pendingImport.fileName,
+          warnings: pendingImport.warnings,
+        });
+        let badgeStagedCount = 0;
+        for (const drafts of chunkValues(pendingImport.badgeDrafts, 30)) {
           const result = await stageBadgeDrafts({ batchId, drafts });
           stagedCount += result.staged;
+          badgeStagedCount += result.staged;
           skippedDuplicateCount += result.skippedDuplicates;
           suggestedEditCount += result.suggestedEdits;
         }
+        if (badgeStagedCount === 0) {
+          await discardEmptyBatch({ batchId });
+        }
       }
 
-      const importedType = pendingImport.contentType;
-
-      if (stagedCount === 0) {
-        await discardEmptyBatch({ batchId });
-      }
-
+      const importedMode = pendingImport.mode;
+      setReviewQueue(
+        pendingImport.locationDrafts.length > 0
+          ? 'location_imports'
+          : 'badge_imports',
+      );
+      setStatusFilter('new_entries');
       setPendingImport(null);
       setStatusMessage(
         stagedCount === 0
-          ? `Nothing was added. All ${skippedDuplicateCount} ${importedType} proposals already exist unchanged in published content or the review queue.`
-          : `${stagedCount} ${importedType} proposals were added to the private review queue, including ${suggestedEditCount} suggested ${suggestedEditCount === 1 ? 'edit' : 'edits'}. ${skippedDuplicateCount} exact ${skippedDuplicateCount === 1 ? 'duplicate was' : 'duplicates were'} skipped. Nothing was published.`,
+          ? `Nothing was added. All ${skippedDuplicateCount} ${importedMode} proposals already exist unchanged in published content or the review queue.`
+          : `${stagedCount} proposals were added to the private review queue, including ${suggestedEditCount} suggested ${suggestedEditCount === 1 ? 'edit' : 'edits'}. ${skippedDuplicateCount} exact ${skippedDuplicateCount === 1 ? 'duplicate was' : 'duplicates were'} skipped. Nothing was published.`,
       );
     } catch (error) {
       setStatusMessage(getErrorMessage(error));
@@ -742,6 +827,17 @@ export function IngestReviewPanel({
   const openCount = reviewableCards.filter((card) =>
     openStatuses.has(card.status),
   ).length;
+  const queueCounts: Record<ReviewQueue, number> = {
+    community_submissions: (locationDrafts ?? []).filter(
+      (draft) => draft.batch?.sourceType === 'user_submission',
+    ).length,
+    location_imports: (locationDrafts ?? []).filter(
+      (draft) => draft.batch?.sourceType === 'document',
+    ).length,
+    badge_imports: (badgeDrafts ?? []).filter(
+      (draft) => draft.batch?.sourceType === 'document',
+    ).length,
+  };
 
   return (
     <ThemedView style={styles.panel}>
@@ -750,45 +846,98 @@ export function IngestReviewPanel({
         style={[styles.introCard, { borderColor: theme.border }]}
       >
         <ThemedText accessibilityRole="header" type="subtitle">
-          Import & Review {contentType === 'location' ? 'Locations' : 'Badges'}
+          Submissions & Imports
         </ThemedText>
         <ThemedText themeColor="textSecondary">
-          Upload a Word document to create private proposals. Review each one
-          before it can appear in the app. This queue is also designed to hold
-          future user-submitted ideas.
+          Import document content or review ideas sent by trusted community
+          contributors. Everything remains private until an administrator
+          approves it.
         </ThemedText>
-        <ThemedView style={styles.introActions}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Import ${contentType === 'location' ? 'locations' : 'badges'} from Word`}
-            disabled={
+        <ThemedView style={styles.importActions}>
+          {(
+            [
+              ['location', 'Import Locations'],
+              ['badge', 'Import Badges'],
+              ['mixed', 'Import Mixed Document'],
+            ] as [ImportMode, string][]
+          ).map(([mode, label]) => {
+            const needsTagCatalog = mode === 'location' || mode === 'mixed';
+            const disabled =
               isImporting ||
-              (contentType === 'location' && savedTagCatalog === undefined)
-            }
-            onPress={importDocument}
-            style={({ pressed }) => [
-              styles.primaryButton,
-              (isImporting ||
-                (contentType === 'location' &&
-                  savedTagCatalog === undefined)) &&
-                styles.disabled,
-              pressed && styles.pressed,
-            ]}
-          >
-            {isImporting ? (
-              <ActivityIndicator color={Palette.ink} />
-            ) : (
-              <ThemedText style={styles.buttonText}>
-                Preview Word Document
-              </ThemedText>
-            )}
-          </Pressable>
+              (needsTagCatalog && savedTagCatalog === undefined);
+
+            return (
+              <Pressable
+                key={mode}
+                accessibilityRole="button"
+                accessibilityLabel={`${label} from Word`}
+                disabled={disabled}
+                onPress={() => void importDocument(mode)}
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  disabled && styles.disabled,
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText style={styles.buttonText}>{label}</ThemedText>
+              </Pressable>
+            );
+          })}
+        </ThemedView>
+        <ThemedView style={styles.introActions}>
+          {isImporting ? (
+            <ActivityIndicator
+              accessibilityLabel="Reading Word document"
+              color={Palette.ink}
+              size="small"
+            />
+          ) : null}
           <ThemedText type="small" themeColor="textSecondary">
-            {openCount} awaiting review · {reviewableCards.length} total
-            proposals
+            Choose the importer that matches the document. Mixed import checks
+            the same file for both locations and badges.
           </ThemedText>
         </ThemedView>
       </ThemedView>
+
+      <ThemedView
+        accessibilityRole="tablist"
+        accessibilityLabel="Submission review queues"
+        style={styles.queueTabs}>
+        {(
+          [
+            ['community_submissions', 'Community Submissions'],
+            ['location_imports', 'Location Imports'],
+            ['badge_imports', 'Badge Imports'],
+          ] as [ReviewQueue, string][]
+        ).map(([queue, label]) => (
+          <Pressable
+            key={queue}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: reviewQueue === queue }}
+            onPress={() => {
+              setReviewQueue(queue);
+              setStatusFilter('new_entries');
+              setEditingDraftId(null);
+            }}
+            style={({ pressed }) => [
+              styles.queueTab,
+              reviewQueue === queue && styles.queueTabSelected,
+              pressed && styles.pressed,
+            ]}>
+            <ThemedText
+              type="smallBold"
+              style={
+                reviewQueue === queue ? styles.queueTabTextSelected : undefined
+              }>
+              {label} ({queueCounts[queue]})
+            </ThemedText>
+          </Pressable>
+        ))}
+      </ThemedView>
+
+      <ThemedText type="small" themeColor="textSecondary">
+        {openCount} awaiting review · {reviewableCards.length} total in this
+        queue
+      </ThemedText>
 
       {pendingImport && pendingSummary ? (
         <ThemedView
@@ -802,8 +951,12 @@ export function IngestReviewPanel({
             {pendingImport.fileName}
           </ThemedText>
           <ThemedText>
-            {pendingImport.drafts.length} {pendingImport.contentType}{' '}
-            {pendingImport.drafts.length === 1 ? 'proposal' : 'proposals'} found
+            {pendingImport.locationDrafts.length} location{' '}
+            {pendingImport.locationDrafts.length === 1
+              ? 'proposal'
+              : 'proposals'}{' '}
+            · {pendingImport.badgeDrafts.length} badge{' '}
+            {pendingImport.badgeDrafts.length === 1 ? 'proposal' : 'proposals'}
           </ThemedText>
           <ThemedView style={styles.previewStats}>
             <ThemedText type="small">
@@ -834,10 +987,10 @@ export function IngestReviewPanel({
               • {warning}
             </ThemedText>
           ))}
-          {pendingImport.drafts.length === 0 ? (
+          {pendingSummary.total === 0 ? (
             <ThemedText type="small" style={{ color: theme.danger }}>
-              No {pendingImport.contentType} proposals were recognized. Choose a
-              different document or importer.
+              No proposals were recognized. Choose a different document or
+              importer.
             </ThemedText>
           ) : null}
           <ThemedText type="small" themeColor="textSecondary">
@@ -847,11 +1000,11 @@ export function IngestReviewPanel({
           <ThemedView style={styles.actions}>
             <Pressable
               accessibilityRole="button"
-              disabled={isImporting || pendingImport.drafts.length === 0}
+              disabled={isImporting || pendingSummary.total === 0}
               onPress={() => void addPendingImportToQueue()}
               style={({ pressed }) => [
                 styles.primaryButton,
-                (isImporting || pendingImport.drafts.length === 0) &&
+                (isImporting || pendingSummary.total === 0) &&
                   styles.disabled,
                 pressed && styles.pressed,
               ]}
@@ -916,6 +1069,7 @@ export function IngestReviewPanel({
             ['new_entries', 'New Entries'],
             ['possible_duplicates', 'Possible Duplicates'],
             ['suggested_edits', 'Suggested Edits'],
+            ['filtered', 'Rejected by Filter'],
             ['history', 'History'],
           ] as [StatusFilter, string][]
         ).map(([value, label]) => (
@@ -944,7 +1098,9 @@ export function IngestReviewPanel({
         >
           <ThemedText type="smallBold">No proposals in this view.</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            Import a Word document or select another status filter.
+            {reviewQueue === 'community_submissions'
+              ? 'New trusted-contributor ideas will appear here as soon as they are submitted.'
+              : 'Import a Word document above or select another status filter.'}
           </ThemedText>
         </ThemedView>
       ) : (
@@ -955,6 +1111,7 @@ export function IngestReviewPanel({
           const isSuggestedEdit =
             card.status === 'suggested_edit' ||
             card.status === 'already_published';
+          const isFiltered = card.status === 'rejected_by_filter';
 
           return (
             <ThemedView
@@ -975,13 +1132,18 @@ export function IngestReviewPanel({
                     styles.statusPill,
                     {
                       backgroundColor:
-                        card.status === 'ready' || card.status === 'published'
-                          ? theme.accentSoft
-                          : theme.surfaceWarm,
+                        isFiltered
+                          ? theme.danger
+                          : card.status === 'ready' ||
+                              card.status === 'published'
+                            ? theme.accentSoft
+                            : theme.surfaceWarm,
                     },
                   ]}
                 >
-                  <ThemedText type="smallBold">
+                  <ThemedText
+                    type="smallBold"
+                    style={isFiltered ? { color: theme.onDanger } : undefined}>
                     {statusLabels[card.status]}
                   </ThemedText>
                 </ThemedView>
@@ -1014,6 +1176,25 @@ export function IngestReviewPanel({
                       • {note}
                     </ThemedText>
                   ))}
+                </ThemedView>
+              ) : null}
+
+              {card.moderationFlags.length > 0 ? (
+                <ThemedView
+                  style={[styles.issueBox, { borderColor: theme.danger }]}
+                >
+                  <ThemedText type="smallBold" style={{ color: theme.danger }}>
+                    Automatic Content-Safety Filter
+                  </ThemedText>
+                  {card.moderationFlags.map((flag) => (
+                    <ThemedText key={flag} type="small">
+                      • {flag}
+                    </ThemedText>
+                  ))}
+                  <ThemedText type="small" themeColor="textSecondary">
+                    This proposal cannot be published unless an administrator
+                    reopens and edits it.
+                  </ThemedText>
                 </ThemedView>
               ) : null}
 
@@ -1131,7 +1312,11 @@ export function IngestReviewPanel({
               </ThemedView>
 
               <ThemedView style={styles.sourceBox}>
-                <ThemedText type="smallBold">Original Document Text</ThemedText>
+                <ThemedText type="smallBold">
+                  {card.sourceType === 'user_submission'
+                    ? 'Original Submission'
+                    : 'Original Document Text'}
+                </ThemedText>
                 <ThemedText type="small" selectable>
                   {card.sourceText}
                 </ThemedText>
@@ -1149,7 +1334,9 @@ export function IngestReviewPanel({
                       pressed && styles.pressed,
                     ]}
                   >
-                    <ThemedText style={styles.buttonText}>Reopen</ThemedText>
+                    <ThemedText style={styles.buttonText}>
+                      {isFiltered ? 'Review Anyway' : 'Reopen'}
+                    </ThemedText>
                   </Pressable>
                 ) : (
                   <>
@@ -1296,6 +1483,31 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: Spacing.three,
+  },
+  importActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  queueTabs: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.one,
+  },
+  queueTab: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: Spacing.two,
+    backgroundColor: Palette.teaGreen,
+  },
+  queueTabSelected: {
+    backgroundColor: Palette.lightBronze,
+  },
+  queueTabTextSelected: {
+    color: Palette.ink,
   },
   statusMessage: {
     paddingHorizontal: Spacing.one,

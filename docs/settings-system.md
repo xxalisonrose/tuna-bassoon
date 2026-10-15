@@ -14,6 +14,15 @@ The first release intentionally avoids switches that do not control a working fe
 - Identifies administrator accounts without exposing administrative controls to ordinary users.
 - Owns the Sign Out action. Passport no longer duplicates account management.
 
+### Content Contributions
+
+- Appears only for administrators and manually approved Trusted Contributors.
+- Opens the private **Submit a Location** form.
+- Explains that every suggestion requires administrator review before it can
+  appear on the map.
+- Is backed by the same server-side permission check, so hiding the button is
+  not the security boundary.
+
 ### Location & Privacy
 
 - Reports the current foreground-location permission state.

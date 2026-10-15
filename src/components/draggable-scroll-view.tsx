@@ -12,7 +12,9 @@ import {
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  Platform,
   ScrollView,
+  type ScrollViewProps,
   type StyleProp,
   StyleSheet,
   View,
@@ -27,14 +29,20 @@ const minimumThumbHeight = 56;
 const hideDelayMilliseconds = 3000;
 
 type DraggableScrollViewProps = {
+  automaticallyAdjustKeyboardInsets?: boolean;
   children: ReactNode;
   contentContainerStyle?: StyleProp<ViewStyle>;
+  keyboardDismissMode?: ScrollViewProps['keyboardDismissMode'];
+  keyboardShouldPersistTaps?: ScrollViewProps['keyboardShouldPersistTaps'];
   scrollViewRef: RefObject<ScrollView | null>;
 };
 
 export function DraggableScrollView({
+  automaticallyAdjustKeyboardInsets,
   children,
   contentContainerStyle,
+  keyboardDismissMode,
+  keyboardShouldPersistTaps,
   scrollViewRef,
 }: DraggableScrollViewProps) {
   const theme = useTheme();
@@ -197,6 +205,10 @@ export function DraggableScrollView({
   return (
     <View onLayout={handleLayout} style={styles.container}>
       <ScrollView
+        automaticallyAdjustKeyboardInsets={automaticallyAdjustKeyboardInsets}
+        keyboardDismissMode={keyboardDismissMode}
+        keyboardShouldPersistTaps={keyboardShouldPersistTaps}
+        nativeID={Platform.OS === 'web' ? 'app-page-scroll-view' : undefined}
         ref={scrollViewRef}
         contentContainerStyle={contentContainerStyle}
         onContentSizeChange={(_width, height) => setContentHeight(height)}
@@ -206,11 +218,11 @@ export function DraggableScrollView({
         onScrollBeginDrag={showIndicator}
         onScrollEndDrag={scheduleIndicatorHide}
         scrollEventThrottle={16}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={Platform.OS === 'web'}>
         {children}
       </ScrollView>
 
-      {isScrollable && (
+      {Platform.OS !== 'web' && isScrollable && (
         <Animated.View
           pointerEvents={indicatorInteractive ? 'box-none' : 'none'}
           style={[

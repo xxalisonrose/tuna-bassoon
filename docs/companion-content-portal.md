@@ -19,13 +19,13 @@ The portal is available at `/admin` in the Expo web app. Clerk handles sign-in, 
 
 ### Portal sections
 
-The portal has separate Locations and Badges sections. Administrators can switch between them without losing an unfinished badge form.
+The portal has separate **Locations**, **Badges**, and **Submissions** sections. Locations and Badges stay focused on managing published content, while every import and private review workflow lives under Submissions.
 
 The location and Gemini workflows continue to work after adding badge management.
 
 ### Word import and private review queue
 
-Locations and Badges each include an **Import & Review** workspace beside the regular management view. An administrator can select a `.docx` file in the web portal; the file is read locally and summarized in an Import Preview before anything is saved. The preview reports the number of recognized proposals, confidence totals, entries with review notes, crossed-out entries, document warnings, and whether proposals from the same filename are already in the queue. The administrator can cancel the preview or deliberately add it to the private Convex review queue. Neither action publishes a location or badge to the app.
+The **Submissions** section offers **Import Locations**, **Import Badges**, and **Import Mixed Document** actions. Mixed import reads one `.docx` with both parsers and previews the recognized location and badge totals separately. Every file is read locally and summarized in an Import Preview before anything is saved. The preview reports the number of recognized proposals, confidence totals, entries with review notes, crossed-out entries, document warnings, and whether proposals from the same filename are already in the queue. The administrator can cancel the preview or deliberately add it to the private Convex review queue. Neither action publishes a location or badge to the app.
 
 The location importer recognizes numbered entries and the Category, Description, Fun Fact, Lore, Latitude, Longitude, and Source fields used by the content team's working document. It suggests a controlled category, badge tags, lore status, and map pin type. Automatic badge-tag suggestions are constrained to the shared tag catalog already saved on badge definitions or locations. Common aliases such as `books-libraries` / `books-and-libraries` can resolve to the real saved tag, but the importer does not invent an orphan tag when no saved tag matches. That proposal instead receives a clear note requiring the editor to choose at least one badge tag. Crossed-out source entries, skipped numbering, incomplete records, and repeated names are called out for review. The badge importer recognizes the General, Theme, Special Place, and Seasonal sections, applies the normal classification presets, removes wrapping quotation marks from congratulations copy, and flags unfinished drafts, long congratulations messages, and seasonal scheduling reminders.
 
@@ -33,13 +33,34 @@ Every newly imported proposal receives a High, Medium, or Low Confidence label p
 
 Duplicate protection runs on the Convex server before each proposal is inserted. An imported location or badge is skipped when the same content already exists in published content or anywhere in the review queue, including a proposal from an earlier upload. Re-importing an unchanged document therefore adds no duplicate proposals, and an all-duplicate upload does not leave an empty batch behind. The completion message reports how many proposals were added, how many exact duplicates were skipped, and how many are suggested edits.
 
-The review workspace is organized into New Entries, Possible Duplicates, Suggested Edits, and History. New Entries combines complete new proposals with new proposals that still need attention. A location within 75 meters of a published location appears under Possible Duplicates for a human decision. A stable-key, tag, or normalized-name match with different content appears under Suggested Edits. Exact unchanged matches do not populate any tab. Suggested Edit comparisons highlight only the proposed fields that differ from the currently published record, while unchanged fields retain the normal background. Reviewers can keep the existing record, add only missing information, deliberately replace it, or create a separate record. Replacing a record preserves its established stable key. Every replacement requires a second confirmation.
+Review is separated into **Community Submissions**, **Location Imports**, and **Badge Imports**, so contributor ideas never disappear inside a large document upload. Each queue is organized into New Entries, Possible Duplicates, Suggested Edits, Rejected by Filter, and History. New Entries combines complete new proposals with new proposals that still need attention. A location within 75 meters of a published location appears under Possible Duplicates for a human decision. A stable-key, tag, or normalized-name match with different content appears under Suggested Edits. Exact unchanged matches do not populate any tab. Suggested Edit comparisons highlight only the proposed fields that differ from the currently published record, while unchanged fields retain the normal background. Reviewers can keep the existing record, add only missing information, deliberately replace it, or create a separate record. Replacing a record preserves its established stable key. Every replacement requires a second confirmation.
 
 Every open proposal also has an **Edit Proposal** action. Location proposals can correct the name, stable key, description, fun fact, source, lore marker, coordinates, controlled category, reusable badge tags, and map pin type without publishing. Badge proposals can correct the name, stable key, shared tag, description, classification, required visits, and congratulations message pool. Classification changes apply the same visit and repeatable-level presets as the regular badge editor, and each congratulations message keeps its 160-character counter. Saving an edit reruns missing-field checks and duplicate matching, then returns the proposal to the appropriate review status. The administrator must still use a separate approval action before the edited proposal becomes live.
 
 Publishing remains an explicit per-item action. Incomplete proposals stay private, and finalized proposals can be reopened. Each proposal retains its original document text, source filename, batch, creator, reviewer, and timestamps. The shared batch model includes a `user_submission` source type so future visitor-submitted location or badge ideas can enter the same private review workflow instead of bypassing editorial approval.
 
 The importer has a read-only command-line validation check for its working documents. It opens the `.docx` files through the same Word XML and content parsers used by the portal, reports proposal and confidence counts, verifies expected totals when supplied, confirms suggested location tags exist in the badge document, and fails if badge messages retain wrapping quotation marks. The check never connects to Convex and cannot stage or publish content. The current reference documents validate as 239 location proposals from `Pins.docx` and 83 badge proposals from `Capstone Plan.docx`.
+
+### Trusted Contributor submissions
+
+Administrators and manually approved **Trusted Contributors** can suggest a
+location from Settings. Their proposals enter the dedicated **Community
+Submissions** review queue, including automatic category, map-pin, badge-tag,
+duplicate, and suggested-edit checks. Contributors can see only the status of
+their own recent submissions; they cannot open the Content Portal or publish
+content.
+
+The contributor selects the proposed location on an embedded map instead of
+typing coordinates. The map can begin at an already permitted device location,
+accept a direct tap, or move its pin after resolving an address, place name, or
+Google Maps link. Optional entrance or landmark notes are preserved beside the
+submitted location reference for administrator review.
+
+The Community Submissions queue includes a separate **Rejected by Filter** view for
+submissions held by the server-side profanity and slur filter. A filtered
+proposal cannot be published directly. An administrator must choose **Review
+Anyway**, edit the proposal, and return it to the normal review flow. See
+`docs/content-submissions.md` for role configuration, safeguards, and testing.
 
 ### Build information panel
 
@@ -319,7 +340,7 @@ The portal follows the credential rules in `AGENTS.md`.
 
 ## Current Routes
 
-- `/admin` contains the Locations and Badges management sections.
+- `/admin` contains the Locations, Badges, and Submissions sections.
 - `/editor` is retained only as a compatibility redirect to `/admin`.
 
 Badge management is part of the existing content portal rather than a separate public route.

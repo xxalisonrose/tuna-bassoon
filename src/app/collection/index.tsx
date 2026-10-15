@@ -870,8 +870,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     width: '100%',
-    maxWidth: MaxContentWidth,
-    alignSelf: 'center',
   },
   signedOutSafeArea: {
     flex: 1,
@@ -882,10 +880,13 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
   },
   scrollContent: {
+    alignSelf: 'center',
     gap: Spacing.five,
+    maxWidth: MaxContentWidth,
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.four,
     paddingBottom: BottomTabInset + Spacing.five,
+    width: '100%',
   },
   heading: {
     gap: Spacing.two,

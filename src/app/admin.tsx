@@ -9,6 +9,7 @@ import { useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -52,8 +53,7 @@ const GENERATION_TIMEOUT_MS = 120_000;
 const MAX_LOCATION_BADGE_TAGS = 25;
 
 type FormMode = 'create' | 'edit';
-type PortalSection = 'locations' | 'badges';
-type WorkspaceMode = 'manage' | 'ingest';
+type PortalSection = 'locations' | 'badges' | 'submissions';
 type LocationStatusFilter = 'all' | 'active' | 'retired';
 type ViewMode = 'list' | 'grid';
 
@@ -179,7 +179,6 @@ export default function AdminPortalScreen() {
   const theme = useTheme();
   const [search, setSearch] = useState('');
   const [portalSection, setPortalSection] = useState<PortalSection>('locations');
-  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('manage');
   const [formMode, setFormMode] = useState<FormMode | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const {
@@ -989,7 +988,8 @@ export default function AdminPortalScreen() {
         accessibilityLabel="Content portal"
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}>
+        nativeID={Platform.OS === 'web' ? 'app-page-scroll-view' : undefined}
+        showsVerticalScrollIndicator={Platform.OS === 'web'}>
         <ThemedView
           type="backgroundElement"
           style={[styles.headerSection, { borderColor: theme.border }]}>
@@ -1019,16 +1019,19 @@ export default function AdminPortalScreen() {
           accessibilityLabel="Content portal sections"
           type="backgroundElement"
           style={[styles.sectionTabs, { borderColor: theme.border }]}>
-          {(['locations', 'badges'] as PortalSection[]).map((section) => (
+          {(['locations', 'badges', 'submissions'] as PortalSection[]).map((section) => (
             <Pressable
               key={section}
               accessibilityRole="tab"
-              accessibilityLabel={section === 'locations' ? 'Locations' : 'Badges'}
+              accessibilityLabel={
+                section === 'locations'
+                  ? 'Locations'
+                  : section === 'badges'
+                    ? 'Badges'
+                    : 'Submissions'
+              }
               accessibilityState={{ selected: portalSection === section }}
-              onPress={() => {
-                setPortalSection(section);
-                setWorkspaceMode('manage');
-              }}
+              onPress={() => setPortalSection(section)}
               style={({ pressed }) => [
                 styles.sectionTab,
                 portalSection === section && styles.sectionTabSelected,
@@ -1036,42 +1039,17 @@ export default function AdminPortalScreen() {
               ]}>
               <ThemedText
                 style={portalSection === section ? styles.sectionTabTextSelected : undefined}>
-                {section === 'locations' ? 'Locations' : 'Badges'}
+                {section === 'locations'
+                  ? 'Locations'
+                  : section === 'badges'
+                    ? 'Badges'
+                    : 'Submissions'}
               </ThemedText>
             </Pressable>
           ))}
         </ThemedView>
 
-        <ThemedView
-          accessibilityRole="tablist"
-          accessibilityLabel={`${portalSection === 'locations' ? 'Location' : 'Badge'} workspace views`}
-          style={styles.workspaceTabs}>
-          {(
-            [
-              ['manage', portalSection === 'locations' ? 'Manage Locations' : 'Manage Badges'],
-              ['ingest', 'Import & Review'],
-            ] as [WorkspaceMode, string][]
-          ).map(([mode, label]) => (
-            <Pressable
-              key={mode}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: workspaceMode === mode }}
-              onPress={() => setWorkspaceMode(mode)}
-              style={({ pressed }) => [
-                styles.workspaceTab,
-                workspaceMode === mode && styles.workspaceTabSelected,
-                pressed && styles.pressed,
-              ]}>
-              <ThemedText
-                type="smallBold"
-                style={workspaceMode === mode ? styles.workspaceTabTextSelected : undefined}>
-                {label}
-              </ThemedText>
-            </Pressable>
-          ))}
-        </ThemedView>
-
-        {portalSection === 'locations' && workspaceMode === 'manage' ? (
+        {portalSection === 'locations' ? (
           <>
 
         <ThemedView
@@ -2225,12 +2203,11 @@ export default function AdminPortalScreen() {
         ) : null}
 
         <BadgeManager
-          visible={portalSection === 'badges' && workspaceMode === 'manage'}
+          visible={portalSection === 'badges'}
         />
 
         <IngestReviewPanel
-          contentType={portalSection === 'locations' ? 'location' : 'badge'}
-          visible={workspaceMode === 'ingest'}
+          visible={portalSection === 'submissions'}
         />
       </ScrollView>
     </ThemedView>

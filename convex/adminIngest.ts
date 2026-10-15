@@ -3,8 +3,10 @@ import { ConvexError, v } from 'convex/values';
 import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
 import { mutation, query } from './_generated/server';
-import { requireAdmin } from './lib/auth';
+import { requireAdmin, requireContentContributor } from './lib/auth';
 import { DEFAULT_BADGE_CONGRATULATIONS } from './lib/badge_congratulations';
+import { moderateLocationSubmission } from './lib/contentModeration';
+import { suggestLocationSubmission } from './lib/contentSubmissionSuggestions';
 
 const reviewStatusValidator = v.union(
   v.literal('ready'),
@@ -15,6 +17,7 @@ const reviewStatusValidator = v.union(
   v.literal('published'),
   v.literal('kept_existing'),
   v.literal('dismissed'),
+  v.literal('rejected_by_filter'),
 );
 
 const classificationValidator = v.union(
@@ -54,6 +57,9 @@ const locationDraftValidator = v.object({
   category: v.optional(v.string()),
   mapPinType: v.optional(mapPinTypeValidator),
   badges: v.array(v.string()),
+  submittedLocationInput: v.optional(v.string()),
+  submitterLocationNotes: v.optional(v.string()),
+  moderationFlags: v.optional(v.array(v.string())),
   importConfidence: v.optional(importConfidenceValidator),
   suggestionNotes: v.optional(v.array(v.string())),
   issues: v.array(v.string()),
@@ -136,6 +142,34 @@ type ComparableLocation = {
   mapPinType?: string;
   badges: string[];
 };
+
+const submissionLimits = {
+  description: 5_000,
+  funFact: 1_000,
+  locationInput: 1_500,
+  locationNotes: 1_000,
+  name: 120,
+  source: 1_000,
+} as const;
+
+function requireSubmissionText(
+  value: string,
+  label: string,
+  maximumLength: number,
+) {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    throw new ConvexError(`${label} is required.`);
+  }
+  if (trimmed.length > maximumLength) {
+    throw new ConvexError(
+      `${label} must be ${maximumLength.toLocaleString()} characters or fewer.`,
+    );
+  }
+
+  return trimmed;
+}
 
 type ComparableBadge = {
   name: string;
@@ -307,6 +341,37 @@ function getInitialStatus(
   return issues.length > 0
     ? ('needs_attention' as const)
     : ('ready' as const);
+}
+
+function createSubmissionSourceText(input: {
+  name: string;
+  description: string;
+  funFact?: string;
+  source: string;
+  locationInput?: string;
+  locationNotes?: string;
+  latitude?: number;
+  longitude?: number;
+  isLore: boolean;
+}) {
+  return [
+    `Name: ${input.name}`,
+    `Description: ${input.description}`,
+    input.funFact ? `Fun Fact: ${input.funFact}` : undefined,
+    input.locationInput
+      ? `Submitted Address or Map Link: ${input.locationInput}`
+      : undefined,
+    input.locationNotes
+      ? `Additional Location Details: ${input.locationNotes}`
+      : undefined,
+    input.latitude !== undefined && input.longitude !== undefined
+      ? `Coordinates: ${input.latitude}, ${input.longitude}`
+      : undefined,
+    `Includes Lore or Legend: ${input.isLore ? 'Yes' : 'No'}`,
+    `Source: ${input.source}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 function getLocationIssues(
@@ -558,6 +623,264 @@ function getBadgeMessages(draft: Doc<'badgeIngestDrafts'>) {
   return messages;
 }
 
+export const submitLocationProposal = mutation({
+  args: {
+    name: v.string(),
+    description: v.string(),
+    funFact: v.optional(v.string()),
+    source: v.string(),
+    locationInput: v.optional(v.string()),
+    locationNotes: v.optional(v.string()),
+    latitude: v.number(),
+    longitude: v.number(),
+    isLore: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await requireContentContributor(ctx);
+    const now = Date.now();
+    const recentSubmissions = await ctx.db
+      .query('ingestBatches')
+      .withIndex('by_creator_and_created_at', (q) =>
+        q
+          .eq('createdByClerkUserId', identity.subject)
+          .gte('createdAt', now - 60 * 60 * 1_000),
+      )
+      .collect();
+
+    if (
+      recentSubmissions.filter(
+        (batch) => batch.sourceType === 'user_submission',
+      ).length >= 5
+    ) {
+      throw new ConvexError(
+        'Please wait before submitting another location. The limit is five submissions per hour.',
+      );
+    }
+
+    const name = requireSubmissionText(
+      args.name,
+      'Location name',
+      submissionLimits.name,
+    );
+    const description = requireSubmissionText(
+      args.description,
+      'Description',
+      submissionLimits.description,
+    );
+    const source = requireSubmissionText(
+      args.source,
+      'Source',
+      submissionLimits.source,
+    );
+    const locationInput = args.locationInput?.trim() || undefined;
+    const locationNotes = args.locationNotes?.trim() || undefined;
+    const funFact = args.funFact?.trim() || undefined;
+
+    if (funFact && funFact.length > submissionLimits.funFact) {
+      throw new ConvexError(
+        `Fun Fact must be ${submissionLimits.funFact.toLocaleString()} characters or fewer.`,
+      );
+    }
+    if (
+      locationInput &&
+      locationInput.length > submissionLimits.locationInput
+    ) {
+      throw new ConvexError(
+        `Address or map link must be ${submissionLimits.locationInput.toLocaleString()} characters or fewer.`,
+      );
+    }
+    if (
+      locationNotes &&
+      locationNotes.length > submissionLimits.locationNotes
+    ) {
+      throw new ConvexError(
+        `Location details must be ${submissionLimits.locationNotes.toLocaleString()} characters or fewer.`,
+      );
+    }
+    if (
+      args.latitude < -90 ||
+      args.latitude > 90 ||
+      args.longitude < -180 ||
+      args.longitude > 180
+    ) {
+      throw new ConvexError(
+        'Place a valid location pin before submitting.',
+      );
+    }
+
+    const definitions = await ctx.db.query('badgeDefinitions').collect();
+    const suggestions = suggestLocationSubmission({
+      name,
+      description,
+      funFact,
+      source,
+      locationInput,
+      locationNotes,
+      isLore: args.isLore,
+      availableTags: definitions
+        .filter((definition) => definition.retired !== true)
+        .map((definition) => definition.tag),
+    });
+    const proposed = {
+      sourceText: createSubmissionSourceText({
+        name,
+        description,
+        funFact,
+        source,
+        locationInput,
+        locationNotes,
+        latitude: args.latitude,
+        longitude: args.longitude,
+        isLore: args.isLore,
+      }),
+      sourceWasMarkedComplete: false,
+      name,
+      key: suggestions.key,
+      description,
+      funFact,
+      source,
+      isLore: args.isLore,
+      latitude: args.latitude,
+      longitude: args.longitude,
+      category: suggestions.category,
+      mapPinType: suggestions.mapPinType,
+      badges: suggestions.badges,
+      submittedLocationInput: locationInput,
+      submitterLocationNotes: locationNotes,
+      importConfidence:
+        suggestions.category !== undefined &&
+        suggestions.badges.length > 0
+          ? ('high' as const)
+          : suggestions.category !== undefined || suggestions.badges.length > 0
+            ? ('medium' as const)
+            : ('low' as const),
+      suggestionNotes: suggestions.suggestionNotes,
+    };
+    const existingDrafts = await ctx.db.query('locationIngestDrafts').collect();
+    const fingerprint = locationFingerprint(proposed);
+
+    if (
+      existingDrafts.some(
+        (draft) => locationFingerprint(draft) === fingerprint,
+      )
+    ) {
+      throw new ConvexError(
+        'An identical location proposal is already in the review queue.',
+      );
+    }
+
+    const locations = await ctx.db.query('locations').collect();
+    const match = getLocationMatch(proposed, locations);
+
+    if (
+      match?.exact &&
+      locationFingerprint(proposed) === locationFingerprint(match.location)
+    ) {
+      throw new ConvexError(
+        'This location is already published with the same information.',
+      );
+    }
+
+    const issues = getLocationIssues(proposed, false);
+    const moderationFlags = moderateLocationSubmission({
+      name,
+      description,
+      funFact,
+      source,
+      locationInput,
+      locationNotes,
+    });
+
+    if (moderationFlags.length > 0) {
+      issues.unshift(
+        'Automatically held by the content-safety filter. An administrator must review it before any other action.',
+      );
+    }
+
+    const submitterName =
+      typeof identity.name === 'string' && identity.name.trim()
+        ? identity.name.trim()
+        : typeof identity.email === 'string' && identity.email.trim()
+          ? identity.email.trim()
+          : 'Trusted Contributor';
+    const batchId = await ctx.db.insert('ingestBatches', {
+      contentType: 'location',
+      sourceType: 'user_submission',
+      sourceName: `Community submission from ${submitterName}`,
+      warnings: [],
+      createdAt: now,
+      createdByClerkUserId: identity.subject,
+    });
+    const status =
+      moderationFlags.length > 0
+        ? ('rejected_by_filter' as const)
+        : getInitialStatus(issues, match);
+    const draftId = await ctx.db.insert('locationIngestDrafts', {
+      ...proposed,
+      batchId,
+      moderationFlags:
+        moderationFlags.length > 0 ? moderationFlags : undefined,
+      issues,
+      status,
+      matchedLocationId: match?.location._id,
+      matchDistanceMeters: match?.distanceMeters,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return {
+      draftId,
+      status,
+      moderationFiltered: moderationFlags.length > 0,
+      suggestions: {
+        category: suggestions.category,
+        mapPinType: suggestions.mapPinType,
+        badges: suggestions.badges,
+      },
+    };
+  },
+});
+
+export const getMyLocationSubmissions = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await requireContentContributor(ctx);
+    const batches = await ctx.db
+      .query('ingestBatches')
+      .withIndex('by_creator_and_created_at', (q) =>
+        q.eq('createdByClerkUserId', identity.subject),
+      )
+      .order('desc')
+      .take(20);
+    const submissionBatches = batches.filter(
+      (batch) =>
+        batch.contentType === 'location' &&
+        batch.sourceType === 'user_submission',
+    );
+
+    return (
+      await Promise.all(
+        submissionBatches.map(async (batch) => {
+          const draft = await ctx.db
+            .query('locationIngestDrafts')
+            .withIndex('by_batch', (q) => q.eq('batchId', batch._id))
+            .first();
+
+          return draft
+            ? {
+                id: draft._id,
+                name: draft.name,
+                status: draft.status,
+                createdAt: draft.createdAt,
+                updatedAt: draft.updatedAt,
+              }
+            : null;
+        }),
+      )
+    ).filter((submission) => submission !== null);
+  },
+});
+
 export const createBatch = mutation({
   args: {
     contentType: v.union(v.literal('location'), v.literal('badge')),
@@ -799,6 +1122,7 @@ export const updateLocationDraft = mutation({
       category: proposed.category,
       mapPinType: proposed.mapPinType,
       badges: proposed.badges,
+      moderationFlags: undefined,
       issues,
       status: getInitialStatus(issues, match),
       matchedLocationId: match?.location._id,
@@ -965,6 +1289,12 @@ export const reviewLocationDraft = mutation({
         updatedAt: now,
       });
       return null;
+    }
+
+    if ((draft.moderationFlags?.length ?? 0) > 0) {
+      throw new ConvexError(
+        'This proposal was held by the content-safety filter. Reopen and edit it before publishing.',
+      );
     }
 
     requireLocationDraftReady(draft);

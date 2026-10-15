@@ -1,7 +1,11 @@
 import { ConvexError, v } from 'convex/values';
 
 import { mutation, query } from './_generated/server';
-import { isAdminSubject } from './lib/auth';
+import {
+  canSubmitContent,
+  isAdminSubject,
+  isTrustedContributorSubject,
+} from './lib/auth';
 
 export const getCurrentUser = query({
   args: {},
@@ -13,11 +17,23 @@ export const getCurrentUser = query({
       return null;
     }
 
+    const isAdmin = isAdminSubject(identity.subject);
+    const isTrustedContributor = isTrustedContributorSubject(
+      identity.subject,
+    );
+
     return {
       clerkUserId: identity.subject,
       name: identity.name,
       email: identity.email,
-      isAdmin: isAdminSubject(identity.subject),
+      isAdmin,
+      isTrustedContributor,
+      canSubmitContent: canSubmitContent(identity.subject),
+      contentRole: isAdmin
+        ? ('admin' as const)
+        : isTrustedContributor
+          ? ('trusted_contributor' as const)
+          : ('member' as const),
     };
   },
 });

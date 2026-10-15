@@ -202,7 +202,11 @@ export default defineSchema({
       createdByClerkUserId: v.string(),
     })
       .index('by_content_type', ['contentType'])
-      .index('by_created_at', ['createdAt']),
+      .index('by_created_at', ['createdAt'])
+      .index('by_creator_and_created_at', [
+        'createdByClerkUserId',
+        'createdAt',
+      ]),
 
     locationIngestDrafts: defineTable({
       batchId: v.id('ingestBatches'),
@@ -229,6 +233,9 @@ export default defineSchema({
         ),
       ),
       badges: v.array(v.string()),
+      submittedLocationInput: v.optional(v.string()),
+      submitterLocationNotes: v.optional(v.string()),
+      moderationFlags: v.optional(v.array(v.string())),
     importConfidence: v.optional(
       v.union(v.literal('high'), v.literal('medium'), v.literal('low')),
     ),
@@ -243,6 +250,7 @@ export default defineSchema({
         v.literal('published'),
         v.literal('kept_existing'),
         v.literal('dismissed'),
+        v.literal('rejected_by_filter'),
       ),
       matchedLocationId: v.optional(v.id('locations')),
       matchDistanceMeters: v.optional(v.number()),

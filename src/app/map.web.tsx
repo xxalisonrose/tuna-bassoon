@@ -422,10 +422,16 @@ export default function MapWebScreen() {
     return () => {
       playerMarkerRef.current?.remove();
       playerMarkerRef.current = null;
-      playerRootRef.current?.unmount();
+      const playerRoot = playerRootRef.current;
       playerRootRef.current = null;
       map.remove();
       mapRef.current = null;
+
+      if (playerRoot) {
+        window.setTimeout(() => {
+          playerRoot.unmount();
+        }, 0);
+      }
     };
   }, []);
 

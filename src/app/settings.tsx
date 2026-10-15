@@ -1,7 +1,12 @@
 import { useAuth } from '@clerk/expo';
 import { useConvexAuth, useQuery } from 'convex/react';
 import * as Location from 'expo-location';
-import { useFocusEffect, useScrollToTop } from 'expo-router';
+import {
+  useFocusEffect,
+  useLocalSearchParams,
+  useRouter,
+  useScrollToTop,
+} from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -26,6 +31,7 @@ import {
 } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '../../convex/_generated/api';
+import SubmitLocationScreen from './submit-location';
 
 type PermissionState =
   | 'checking'
@@ -55,6 +61,8 @@ const textSizeSettingsPath = Platform.select({
 
 export default function SettingsScreen() {
   const theme = useTheme();
+  const router = useRouter();
+  const { view } = useLocalSearchParams<{ view?: string }>();
   const scrollViewRef = useRef<ScrollView>(null);
   useScrollToTop(scrollViewRef);
   const { signOut } = useAuth();
@@ -164,6 +172,10 @@ export default function SettingsScreen() {
     currentUser?.name ?? 'Harvard Explorer';
   const accountEmail = currentUser?.email;
 
+  if (view === 'submit-location') {
+    return <SubmitLocationScreen />;
+  }
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
@@ -272,6 +284,64 @@ export default function SettingsScreen() {
               </ThemedText>
             )}
           </ThemedView>
+
+          {currentUser?.canSubmitContent && (
+            <ThemedView
+              type="backgroundElement"
+              style={[styles.card, { borderColor: theme.border }]}>
+              <View style={styles.cardHeadingRow}>
+                <View style={styles.cardHeadingText}>
+                  <ThemedText
+                    accessibilityRole="header"
+                    type="subtitle">
+                    Content Contributions
+                  </ThemedText>
+                  <ThemedText themeColor="textSecondary">
+                    Suggest a location for the Tuna Bassoon map. Every
+                    submission remains private until an administrator reviews
+                    and approves it.
+                  </ThemedText>
+                </View>
+
+                <ThemedView
+                  style={[
+                    styles.statusPill,
+                    { backgroundColor: theme.accentSoft },
+                  ]}>
+                  <ThemedText type="smallBold">
+                    {currentUser.isAdmin ? 'ADMIN' : 'TRUSTED CONTRIBUTOR'}
+                  </ThemedText>
+                </ThemedView>
+              </View>
+
+              <ThemedText type="small" themeColor="textSecondary">
+                Tuna Bassoon checks suggestions for possible duplicates,
+                missing details, and content-safety concerns before placing
+                them in the review queue.
+              </ThemedText>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Submit a Location"
+                accessibilityHint="Opens the private location suggestion form"
+                onPress={() =>
+                  router.push({
+                    pathname: '/settings',
+                    params: { view: 'submit-location' },
+                  })
+                }
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText
+                  type="smallBold"
+                  style={styles.primaryButtonText}>
+                  Submit a Location
+                </ThemedText>
+              </Pressable>
+            </ThemedView>
+          )}
 
           <ThemedView
             type="backgroundElement"
@@ -426,16 +496,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   safeArea: {
-    alignSelf: 'center',
     flex: 1,
-    maxWidth: MaxContentWidth,
     width: '100%',
   },
   scrollContent: {
+    alignSelf: 'center',
     gap: Spacing.five,
+    maxWidth: MaxContentWidth,
     paddingBottom: BottomTabInset + Spacing.five,
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.four,
+    width: '100%',
   },
   heading: {
     gap: Spacing.two,

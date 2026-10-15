@@ -3,6 +3,7 @@ import { useConvexAuth } from 'convex/react';
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -96,7 +97,8 @@ export default function AuthenticationEntryScreen() {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
+          nativeID={Platform.OS === 'web' ? 'app-page-scroll-view' : undefined}
+          showsVerticalScrollIndicator={Platform.OS === 'web'}>
           <View style={styles.brandSection}>
             <View
               accessible={false}
@@ -214,15 +216,16 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     width: '100%',
-    maxWidth: MaxContentWidth,
-    alignSelf: 'center',
   },
   scrollContent: {
+    alignSelf: 'center',
     flexGrow: 1,
     justifyContent: 'center',
     gap: Spacing.five,
+    maxWidth: MaxContentWidth,
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.five,
+    width: '100%',
   },
   loadingContainer: {
     flex: 1,
