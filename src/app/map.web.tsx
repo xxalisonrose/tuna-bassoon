@@ -39,6 +39,7 @@ import {
 import { PlayerMarker } from '@/components/map/player-marker';
 import { Palette, Spacing } from '@/constants/theme';
 import type { Place } from '@/data/places';
+import { usesWomensHistoryPersonPin } from '@/lib/location-map-pin';
 import { api } from '../../convex/_generated/api';
 
 const HARVARD_YARD: [number, number] = [-71.1167, 42.377];
@@ -52,17 +53,49 @@ const PIN_SOURCE_ID = 'web-location-pins';
 const PIN_HIT_LAYER_ID = 'web-location-pins-hit';
 
 type LocationPinProperties = {
+  personVariant: 'general' | 'women_history';
   placeId: string;
+  pinType: Place['mapPinType'];
   selected: boolean;
   visited: boolean;
 };
 
 const pinImageSources = {
+  'historic-sites-unvisited': Asset.fromModule(
+    require('../../assets/images/map-pins/historic-sites-unvisited.png'),
+  ).uri,
+  'historic-sites-visited': Asset.fromModule(
+    require('../../assets/images/map-pins/historic-sites-visited.png'),
+  ).uri,
+  'monuments-public-art-unvisited': Asset.fromModule(
+    require('../../assets/images/map-pins/monuments-public-art-unvisited.png'),
+  ).uri,
+  'monuments-public-art-visited': Asset.fromModule(
+    require('../../assets/images/map-pins/monuments-public-art-visited.png'),
+  ).uri,
+  'mystery-lore-unvisited': Asset.fromModule(
+    require('../../assets/images/map-pins/mystery-lore-unvisited.png'),
+  ).uri,
+  'mystery-lore-visited': Asset.fromModule(
+    require('../../assets/images/map-pins/mystery-lore-visited.png'),
+  ).uri,
+  'noteworthy-people-unvisited': Asset.fromModule(
+    require('../../assets/images/map-pins/noteworthy-people-unvisited.png'),
+  ).uri,
+  'noteworthy-people-visited': Asset.fromModule(
+    require('../../assets/images/map-pins/noteworthy-people-visited.png'),
+  ).uri,
   'other-discovery-unvisited': Asset.fromModule(
     require('../../assets/images/map-pins/other-discovery-unvisited.png'),
   ).uri,
   'other-discovery-visited': Asset.fromModule(
     require('../../assets/images/map-pins/other-discovery-visited.png'),
+  ).uri,
+  'womens-history-unvisited': Asset.fromModule(
+    require('../../assets/images/map-pins/womens-history-unvisited.png'),
+  ).uri,
+  'womens-history-visited': Asset.fromModule(
+    require('../../assets/images/map-pins/womens-history-visited.png'),
   ).uri,
 };
 
@@ -105,7 +138,11 @@ function createPinData(
       type: 'Feature',
       id: place.id,
       properties: {
+        personVariant: usesWomensHistoryPersonPin(place.badges)
+          ? 'women_history'
+          : 'general',
         placeId: place.id,
+        pinType: place.mapPinType,
         selected: place.id === selectedPlaceId,
         visited: visitedLocationIds.has(place.id),
       },
@@ -140,6 +177,51 @@ async function addPinArtwork(map: MapLibreMap) {
         'icon-ignore-placement': true,
         'icon-image': [
           'case',
+          [
+            'all',
+            ['==', ['get', 'pinType'], 'historic_sites'],
+            ['==', ['get', 'visited'], true],
+          ],
+          'historic-sites-visited',
+          ['==', ['get', 'pinType'], 'historic_sites'],
+          'historic-sites-unvisited',
+          [
+            'all',
+            ['==', ['get', 'pinType'], 'monuments_public_art'],
+            ['==', ['get', 'visited'], true],
+          ],
+          'monuments-public-art-visited',
+          ['==', ['get', 'pinType'], 'monuments_public_art'],
+          'monuments-public-art-unvisited',
+          [
+            'all',
+            ['==', ['get', 'pinType'], 'mystery_lore'],
+            ['==', ['get', 'visited'], true],
+          ],
+          'mystery-lore-visited',
+          ['==', ['get', 'pinType'], 'mystery_lore'],
+          'mystery-lore-unvisited',
+          [
+            'all',
+            ['==', ['get', 'pinType'], 'noteworthy_people'],
+            ['==', ['get', 'personVariant'], 'women_history'],
+            ['==', ['get', 'visited'], true],
+          ],
+          'womens-history-visited',
+          [
+            'all',
+            ['==', ['get', 'pinType'], 'noteworthy_people'],
+            ['==', ['get', 'personVariant'], 'women_history'],
+          ],
+          'womens-history-unvisited',
+          [
+            'all',
+            ['==', ['get', 'pinType'], 'noteworthy_people'],
+            ['==', ['get', 'visited'], true],
+          ],
+          'noteworthy-people-visited',
+          ['==', ['get', 'pinType'], 'noteworthy_people'],
+          'noteworthy-people-unvisited',
           ['==', ['get', 'visited'], true],
           'other-discovery-visited',
           'other-discovery-unvisited',

@@ -48,6 +48,8 @@ The expanded Test GPS panel also offers **Reset Test Progress**. After destructi
 
 Checked-in locations remain on the map. Their pin changes to the visited treatment rather than disappearing, so completed places can still be opened and revisited. Location pins now render from a persistent GeoJSON source and style layers. Checking in updates a feature's visited property instead of destroying and recreating a native marker, eliminating the annotation cleanup race.
 
+Prototype category artwork is shared by the native and web maps. Historic Sites use closed and open books, Monuments & Public Art use covered and revealed cow statues, Mystery & Lore uses red and green question emblems, and Noteworthy People uses red and green silhouette medallions. Noteworthy People locations with a women's-history tag automatically use the woman medallion pair. Other Discoveries remains the red and green gem fallback, so missing or unknown categories always retain a usable marker.
+
 The built-in MapLibre information ornament is hidden from the control area. Required map-data credit remains visible as unobtrusive plain text on the map and is repeated at the end of the Locations list without opening MapLibre options.
 
 The recenter control uses a direct eased camera move with zero viewport padding. In both Look Around and Explore modes, it places the active real or simulated player coordinate at the visual center of the map.

@@ -79,6 +79,14 @@ const peopleTags = new Set([
   'writers-poets',
 ]);
 
+const womensHistoryTags = new Set([
+  'women-history',
+  'women-s-history',
+  'women-s-history-month',
+  'womens-history',
+  'womens-history-month',
+]);
+
 const historicCategories = new Set([
   'Architecture & Places',
   'History & Heritage',
@@ -119,6 +127,13 @@ export function getCanonicalLocationMapPinType(
   value: string | undefined,
 ): LocationMapPinType | null {
   return getLocationMapPinTypeOption(value)?.value ?? null;
+}
+
+export function usesWomensHistoryPersonPin(badges: string[]) {
+  return includesTagFrom(
+    new Set(badges.map(normalizeTag)),
+    womensHistoryTags,
+  );
 }
 
 export function suggestLocationMapPinType(args: {

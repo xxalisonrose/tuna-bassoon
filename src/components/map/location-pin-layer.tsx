@@ -1,12 +1,111 @@
 import { GeoJSONSource, Images, Layer } from '@maplibre/maplibre-react-native';
+import type { FilterSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { useMemo } from 'react';
 
 import type { Place } from '@/data/places';
+import { usesWomensHistoryPersonPin } from '@/lib/location-map-pin';
 
 const locationPinImages = {
+  'historic-sites-unvisited': require('../../../assets/images/map-pins/historic-sites-unvisited.png'),
+  'historic-sites-visited': require('../../../assets/images/map-pins/historic-sites-visited.png'),
+  'monuments-public-art-unvisited': require('../../../assets/images/map-pins/monuments-public-art-unvisited.png'),
+  'monuments-public-art-visited': require('../../../assets/images/map-pins/monuments-public-art-visited.png'),
+  'mystery-lore-unvisited': require('../../../assets/images/map-pins/mystery-lore-unvisited.png'),
+  'mystery-lore-visited': require('../../../assets/images/map-pins/mystery-lore-visited.png'),
+  'noteworthy-people-unvisited': require('../../../assets/images/map-pins/noteworthy-people-unvisited.png'),
+  'noteworthy-people-visited': require('../../../assets/images/map-pins/noteworthy-people-visited.png'),
   'other-discovery-unvisited': require('../../../assets/images/map-pins/other-discovery-unvisited.png'),
   'other-discovery-visited': require('../../../assets/images/map-pins/other-discovery-visited.png'),
+  'womens-history-unvisited': require('../../../assets/images/map-pins/womens-history-unvisited.png'),
+  'womens-history-visited': require('../../../assets/images/map-pins/womens-history-visited.png'),
 };
+
+type LocationPinArtworkLayerDefinition = {
+  image: keyof typeof locationPinImages;
+  personVariant?: 'general' | 'women_history';
+  pinType: Place['mapPinType'];
+  state: string;
+  visited: boolean;
+};
+
+const locationPinArtworkLayers: readonly LocationPinArtworkLayerDefinition[] = [
+  {
+    image: 'historic-sites-unvisited',
+    pinType: 'historic_sites',
+    state: 'unvisited',
+    visited: false,
+  },
+  {
+    image: 'historic-sites-visited',
+    pinType: 'historic_sites',
+    state: 'visited',
+    visited: true,
+  },
+  {
+    image: 'monuments-public-art-unvisited',
+    pinType: 'monuments_public_art',
+    state: 'unvisited',
+    visited: false,
+  },
+  {
+    image: 'monuments-public-art-visited',
+    pinType: 'monuments_public_art',
+    state: 'visited',
+    visited: true,
+  },
+  {
+    image: 'mystery-lore-unvisited',
+    pinType: 'mystery_lore',
+    state: 'unvisited',
+    visited: false,
+  },
+  {
+    image: 'mystery-lore-visited',
+    pinType: 'mystery_lore',
+    state: 'visited',
+    visited: true,
+  },
+  {
+    image: 'noteworthy-people-unvisited',
+    personVariant: 'general',
+    pinType: 'noteworthy_people',
+    state: 'unvisited',
+    visited: false,
+  },
+  {
+    image: 'noteworthy-people-visited',
+    personVariant: 'general',
+    pinType: 'noteworthy_people',
+    state: 'visited',
+    visited: true,
+  },
+  {
+    image: 'womens-history-unvisited',
+    personVariant: 'women_history',
+    pinType: 'noteworthy_people',
+    state: 'women-unvisited',
+    visited: false,
+  },
+  {
+    image: 'womens-history-visited',
+    personVariant: 'women_history',
+    pinType: 'noteworthy_people',
+    state: 'women-visited',
+    visited: true,
+  },
+  {
+    image: 'other-discovery-unvisited',
+    pinType: 'other_discoveries',
+    state: 'unvisited',
+    visited: false,
+  },
+  {
+    image: 'other-discovery-visited',
+    pinType: 'other_discoveries',
+    state: 'visited',
+    visited: true,
+  },
+];
 
 type LocationPinLayerProps = {
   onSelect: (place: Place) => void;
@@ -30,6 +129,9 @@ export function LocationPinLayer({
         properties: {
           placeId: place.id,
           pinType: place.mapPinType,
+          personVariant: usesWomensHistoryPersonPin(place.badges)
+            ? 'women_history'
+            : 'general',
           selected: selectedPlaceId === place.id,
           visited: visitedLocationIds.has(place.id),
         },
@@ -145,31 +247,40 @@ export function LocationPinLayer({
           }}
         />
 
-        <Layer
-          id="location-pin-default-gem-unvisited"
-          type="symbol"
-          filter={['==', ['get', 'visited'], false]}
-          layout={{
-            'icon-allow-overlap': true,
-            'icon-anchor': 'center',
-            'icon-ignore-placement': true,
-            'icon-image': 'other-discovery-unvisited',
-            'icon-size': 0.2,
-          }}
-        />
+        {locationPinArtworkLayers.map((artworkLayer) => {
+          const filter: FilterSpecification = artworkLayer.personVariant
+            ? [
+                'all',
+                ['==', ['get', 'visited'], artworkLayer.visited],
+                ['==', ['get', 'pinType'], artworkLayer.pinType],
+                [
+                  '==',
+                  ['get', 'personVariant'],
+                  artworkLayer.personVariant,
+                ],
+              ]
+            : [
+                'all',
+                ['==', ['get', 'visited'], artworkLayer.visited],
+                ['==', ['get', 'pinType'], artworkLayer.pinType],
+              ];
 
-        <Layer
-          id="location-pin-default-gem-visited"
-          type="symbol"
-          filter={['==', ['get', 'visited'], true]}
-          layout={{
-            'icon-allow-overlap': true,
-            'icon-anchor': 'center',
-            'icon-ignore-placement': true,
-            'icon-image': 'other-discovery-visited',
-            'icon-size': 0.2,
-          }}
-        />
+          return (
+            <Layer
+              key={`${artworkLayer.pinType}-${artworkLayer.state}`}
+              id={`location-pin-artwork-${artworkLayer.pinType}-${artworkLayer.state}`}
+              type="symbol"
+              filter={filter}
+              layout={{
+                'icon-allow-overlap': true,
+                'icon-anchor': 'center',
+                'icon-ignore-placement': true,
+                'icon-image': artworkLayer.image,
+                'icon-size': 0.2,
+              }}
+            />
+          );
+        })}
       </GeoJSONSource>
     </>
   );

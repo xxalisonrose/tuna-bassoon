@@ -56,16 +56,7 @@ const styles = StyleSheet.create({
   avatar: {
     position: 'absolute',
     top: 12,
-    borderWidth: 2,
-    borderColor: Palette.paper,
-    borderRadius: 18,
-    elevation: 5,
-    shadowColor: '#24342E',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
+    backgroundColor: 'transparent',
+    borderRadius: 0,
   },
 });
