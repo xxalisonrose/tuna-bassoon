@@ -1,5 +1,199 @@
 import { internalMutation, internalQuery } from './_generated/server';
 
+const BADGE_CONGRATULATIONS_RESTORES = [
+  {
+    targetKey: 'artists-architects',
+    sourceKey: 'artists-and-architects',
+  },
+  {
+    targetKey: 'books-libraries',
+    sourceKey: 'books-and-libraries',
+  },
+  {
+    targetKey: 'bridges-infrastructure',
+    sourceKey: 'bridges-and-infrastructure',
+  },
+  {
+    targetKey: 'churches-religious-sites',
+    sourceKey: 'churches-and-religious-sites',
+  },
+  {
+    targetKey: 'folklore-legends',
+    sourceKey: 'folklore-and-legends',
+  },
+  {
+    targetKey: 'historic-buildings-homes',
+    sourceKey: 'historic-buildings-and-homes',
+  },
+  {
+    targetKey: 'inventors-scientists',
+    sourceKey: 'inventors-and-scientists',
+  },
+  {
+    targetKey: 'memorials-monuments',
+    sourceKey: 'memorials-and-monuments',
+  },
+  {
+    targetKey: 'midnight-ride',
+    sourceKey: 'paul-reveres-midnight-ride',
+  },
+  {
+    targetKey: 'museums-collections',
+    sourceKey: 'museums-and-collections',
+  },
+  {
+    targetKey: 'musicians-performers',
+    sourceKey: 'musicians-and-performers',
+  },
+  {
+    targetKey: 'statues-sculpture',
+    sourceKey: 'statues-and-sculpture',
+  },
+  {
+    targetKey: 'women-s-history',
+    sourceKey: 'women-history',
+  },
+  {
+    targetKey: 'writers-poets',
+    sourceKey: 'writers-and-poets',
+  },
+] as const;
+
+const BADGE_CONGRATULATIONS_MANUAL_REVIEW = [
+  {
+    key: 'architecture',
+    reason:
+      'No earlier ten-message custom pool exists in the current database or source document.',
+  },
+] as const;
+
+function messagesMatch(first: string[], second: string[]) {
+  return (
+    first.length === second.length &&
+    first.every((message, index) => message === second[index])
+  );
+}
+
+function validateRestorationSource(
+  sourceKey: string,
+  messages: string[] | undefined,
+) {
+  const normalized = (messages ?? []).map((message) => message.trim());
+
+  if (
+    normalized.length !== 10 ||
+    normalized.some((message) => !message) ||
+    new Set(normalized.map((message) => message.toLowerCase())).size !== 10
+  ) {
+    throw new Error(
+      `Badge ${sourceKey} does not contain a valid ten-message restoration pool.`,
+    );
+  }
+
+  return normalized;
+}
+
+export const previewCongratulationsMessageRestore = internalQuery({
+  args: {},
+
+  handler: async (ctx) => {
+    const definitions = await ctx.db
+      .query('badgeDefinitions')
+      .collect();
+    const definitionsByKey = new Map(
+      definitions.map((definition) => [definition.key, definition]),
+    );
+
+    const recoverable = BADGE_CONGRATULATIONS_RESTORES.map((restore) => {
+      const target = definitionsByKey.get(restore.targetKey);
+      const source = definitionsByKey.get(restore.sourceKey);
+      const sourceMessages = validateRestorationSource(
+        restore.sourceKey,
+        source?.congratulationsMessages,
+      );
+      const targetMessages = target?.congratulationsMessages ?? [];
+
+      return {
+        targetKey: restore.targetKey,
+        targetName: target?.name ?? null,
+        sourceKey: restore.sourceKey,
+        sourceName: source?.name ?? null,
+        currentMessageCount: targetMessages.length,
+        restoredMessageCount: sourceMessages.length,
+        status:
+          target === undefined
+            ? 'missing_target'
+            : messagesMatch(targetMessages, sourceMessages)
+              ? 'already_restored'
+              : 'ready_to_restore',
+      };
+    });
+
+    return {
+      readyToRestore: recoverable.filter(
+        (record) => record.status === 'ready_to_restore',
+      ).length,
+      alreadyRestored: recoverable.filter(
+        (record) => record.status === 'already_restored',
+      ).length,
+      recoverable,
+      manualReview: BADGE_CONGRATULATIONS_MANUAL_REVIEW,
+    };
+  },
+});
+
+export const restoreCongratulationsMessages = internalMutation({
+  args: {},
+
+  handler: async (ctx) => {
+    const definitions = await ctx.db
+      .query('badgeDefinitions')
+      .collect();
+    const definitionsByKey = new Map(
+      definitions.map((definition) => [definition.key, definition]),
+    );
+    const restored: string[] = [];
+    const unchanged: string[] = [];
+
+    for (const restore of BADGE_CONGRATULATIONS_RESTORES) {
+      const target = definitionsByKey.get(restore.targetKey);
+      const source = definitionsByKey.get(restore.sourceKey);
+
+      if (target === undefined) {
+        throw new Error(`Missing restoration target: ${restore.targetKey}`);
+      }
+
+      const sourceMessages = validateRestorationSource(
+        restore.sourceKey,
+        source?.congratulationsMessages,
+      );
+
+      if (
+        messagesMatch(
+          target.congratulationsMessages ?? [],
+          sourceMessages,
+        )
+      ) {
+        unchanged.push(restore.targetKey);
+        continue;
+      }
+
+      await ctx.db.patch(target._id, {
+        congratulationsMessages: sourceMessages,
+      });
+      restored.push(restore.targetKey);
+    }
+
+    return {
+      restoredCount: restored.length,
+      restored,
+      unchangedCount: unchanged.length,
+      unchanged,
+      manualReview: BADGE_CONGRATULATIONS_MANUAL_REVIEW,
+    };
+  },
+});
+
 const LEGACY_BADGE_MIGRATIONS = [
   {
     name: 'Statue Explorer',

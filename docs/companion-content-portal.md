@@ -249,6 +249,14 @@ Levels have no configured maximum. Progress uses distinct qualifying locations, 
 
 Each badge has its own pool of congratulations messages. The pool stays tucked behind Manage Congratulations inside that badge's create or edit form. An administrator can add messages, edit them, and delete messages with confirmation. General and Theme badges start with ten messages; Special Place and Seasonal badges start with one. These can be replaced with badge-specific wording, and at least one message must remain in each pool.
 
+A guarded one-time restoration is available for legacy badge records whose
+custom messages were replaced by generic starting messages. The preview lists
+the affected badge and the matching ten-message source pool before anything is
+changed. Applying the restoration only replaces the mapped congratulations
+pool; it does not change badge keys, tags, classifications, progress, awards,
+artwork, or locations. Records without a verified source pool remain unchanged
+and are reported for manual review.
+
 The collapsed congratulations area shows only Manage Congratulations. While editing, each numbered message displays a live character count beside its label and is limited to 160 characters; the numbered labels do not open separate help panels.
 
 Whenever a badge is first earned or a repeatable badge reaches another level, its in-app celebration popup randomly chooses one message from that badge's pool. The selected message is only used for that popup and is not stored with the award after dismissal. Adding or deleting messages therefore changes future popup choices without rewriting existing awards. Badge levels remain unlimited and do not need level-specific message ranges. New annual seasonal editions inherit the preceding edition's message pool and can then be edited independently.
