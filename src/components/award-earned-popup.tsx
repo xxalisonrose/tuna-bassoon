@@ -3,6 +3,7 @@ import {
   AccessibilityInfo,
   findNodeHandle,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -78,6 +79,20 @@ export function AwardEarnedPopup({
 
   useEffect(() => {
     const focusSummary = () => {
+      if (Platform.OS === 'web') {
+        const focusableSummary = summaryRef.current as unknown as {
+          focus?: () => void;
+        } | null;
+
+        if (typeof focusableSummary?.focus === 'function') {
+          focusableSummary.focus();
+          return;
+        }
+
+        AccessibilityInfo.announceForAccessibility(summaryLabel);
+        return;
+      }
+
       const node = findNodeHandle(summaryRef.current);
 
       if (node === null) {
@@ -121,6 +136,7 @@ export function AwardEarnedPopup({
               accessible
               accessibilityLabel={summaryLabel}
               accessibilityRole="summary"
+              tabIndex={Platform.OS === 'web' ? -1 : undefined}
               style={styles.summary}>
               <ThemedText
                 style={[
