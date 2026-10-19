@@ -49,9 +49,11 @@ The page explains that submissions remain private until reviewed. It also
 shows the contributor's own recent submissions and friendly statuses, without
 exposing another contributor's work or the private admin queue.
 
-On iOS, the form automatically adjusts for the onscreen keyboard and scrolls
-the focused field above it. Interactive keyboard dismissal lets a contributor
-drag downward to recover more of the form without losing the current entry.
+On iOS, the form measures the focused field and deliberately scrolls its label
+and input above the onscreen keyboard. Interactive keyboard dismissal lets a
+contributor drag downward to recover more of the form without losing the
+current entry. Device-location failures use a short recovery message instead
+of exposing the native exception or call stack to the contributor.
 
 ## Automatic Processing
 

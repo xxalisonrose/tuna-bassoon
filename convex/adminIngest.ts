@@ -881,6 +881,44 @@ export const getMyLocationSubmissions = query({
   },
 });
 
+export const getCommunitySubmissionActivity = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const batches = await ctx.db
+      .query('ingestBatches')
+      .withIndex('by_created_at')
+      .order('desc')
+      .collect();
+    const submissionBatches = batches.filter(
+      (batch) =>
+        batch.contentType === 'location' &&
+        batch.sourceType === 'user_submission',
+    );
+    const drafts = (
+      await Promise.all(
+        submissionBatches.map((batch) =>
+          ctx.db
+            .query('locationIngestDrafts')
+            .withIndex('by_batch', (q) => q.eq('batchId', batch._id))
+            .first(),
+        ),
+      )
+    ).filter((draft) => draft !== null);
+    const completedStatuses = new Set([
+      'published',
+      'kept_existing',
+      'dismissed',
+    ]);
+
+    return {
+      waitingCount: drafts.filter(
+        (draft) => !completedStatuses.has(draft.status),
+      ).length,
+    };
+  },
+});
+
 export const createBatch = mutation({
   args: {
     contentType: v.union(v.literal('location'), v.literal('badge')),

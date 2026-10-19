@@ -114,6 +114,10 @@ const finalizedStatuses = new Set<ReviewStatus>([
 ]);
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
+function isHistoryStatus(status: ReviewStatus) {
+  return finalizedStatuses.has(status) && status !== 'rejected_by_filter';
+}
+
 function getErrorMessage(error: unknown) {
   if (
     typeof error === 'object' &&
@@ -171,6 +175,25 @@ function importedMessagesMatch(imported: string[], published: string[]) {
 
 function getChangedLabels(values: [string, boolean][]) {
   return values.filter(([, changed]) => changed).map(([label]) => label);
+}
+
+function matchesStatusFilter(card: ReviewCard, filter: StatusFilter) {
+  if (filter === 'new_entries') {
+    return card.status === 'ready' || card.status === 'needs_attention';
+  }
+  if (filter === 'possible_duplicates') {
+    return card.status === 'possible_duplicate';
+  }
+  if (filter === 'suggested_edits') {
+    return (
+      card.status === 'suggested_edit' || card.status === 'already_published'
+    );
+  }
+  if (filter === 'filtered') {
+    return card.status === 'rejected_by_filter';
+  }
+
+  return isHistoryStatus(card.status);
 }
 
 function chunkValues<T>(values: T[], size: number) {
@@ -480,29 +503,35 @@ export function IngestReviewPanel({
     [queueCards],
   );
   const filteredCards = useMemo(
-    () =>
-      reviewableCards.filter((card) => {
-        if (statusFilter === 'new_entries') {
-          return card.status === 'ready' || card.status === 'needs_attention';
-        }
-        if (statusFilter === 'possible_duplicates') {
-          return card.status === 'possible_duplicate';
-        }
-        if (statusFilter === 'suggested_edits') {
-          return (
-            card.status === 'suggested_edit' ||
-            card.status === 'already_published'
-          );
-        }
-        if (statusFilter === 'filtered') {
-          return card.status === 'rejected_by_filter';
-        }
-        return (
-          finalizedStatuses.has(card.status) &&
-          card.status !== 'rejected_by_filter'
-        );
-      }),
+    () => reviewableCards.filter((card) => matchesStatusFilter(card, statusFilter)),
     [reviewableCards, statusFilter],
+  );
+  const statusCounts = useMemo(
+    () =>
+      (
+        [
+          'new_entries',
+          'possible_duplicates',
+          'suggested_edits',
+          'filtered',
+          'history',
+        ] as StatusFilter[]
+      ).reduce<Record<StatusFilter, number>>(
+        (counts, filter) => ({
+          ...counts,
+          [filter]: reviewableCards.filter((card) =>
+            matchesStatusFilter(card, filter),
+          ).length,
+        }),
+        {
+          new_entries: 0,
+          possible_duplicates: 0,
+          suggested_edits: 0,
+          filtered: 0,
+          history: 0,
+        },
+      ),
+    [reviewableCards],
   );
   const importWarnings = useMemo(() => {
     if (reviewQueue === 'community_submissions') {
@@ -827,15 +856,24 @@ export function IngestReviewPanel({
   const openCount = reviewableCards.filter((card) =>
     openStatuses.has(card.status),
   ).length;
+  const currentCount = reviewableCards.filter(
+    (card) => !isHistoryStatus(card.status),
+  ).length;
   const queueCounts: Record<ReviewQueue, number> = {
     community_submissions: (locationDrafts ?? []).filter(
-      (draft) => draft.batch?.sourceType === 'user_submission',
+      (draft) =>
+        draft.batch?.sourceType === 'user_submission' &&
+        !isHistoryStatus(draft.status),
     ).length,
     location_imports: (locationDrafts ?? []).filter(
-      (draft) => draft.batch?.sourceType === 'document',
+      (draft) =>
+        draft.batch?.sourceType === 'document' &&
+        !isHistoryStatus(draft.status),
     ).length,
     badge_imports: (badgeDrafts ?? []).filter(
-      (draft) => draft.batch?.sourceType === 'document',
+      (draft) =>
+        draft.batch?.sourceType === 'document' &&
+        !isHistoryStatus(draft.status),
     ).length,
   };
 
@@ -935,8 +973,8 @@ export function IngestReviewPanel({
       </ThemedView>
 
       <ThemedText type="small" themeColor="textSecondary">
-        {openCount} awaiting review · {reviewableCards.length} total in this
-        queue
+        {openCount} awaiting review · {currentCount} current total (History
+        excluded)
       </ThemedText>
 
       {pendingImport && pendingSummary ? (
@@ -1084,7 +1122,9 @@ export function IngestReviewPanel({
               pressed && styles.pressed,
             ]}
           >
-            <ThemedText style={styles.buttonText}>{label}</ThemedText>
+            <ThemedText style={styles.buttonText}>
+              {label} ({statusCounts[value]})
+            </ThemedText>
           </Pressable>
         ))}
       </ThemedView>

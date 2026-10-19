@@ -14,6 +14,7 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
+  View,
 } from 'react-native';
 
 import {
@@ -148,6 +149,11 @@ export default function AdminPortalScreen() {
   const currentUser = useQuery(
     api.users.getCurrentUser,
     isAuthenticated ? {} : 'skip',
+  );
+
+  const communitySubmissionActivity = useQuery(
+    api.adminIngest.getCommunitySubmissionActivity,
+    currentUser?.isAdmin ? {} : 'skip',
   );
 
   const adminLocations = useQuery(
@@ -1028,7 +1034,9 @@ export default function AdminPortalScreen() {
                   ? 'Locations'
                   : section === 'badges'
                     ? 'Badges'
-                    : 'Submissions'
+                    : communitySubmissionActivity?.waitingCount
+                      ? `Submissions, ${communitySubmissionActivity.waitingCount} awaiting review`
+                      : 'Submissions'
               }
               accessibilityState={{ selected: portalSection === section }}
               onPress={() => setPortalSection(section)}
@@ -1037,14 +1045,29 @@ export default function AdminPortalScreen() {
                 portalSection === section && styles.sectionTabSelected,
                 pressed && styles.pressed,
               ]}>
-              <ThemedText
-                style={portalSection === section ? styles.sectionTabTextSelected : undefined}>
-                {section === 'locations'
-                  ? 'Locations'
-                  : section === 'badges'
-                    ? 'Badges'
-                    : 'Submissions'}
-              </ThemedText>
+              <View style={styles.sectionTabLabelRow}>
+                <ThemedText
+                  style={portalSection === section ? styles.sectionTabTextSelected : undefined}>
+                  {section === 'locations'
+                    ? 'Locations'
+                    : section === 'badges'
+                      ? 'Badges'
+                      : 'Submissions'}
+                </ThemedText>
+                {section === 'submissions' &&
+                communitySubmissionActivity?.waitingCount ? (
+                  <View
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                    style={styles.submissionActivityBadge}>
+                    <ThemedText
+                      type="smallBold"
+                      style={styles.submissionActivityBadgeText}>
+                      {communitySubmissionActivity.waitingCount}
+                    </ThemedText>
+                  </View>
+                ) : null}
+              </View>
             </Pressable>
           ))}
         </ThemedView>
@@ -2287,6 +2310,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: Spacing.one,
     paddingHorizontal: Spacing.three,
+  },
+  sectionTabLabelRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: Spacing.one,
+    justifyContent: 'center',
+  },
+  submissionActivityBadge: {
+    alignItems: 'center',
+    backgroundColor: Palette.danger,
+    borderRadius: 999,
+    justifyContent: 'center',
+    minHeight: 22,
+    minWidth: 22,
+    paddingHorizontal: Spacing.one,
+  },
+  submissionActivityBadgeText: {
+    color: Palette.onDanger,
+    lineHeight: 16,
   },
   sectionTabSelected: {
     backgroundColor: Palette.lightBronze,

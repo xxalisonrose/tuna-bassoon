@@ -35,6 +35,7 @@ type DraggableScrollViewProps = {
   keyboardDismissMode?: ScrollViewProps['keyboardDismissMode'];
   keyboardShouldPersistTaps?: ScrollViewProps['keyboardShouldPersistTaps'];
   scrollViewRef: RefObject<ScrollView | null>;
+  onScrollOffsetChange?: (offset: number) => void;
 };
 
 export function DraggableScrollView({
@@ -44,6 +45,7 @@ export function DraggableScrollView({
   keyboardDismissMode,
   keyboardShouldPersistTaps,
   scrollViewRef,
+  onScrollOffsetChange,
 }: DraggableScrollViewProps) {
   const theme = useTheme();
   const [viewportHeight, setViewportHeight] = useState(0);
@@ -182,7 +184,9 @@ export function DraggableScrollView({
   const handleScroll = (
     event: NativeSyntheticEvent<NativeScrollEvent>,
   ) => {
-    updateThumbFromScroll(event.nativeEvent.contentOffset.y);
+    const offset = event.nativeEvent.contentOffset.y;
+    updateThumbFromScroll(offset);
+    onScrollOffsetChange?.(offset);
   };
 
   const handleLayout = (event: LayoutChangeEvent) => {

@@ -6,10 +6,10 @@ import {
 } from 'convex/react';
 import * as Location from 'expo-location';
 import { useRouter, useScrollToTop } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  type FocusEvent,
+  Keyboard,
   Platform,
   Pressable,
   ScrollView,
@@ -17,7 +17,10 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 
 import { DraggableScrollView } from '@/components/draggable-scroll-view';
 import {
@@ -115,12 +118,13 @@ function FormField({
   multiline?: boolean;
   keyboardType?: 'default' | 'decimal-pad';
   maximumLength: number;
-  onFocus?: (event: FocusEvent) => void;
+  onFocus?: (field: View | null) => void;
 }) {
   const theme = useTheme();
+  const fieldRef = useRef<View>(null);
 
   return (
-    <View style={styles.field}>
+    <View collapsable={false} ref={fieldRef} style={styles.field}>
       <View style={styles.fieldHeading}>
         <ThemedText type="smallBold">
           {label}{required ? ' (Required)' : ''}
@@ -140,7 +144,7 @@ function FormField({
         maxLength={maximumLength}
         multiline={multiline}
         onChangeText={onChangeText}
-        onFocus={onFocus}
+        onFocus={() => onFocus?.(fieldRef.current)}
         placeholder={placeholder}
         placeholderTextColor={theme.textSecondary}
         style={[
@@ -161,7 +165,10 @@ function FormField({
 export default function SubmitLocationScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const safeAreaInsets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
+  const scrollOffsetRef = useRef(0);
+  const focusedFieldRef = useRef<View | null>(null);
   useScrollToTop(scrollViewRef);
   const { isAuthenticated, isLoading } = useConvexAuth();
   const currentUser = useQuery(
@@ -192,21 +199,50 @@ export default function SubmitLocationScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const keepFocusedFieldVisible = (
-    event: FocusEvent,
-  ) => {
+  const scrollFocusedFieldIntoView = useCallback(() => {
+    const field = focusedFieldRef.current;
+    const scrollView = scrollViewRef.current;
+
+    if (!field || !scrollView) {
+      return;
+    }
+
+    field.measureInWindow((_fieldX, fieldY) => {
+      scrollView.scrollTo({
+        animated: true,
+        y: Math.max(
+          0,
+          scrollOffsetRef.current +
+            fieldY -
+            safeAreaInsets.top -
+            Spacing.three,
+        ),
+      });
+    });
+  }, [safeAreaInsets.top]);
+
+  useEffect(() => {
     if (Platform.OS !== 'ios') {
       return;
     }
 
-    const inputHandle = event.nativeEvent.target;
-    setTimeout(() => {
-      scrollViewRef.current?.scrollResponderScrollNativeHandleToKeyboard(
-        inputHandle,
-        Spacing.four,
-        true,
-      );
-    }, 120);
+    const subscription = Keyboard.addListener(
+      'keyboardDidShow',
+      scrollFocusedFieldIntoView,
+    );
+    return () => subscription.remove();
+  }, [scrollFocusedFieldIntoView]);
+
+  const keepFocusedFieldVisible = (field: View | null) => {
+    if (Platform.OS !== 'ios' || !field) {
+      return;
+    }
+
+    focusedFieldRef.current = field;
+    setTimeout(scrollFocusedFieldIntoView, 220);
+    if (Keyboard.isVisible()) {
+      setTimeout(scrollFocusedFieldIntoView, 60);
+    }
   };
 
   useEffect(() => {
@@ -294,11 +330,9 @@ export default function SubmitLocationScreen() {
         position.coords.latitude,
       ]);
       setLocationMessage('The pin is at your current location.');
-    } catch (error) {
+    } catch {
       setLocationMessage(
-        error instanceof Error
-          ? error.message
-          : 'Your current location is unavailable. Search or tap the map instead.',
+        'Your current location is temporarily unavailable. Search for the place or tap the map instead.',
       );
     } finally {
       setLocating(false);
@@ -429,9 +463,12 @@ export default function SubmitLocationScreen() {
       <SafeAreaView style={styles.safeArea}>
         <DraggableScrollView
           automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
-          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          keyboardDismissMode="none"
           keyboardShouldPersistTaps="handled"
           scrollViewRef={scrollViewRef}
+          onScrollOffsetChange={(offset) => {
+            scrollOffsetRef.current = offset;
+          }}
           contentContainerStyle={styles.scrollContent}>
           <View style={styles.heading}>
             <ThemedText accessibilityRole="header" type="title">
