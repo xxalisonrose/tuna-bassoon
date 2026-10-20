@@ -34,6 +34,21 @@ export default defineSchema({
 
   userProfiles: defineTable({
     clerkUserId: v.string(),
+    username: v.optional(v.string()),
+    usernameNormalized: v.optional(v.string()),
+    displayName: v.optional(v.string()),
+    email: v.optional(v.string()),
+    emailNormalized: v.optional(v.string()),
+    usernameChangedAt: v.optional(v.number()),
+    manualContentRole: v.optional(
+      v.union(
+        v.literal('community_contributor'),
+        v.literal('regional_moderator'),
+      ),
+    ),
+    manualRoleGrantedAt: v.optional(v.number()),
+    manualRoleGrantedByClerkUserId: v.optional(v.string()),
+    manualRoleReason: v.optional(v.string()),
     avatarPresetId: v.union(
       v.literal('explorer'),
       v.literal('trail_basics'),
@@ -57,7 +72,34 @@ export default defineSchema({
     communitySubmissionIntroSeenAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index('by_user', ['clerkUserId']),
+  })
+    .index('by_user', ['clerkUserId'])
+    .index('by_username_normalized', ['usernameNormalized'])
+    .index('by_email_normalized', ['emailNormalized']),
+
+  userRoleAuditLog: defineTable({
+    targetClerkUserId: v.string(),
+    changedByClerkUserId: v.string(),
+    previousManualRole: v.optional(
+      v.union(
+        v.literal('community_contributor'),
+        v.literal('regional_moderator'),
+      ),
+    ),
+    nextManualRole: v.optional(
+      v.union(
+        v.literal('community_contributor'),
+        v.literal('regional_moderator'),
+      ),
+    ),
+    reason: v.optional(v.string()),
+    changedAt: v.number(),
+  })
+    .index('by_target_and_changed_at', [
+      'targetClerkUserId',
+      'changedAt',
+    ])
+    .index('by_changed_at', ['changedAt']),
 
   visits: defineTable({
     clerkUserId: v.string(),

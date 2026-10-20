@@ -837,12 +837,17 @@ export const submitLocationProposal = mutation({
       );
     }
 
-    const submitterName =
-      typeof identity.name === 'string' && identity.name.trim()
+    const submitterProfile = await ctx.db
+      .query('userProfiles')
+      .withIndex('by_user', (queryBuilder) =>
+        queryBuilder.eq('clerkUserId', identity.subject),
+      )
+      .unique();
+    const submitterName = submitterProfile?.username
+      ? `@${submitterProfile.username}`
+      : typeof identity.name === 'string' && identity.name.trim()
         ? identity.name.trim()
-        : typeof identity.email === 'string' && identity.email.trim()
-          ? identity.email.trim()
-          : 'Community Contributor';
+        : 'Community Contributor';
     const batchId = await ctx.db.insert('ingestBatches', {
       contentType: 'location',
       sourceType: 'user_submission',

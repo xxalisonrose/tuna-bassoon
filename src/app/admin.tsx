@@ -29,6 +29,7 @@ import {
 } from '@/components/admin/location-category-picker';
 import { LocationMapPinPicker } from '@/components/admin/location-map-pin-picker';
 import { SectionHelpHeading } from '@/components/admin/section-help-heading';
+import { UserAccessManager } from '@/components/admin/user-access-manager';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BadgeManager } from '@/components/admin/badge-manager';
@@ -54,7 +55,7 @@ const GENERATION_TIMEOUT_MS = 120_000;
 const MAX_LOCATION_BADGE_TAGS = 25;
 
 type FormMode = 'create' | 'edit';
-type PortalSection = 'locations' | 'badges' | 'submissions';
+type PortalSection = 'locations' | 'badges' | 'submissions' | 'users';
 type LocationStatusFilter = 'all' | 'active' | 'retired';
 type ViewMode = 'list' | 'grid';
 
@@ -1025,7 +1026,7 @@ export default function AdminPortalScreen() {
           accessibilityLabel="Content portal sections"
           type="backgroundElement"
           style={[styles.sectionTabs, { borderColor: theme.border }]}>
-          {(['locations', 'badges', 'submissions'] as PortalSection[]).map((section) => (
+          {(['locations', 'badges', 'submissions', 'users'] as PortalSection[]).map((section) => (
             <Pressable
               key={section}
               accessibilityRole="tab"
@@ -1034,6 +1035,8 @@ export default function AdminPortalScreen() {
                   ? 'Locations'
                   : section === 'badges'
                     ? 'Badges'
+                    : section === 'users'
+                      ? 'Users and Access'
                     : communitySubmissionActivity?.waitingCount
                       ? `Submissions, ${communitySubmissionActivity.waitingCount} awaiting review`
                       : 'Submissions'
@@ -1052,7 +1055,9 @@ export default function AdminPortalScreen() {
                     ? 'Locations'
                     : section === 'badges'
                       ? 'Badges'
-                      : 'Submissions'}
+                      : section === 'users'
+                        ? 'Users'
+                        : 'Submissions'}
                 </ThemedText>
                 {section === 'submissions' &&
                 communitySubmissionActivity?.waitingCount ? (
@@ -2232,6 +2237,10 @@ export default function AdminPortalScreen() {
         <IngestReviewPanel
           visible={portalSection === 'submissions'}
         />
+
+        <UserAccessManager
+          visible={portalSection === 'users'}
+        />
       </ScrollView>
     </ThemedView>
   );
@@ -2298,6 +2307,7 @@ const styles = StyleSheet.create({
     maxWidth: PortalContentWidth,
     alignSelf: 'center',
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: Spacing.one,
     padding: Spacing.one,
     borderWidth: 1,
@@ -2305,6 +2315,7 @@ const styles = StyleSheet.create({
   },
   sectionTab: {
     flex: 1,
+    minWidth: 150,
     minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',

@@ -7,9 +7,9 @@ group access to the Content Portal or permission to publish content.
 
 - **Administrator:** Can submit locations and review, edit, approve, merge, or
   dismiss every proposal.
-- **Regional Moderator:** A future, manually granted role for trusted regional
-  review. The role currently includes Community Contributor submission access
-  but does not yet grant review or publishing controls.
+- **Regional Moderator:** A manually granted role for trusted future regional
+  review. It currently includes Community Contributor submission access but
+  does not yet grant review or publishing controls.
 - **Community Contributor:** Can submit locations and view the status of their
   own recent proposals. This role does not grant publishing or Content Portal
   access.
@@ -26,10 +26,12 @@ The earliest saved profile, visit, or badge-award timestamp establishes the
 recorded account age. Repeat visits and additional levels on one badge do not
 inflate the unique-place or different-badge counts.
 
-Administrators are configured with `ADMIN_CLERK_USER_IDS`. Manual Contributor
-access can use `COMMUNITY_CONTRIBUTOR_CLERK_USER_IDS`; the earlier
+Administrators are configured with `ADMIN_CLERK_USER_IDS`. Ordinary manual
+Contributor and Regional Moderator grants are managed in **Content Portal →
+Users** by username or private email and retained in an audit history. The
+`COMMUNITY_CONTRIBUTOR_CLERK_USER_IDS` override and the earlier
 `TRUSTED_CONTRIBUTOR_CLERK_USER_IDS` name remains supported during migration.
-Future Regional Moderators use `REGIONAL_MODERATOR_CLERK_USER_IDS`. Submission
+`REGIONAL_MODERATOR_CLERK_USER_IDS` remains an emergency override. Submission
 access can be suspended with `COMMUNITY_SUBMISSION_BLOCKED_CLERK_USER_IDS`.
 
 Both the Settings button and the server mutation check permission. Hiding the

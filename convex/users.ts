@@ -1,7 +1,15 @@
 import { ConvexError, v } from 'convex/values';
 
 import { mutation, query } from './_generated/server';
+import { isAdminSubject } from './lib/auth';
 import { getCommunityContributorStatus } from './lib/communityContributor';
+import {
+  USERNAME_CHANGE_COOLDOWN_DAYS,
+  validateUsername,
+} from './lib/username';
+
+const USERNAME_CHANGE_COOLDOWN_MS =
+  USERNAME_CHANGE_COOLDOWN_DAYS * 24 * 60 * 60 * 1_000;
 
 export const getCurrentUser = query({
   args: {},
@@ -17,11 +25,30 @@ export const getCurrentUser = query({
       ctx,
       identity.subject,
     );
+    const profile = await ctx.db
+      .query('userProfiles')
+      .withIndex('by_user', (queryBuilder) =>
+        queryBuilder.eq('clerkUserId', identity.subject),
+      )
+      .unique();
+    const usernameChangeAvailableAt =
+      profile?.username &&
+      profile.usernameChangedAt !== undefined &&
+      !communityStatus.isAdmin
+        ? profile.usernameChangedAt + USERNAME_CHANGE_COOLDOWN_MS
+        : null;
 
     return {
       clerkUserId: identity.subject,
-      name: identity.name,
-      email: identity.email,
+      name: identity.name ?? profile?.displayName,
+      email: identity.email ?? profile?.email,
+      username: profile?.username ?? null,
+      profileReady: profile !== null,
+      canChangeUsername:
+        !profile?.username ||
+        usernameChangeAvailableAt === null ||
+        usernameChangeAvailableAt <= Date.now(),
+      usernameChangeAvailableAt,
       isAdmin: communityStatus.isAdmin,
       isCommunityContributor:
         communityStatus.isCommunityContributor,
@@ -95,6 +122,152 @@ const trailBasicsSelection: AvatarSelection = {
   neckId: 'none',
   faceId: 'none',
 };
+
+function getIdentityProfileFields(identity: {
+  name?: string;
+  email?: string;
+}) {
+  const displayName = identity.name?.trim() || undefined;
+  const email = identity.email?.trim() || undefined;
+
+  return {
+    ...(displayName ? { displayName } : {}),
+    ...(email
+      ? {
+          email,
+          emailNormalized: email.toLowerCase(),
+        }
+      : {}),
+  };
+}
+
+export const syncMyUserProfile = mutation({
+  args: {},
+
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (identity === null) {
+      throw new ConvexError('Authentication required.');
+    }
+
+    const existingProfile = await ctx.db
+      .query('userProfiles')
+      .withIndex('by_user', (queryBuilder) =>
+        queryBuilder.eq('clerkUserId', identity.subject),
+      )
+      .unique();
+    const now = Date.now();
+    const identityFields = getIdentityProfileFields(identity);
+
+    if (existingProfile === null) {
+      await ctx.db.insert('userProfiles', {
+        clerkUserId: identity.subject,
+        avatarPresetId: 'explorer',
+        avatarTopId: explorerSelection.topId,
+        avatarBottomId: explorerSelection.bottomId,
+        avatarShoesId: explorerSelection.shoesId,
+        avatarNeckId: explorerSelection.neckId,
+        avatarFaceId: explorerSelection.faceId,
+        ...identityFields,
+        createdAt: now,
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.patch(existingProfile._id, {
+        ...identityFields,
+        updatedAt: now,
+      });
+    }
+
+    return { profileReady: true };
+  },
+});
+
+export const setMyUsername = mutation({
+  args: {
+    username: v.string(),
+  },
+
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (identity === null) {
+      throw new ConvexError('Authentication required.');
+    }
+
+    const validated = validateUsername(args.username);
+    const [existingProfile, usernameOwner] = await Promise.all([
+      ctx.db
+        .query('userProfiles')
+        .withIndex('by_user', (queryBuilder) =>
+          queryBuilder.eq('clerkUserId', identity.subject),
+        )
+        .unique(),
+      ctx.db
+        .query('userProfiles')
+        .withIndex('by_username_normalized', (queryBuilder) =>
+          queryBuilder.eq('usernameNormalized', validated.normalized),
+        )
+        .unique(),
+    ]);
+
+    if (
+      usernameOwner !== null &&
+      usernameOwner.clerkUserId !== identity.subject
+    ) {
+      throw new ConvexError('That username is already taken.');
+    }
+
+    const now = Date.now();
+    const normalizedChanged =
+      existingProfile?.usernameNormalized !== undefined &&
+      existingProfile.usernameNormalized !== validated.normalized;
+    const changeAvailableAt =
+      (existingProfile?.usernameChangedAt ?? 0) +
+      USERNAME_CHANGE_COOLDOWN_MS;
+
+    if (
+      normalizedChanged &&
+      !isAdminSubject(identity.subject) &&
+      changeAvailableAt > now
+    ) {
+      throw new ConvexError(
+        `Username can be changed again on ${new Date(changeAvailableAt).toLocaleDateString()}.`,
+      );
+    }
+
+    const identityFields = getIdentityProfileFields(identity);
+    const usernameFields = {
+      username: validated.username,
+      usernameNormalized: validated.normalized,
+      usernameChangedAt: now,
+      ...identityFields,
+      updatedAt: now,
+    };
+
+    if (existingProfile === null) {
+      await ctx.db.insert('userProfiles', {
+        clerkUserId: identity.subject,
+        avatarPresetId: 'explorer',
+        avatarTopId: explorerSelection.topId,
+        avatarBottomId: explorerSelection.bottomId,
+        avatarShoesId: explorerSelection.shoesId,
+        avatarNeckId: explorerSelection.neckId,
+        avatarFaceId: explorerSelection.faceId,
+        ...usernameFields,
+        createdAt: now,
+      });
+    } else {
+      await ctx.db.patch(existingProfile._id, usernameFields);
+    }
+
+    return {
+      username: validated.username,
+      usernameChangedAt: now,
+    };
+  },
+});
 
 export const acknowledgeCommunitySubmissionIntro = mutation({
   args: {},

@@ -14,6 +14,7 @@ import type * as adminBadgeCongratulations from "../adminBadgeCongratulations.js
 import type * as adminBadges from "../adminBadges.js";
 import type * as adminIngest from "../adminIngest.js";
 import type * as adminLocations from "../adminLocations.js";
+import type * as adminUsers from "../adminUsers.js";
 import type * as annualBadgeEditions from "../annualBadgeEditions.js";
 import type * as badgeMigration from "../badgeMigration.js";
 import type * as badges from "../badges.js";
@@ -27,6 +28,7 @@ import type * as lib_communityContributor from "../lib/communityContributor.js";
 import type * as lib_contentModeration from "../lib/contentModeration.js";
 import type * as lib_contentSubmissionSuggestions from "../lib/contentSubmissionSuggestions.js";
 import type * as lib_locationMapPin from "../lib/locationMapPin.js";
+import type * as lib_username from "../lib/username.js";
 import type * as locationAgent from "../locationAgent.js";
 import type * as locations from "../locations.js";
 import type * as seed from "../seed.js";
@@ -46,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   adminBadges: typeof adminBadges;
   adminIngest: typeof adminIngest;
   adminLocations: typeof adminLocations;
+  adminUsers: typeof adminUsers;
   annualBadgeEditions: typeof annualBadgeEditions;
   badgeMigration: typeof badgeMigration;
   badges: typeof badges;
@@ -59,6 +62,7 @@ declare const fullApi: ApiFromModules<{
   "lib/contentModeration": typeof lib_contentModeration;
   "lib/contentSubmissionSuggestions": typeof lib_contentSubmissionSuggestions;
   "lib/locationMapPin": typeof lib_locationMapPin;
+  "lib/username": typeof lib_username;
   locationAgent: typeof locationAgent;
   locations: typeof locations;
   seed: typeof seed;

@@ -29,6 +29,7 @@ export function CommunityContributorProvider({
   const requirements = currentUser?.communityContributor.requirements;
   const visible =
     currentUser?.shouldShowCommunitySubmissionIntro === true &&
+    Boolean(currentUser.username) &&
     unannouncedAwards?.length === 0;
 
   const close = async () => {

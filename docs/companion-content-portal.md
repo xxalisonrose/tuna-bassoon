@@ -19,7 +19,7 @@ The portal is available at `/admin` in the Expo web app. Clerk handles sign-in, 
 
 ### Portal sections
 
-The portal has separate **Locations**, **Badges**, and **Submissions** sections. Locations and Badges stay focused on managing published content, while every import and private review workflow lives under Submissions.
+The portal has separate **Locations**, **Badges**, **Submissions**, and **Users** sections. Locations and Badges stay focused on managing published content, every import and private review workflow lives under Submissions, and user-role decisions live under Users.
 
 The location and Gemini workflows continue to work after adding badge management.
 
@@ -69,6 +69,29 @@ submissions held by the server-side profanity and slur filter. A filtered
 proposal cannot be published directly. An administrator must choose **Review
 Anyway**, edit the proposal, and return it to the normal review flow. See
 `docs/content-submissions.md` for role configuration, safeguards, and testing.
+
+### Users and access
+
+The **Users** section searches registered app profiles by public username,
+display name, or private email. A person appears after opening the updated app
+once, which creates or refreshes the local profile without importing Clerk's
+entire account directory. Email remains visible only to the signed-in user and
+administrators.
+
+Each non-admin user card has one **Manage Account Status** action. Its status
+editor lets an administrator choose Explorer (no manual role), Community
+Contributor, or Regional Moderator. The portal shows the effective role and
+whether access was earned, manually granted, inherited from Regional Moderator,
+or configured as Admin. Returning an account to Explorer does not override
+independently earned Contributor access. Admin access itself remains in secure
+deployment configuration.
+
+Role changes use a confirmation step with an optional reason and are written to
+an audit history containing the target, acting administrator, previous and new
+role, and timestamp. Regional Moderator currently provides submission access;
+review and publishing permissions remain a later scoped feature. Public
+username rules and the account-side editor are documented in
+`docs/user-identity-and-access.md`.
 
 ### Build information panel
 

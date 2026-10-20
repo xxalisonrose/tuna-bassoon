@@ -68,9 +68,11 @@ export async function getCommunityContributorStatus(
     distinctBadgeCount >= COMMUNITY_DISTINCT_BADGES;
   const isAdmin = isAdminSubject(clerkUserId);
   const isRegionalModerator =
-    isRegionalModeratorSubject(clerkUserId);
+    isRegionalModeratorSubject(clerkUserId) ||
+    profile?.manualContentRole === 'regional_moderator';
   const hasManualContributorAccess =
-    isCommunityContributorSubject(clerkUserId);
+    isCommunityContributorSubject(clerkUserId) ||
+    profile?.manualContentRole === 'community_contributor';
   const isBlocked =
     !isAdmin && isSubmissionBlockedSubject(clerkUserId);
   const isCommunityContributor =

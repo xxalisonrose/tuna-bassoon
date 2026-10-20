@@ -44,6 +44,14 @@ function getBlockedTerms() {
     .filter(Boolean);
 }
 
+export function containsBlockedUsernameContent(value: string) {
+  const compactValue = normalizeForModeration(value).replace(/\s+/g, '');
+
+  return getBlockedTerms().some((term) =>
+    compactValue.includes(term.replace(/\s+/g, '')),
+  );
+}
+
 function containsBlockedTerm(value: string, blockedTerms: string[]) {
   const normalized = ` ${normalizeForModeration(value)} `;
 

@@ -11,12 +11,17 @@ The first release intentionally avoids switches that do not control a working fe
 ### Account
 
 - Shows the signed-in display name and email when available.
+- Shows the public username and opens the username editor.
+- Keeps account email private while allowing username changes once every seven
+  days.
 - Identifies administrator accounts without exposing administrative controls to ordinary users.
 - Owns the Sign Out action. Passport no longer duplicates account management.
 
 ### Content Contributions
 
-- Appears only for administrators and manually approved Trusted Contributors.
+- Shows every Explorer's progress toward earned Community Contributor access.
+- Opens the submission form for Administrators, Regional Moderators, and
+  earned or manually approved Community Contributors.
 - Opens the private **Submit a Location** form.
 - Explains that every suggestion requires administrator review before it can
   appear on the map.
@@ -65,3 +70,5 @@ These settings should appear after their underlying systems exist and have been 
 6. The build panel reports the same source revision as the Content Portal.
 7. Passport contains exploration content and no longer duplicates Sign Out.
 8. Re-selecting the active Passport or Settings tab on iOS scrolls its page back to the top.
+9. Username changes enforce uniqueness, safety rules, and the seven-day
+   cooldown on the server.

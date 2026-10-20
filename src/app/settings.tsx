@@ -24,6 +24,7 @@ import { CommunitySubmissionInfoModal } from '@/components/community-submission-
 import { DraggableScrollView } from '@/components/draggable-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { UsernameEditorModal } from '@/components/username-editor-modal';
 import {
   BottomTabInset,
   MaxContentWidth,
@@ -82,6 +83,8 @@ export default function SettingsScreen() {
   const [accountError, setAccountError] =
     useState<string | null>(null);
   const [communityInfoVisible, setCommunityInfoVisible] =
+    useState(false);
+  const [usernameEditorVisible, setUsernameEditorVisible] =
     useState(false);
 
   useFocusEffect(
@@ -260,8 +263,51 @@ export default function SettingsScreen() {
                     </ThemedText>
                   </View>
                 )}
+
+                <View style={styles.detailRow}>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Username
+                  </ThemedText>
+                  <ThemedText type="smallBold" selectable>
+                    {currentUser?.username ?? 'Not chosen'}
+                  </ThemedText>
+                </View>
               </View>
             )}
+
+            {currentUser ? (
+              <View style={styles.usernameActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    currentUser.username
+                      ? 'Change Username'
+                      : 'Choose Username'
+                  }
+                  disabled={!currentUser.canChangeUsername}
+                  onPress={() => setUsernameEditorVisible(true)}
+                  style={({ pressed }) => [
+                    styles.secondaryButton,
+                    { borderColor: theme.border },
+                    pressed && styles.pressed,
+                    !currentUser.canChangeUsername && styles.disabled,
+                  ]}>
+                  <ThemedText type="smallBold">
+                    {currentUser.username
+                      ? 'Change Username'
+                      : 'Choose Username'}
+                  </ThemedText>
+                </Pressable>
+
+                <ThemedText type="small" themeColor="textSecondary">
+                  {currentUser.canChangeUsername
+                    ? 'Your username is public. Your email remains visible only to you and administrators.'
+                    : `Username changes reopen ${new Date(
+                        currentUser.usernameChangeAvailableAt ?? 0,
+                      ).toLocaleDateString()}.`}
+                </ThemedText>
+              </View>
+            ) : null}
 
             <Pressable
               accessibilityRole="button"
@@ -560,6 +606,13 @@ export default function SettingsScreen() {
             visible={communityInfoVisible}
           />
         ) : null}
+
+        <UsernameEditorModal
+          key={`${currentUser?.username ?? 'new'}-${usernameEditorVisible ? 'open' : 'closed'}`}
+          currentUsername={currentUser?.username}
+          onClose={() => setUsernameEditorVisible(false)}
+          visible={usernameEditorVisible}
+        />
       </SafeAreaView>
     </ThemedView>
   );
@@ -619,6 +672,10 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     justifyContent: 'space-between',
     minHeight: 32,
+  },
+  usernameActions: {
+    alignItems: 'flex-start',
+    gap: Spacing.two,
   },
   preferenceInfoList: {
     gap: Spacing.three,
