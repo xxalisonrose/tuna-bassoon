@@ -54,6 +54,7 @@ export default defineSchema({
     avatarFaceId: v.optional(
       v.union(v.literal('none'), v.literal('explorer_goggles')),
       ),
+    communitySubmissionIntroSeenAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index('by_user', ['clerkUserId']),

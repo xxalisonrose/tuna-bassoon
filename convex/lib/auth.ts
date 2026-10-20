@@ -18,9 +18,32 @@ function getAdminSubjects() {
   );
 }
 
-function getTrustedContributorSubjects() {
+function getCommunityContributorSubjects() {
   return new Set(
-    (process.env.TRUSTED_CONTRIBUTOR_CLERK_USER_IDS ?? '')
+    [
+      process.env.COMMUNITY_CONTRIBUTOR_CLERK_USER_IDS,
+      process.env.TRUSTED_CONTRIBUTOR_CLERK_USER_IDS,
+    ]
+      .filter(Boolean)
+      .join(',')
+      .split(',')
+      .map((subject) => subject.trim())
+      .filter((subject) => subject.length > 0),
+  );
+}
+
+function getRegionalModeratorSubjects() {
+  return new Set(
+    (process.env.REGIONAL_MODERATOR_CLERK_USER_IDS ?? '')
+      .split(',')
+      .map((subject) => subject.trim())
+      .filter((subject) => subject.length > 0),
+  );
+}
+
+function getBlockedSubmissionSubjects() {
+  return new Set(
+    (process.env.COMMUNITY_SUBMISSION_BLOCKED_CLERK_USER_IDS ?? '')
       .split(',')
       .map((subject) => subject.trim())
       .filter((subject) => subject.length > 0),
@@ -31,15 +54,16 @@ export function isAdminSubject(subject: string) {
   return getAdminSubjects().has(subject);
 }
 
-export function isTrustedContributorSubject(subject: string) {
-  return getTrustedContributorSubjects().has(subject);
+export function isCommunityContributorSubject(subject: string) {
+  return getCommunityContributorSubjects().has(subject);
 }
 
-export function canSubmitContent(subject: string) {
-  return (
-    isAdminSubject(subject) ||
-    isTrustedContributorSubject(subject)
-  );
+export function isRegionalModeratorSubject(subject: string) {
+  return getRegionalModeratorSubjects().has(subject);
+}
+
+export function isSubmissionBlockedSubject(subject: string) {
+  return getBlockedSubmissionSubjects().has(subject);
 }
 
 export async function requireAdmin(ctx: AuthContext) {
@@ -56,15 +80,11 @@ export async function requireAdmin(ctx: AuthContext) {
   return identity;
 }
 
-export async function requireContentContributor(ctx: AuthContext) {
+export async function requireAuthenticatedIdentity(ctx: AuthContext) {
   const identity = await ctx.auth.getUserIdentity();
 
   if (identity === null) {
     throw new ConvexError('Authentication required.');
-  }
-
-  if (!canSubmitContent(identity.subject)) {
-    throw new ConvexError('Trusted Contributor access required.');
   }
 
   return identity;

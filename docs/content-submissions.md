@@ -7,20 +7,42 @@ group access to the Content Portal or permission to publish content.
 
 - **Administrator:** Can submit locations and review, edit, approve, merge, or
   dismiss every proposal.
-- **Trusted Contributor:** Can submit locations and view the status of their own
-  recent proposals. This role does not grant publishing or Content Portal
+- **Regional Moderator:** A future, manually granted role for trusted regional
+  review. The role currently includes Community Contributor submission access
+  but does not yet grant review or publishing controls.
+- **Community Contributor:** Can submit locations and view the status of their
+  own recent proposals. This role does not grant publishing or Content Portal
   access.
-- **Member:** Cannot see the submission button or use the submission mutation.
+- **Explorer:** Cannot see the submission button or use the submission mutation
+  until all Contributor requirements are complete.
 
-Administrators are configured with `ADMIN_CLERK_USER_IDS`. Additional Trusted
-Contributors are configured with the comma-separated Convex environment
-variable `TRUSTED_CONTRIBUTOR_CLERK_USER_IDS`. This manual allowlist is the
-first version; future community reputation rules can decide who qualifies.
+Community Contributor access is earned when all three requirements are met:
+
+- the account has at least seven days of recorded app activity;
+- the explorer has checked into ten unique locations; and
+- the explorer has earned three different badges.
+
+The earliest saved profile, visit, or badge-award timestamp establishes the
+recorded account age. Repeat visits and additional levels on one badge do not
+inflate the unique-place or different-badge counts.
+
+Administrators are configured with `ADMIN_CLERK_USER_IDS`. Manual Contributor
+access can use `COMMUNITY_CONTRIBUTOR_CLERK_USER_IDS`; the earlier
+`TRUSTED_CONTRIBUTOR_CLERK_USER_IDS` name remains supported during migration.
+Future Regional Moderators use `REGIONAL_MODERATOR_CLERK_USER_IDS`. Submission
+access can be suspended with `COMMUNITY_SUBMISSION_BLOCKED_CLERK_USER_IDS`.
 
 Both the Settings button and the server mutation check permission. Hiding the
 button is therefore not the security boundary.
 
 ## Contributor Experience
+
+Settings shows every Explorer's progress toward the three requirements but
+does not display the submission button before access is earned. On earning
+access, a one-time app-wide popup explains the review process, source and map
+pin expectations, submission limits, safety checks, and the distinction
+between suggesting and publishing. A question-mark button beside **Submit a
+Location** opens the same explanation again at any time.
 
 An eligible user opens **Settings → Content Contributions → Submit a
 Location** and provides:
@@ -67,7 +89,8 @@ tables as Word-document imports. It automatically:
   matches;
 - skips an exact copy of published content;
 - rejects an exact copy already in the review queue; and
-- limits each contributor to five submissions per hour.
+- limits each contributor to three unresolved submissions at once and five
+  submissions per hour.
 
 Submissions appear in the administrator portal under **Submissions → Community
 Submissions**, separate from Word-document location and badge imports. They are
@@ -105,8 +128,7 @@ location containing that phrase, and remove the test term afterward.
 
 ## Future Extensions
 
-- Community rules for earning Trusted Contributor access.
 - User-submitted badge concepts.
 - Photos with licensing and provenance fields.
 - Visible reviewer notes and resubmission requests.
-- Moderator reputation, regional moderation, and audit history.
+- Regional Moderator review permissions, audit history, and geographic scope.

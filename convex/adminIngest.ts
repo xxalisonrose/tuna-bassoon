@@ -3,7 +3,11 @@ import { ConvexError, v } from 'convex/values';
 import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
 import { mutation, query } from './_generated/server';
-import { requireAdmin, requireContentContributor } from './lib/auth';
+import { requireAdmin } from './lib/auth';
+import {
+  COMMUNITY_MAX_OPEN_SUBMISSIONS,
+  requireCommunityContributor,
+} from './lib/communityContributor';
 import { DEFAULT_BADGE_CONGRATULATIONS } from './lib/badge_congratulations';
 import { moderateLocationSubmission } from './lib/contentModeration';
 import { suggestLocationSubmission } from './lib/contentSubmissionSuggestions';
@@ -636,7 +640,7 @@ export const submitLocationProposal = mutation({
     isLore: v.boolean(),
   },
   handler: async (ctx, args) => {
-    const identity = await requireContentContributor(ctx);
+    const { identity } = await requireCommunityContributor(ctx);
     const now = Date.now();
     const recentSubmissions = await ctx.db
       .query('ingestBatches')
@@ -646,6 +650,42 @@ export const submitLocationProposal = mutation({
           .gte('createdAt', now - 60 * 60 * 1_000),
       )
       .collect();
+
+    const allSubmissionBatches = await ctx.db
+      .query('ingestBatches')
+      .withIndex('by_creator_and_created_at', (q) =>
+        q.eq('createdByClerkUserId', identity.subject),
+      )
+      .collect();
+    const communitySubmissionBatches = allSubmissionBatches.filter(
+      (batch) =>
+        batch.contentType === 'location' &&
+        batch.sourceType === 'user_submission',
+    );
+    const communitySubmissionDrafts = (
+      await Promise.all(
+        communitySubmissionBatches.map((batch) =>
+          ctx.db
+            .query('locationIngestDrafts')
+            .withIndex('by_batch', (q) => q.eq('batchId', batch._id))
+            .first(),
+        ),
+      )
+    ).filter((draft) => draft !== null);
+    const completedStatuses = new Set([
+      'published',
+      'kept_existing',
+      'dismissed',
+    ]);
+    const openSubmissionCount = communitySubmissionDrafts.filter(
+      (draft) => !completedStatuses.has(draft.status),
+    ).length;
+
+    if (openSubmissionCount >= COMMUNITY_MAX_OPEN_SUBMISSIONS) {
+      throw new ConvexError(
+        `You may have up to ${COMMUNITY_MAX_OPEN_SUBMISSIONS} locations waiting for review at once. Please wait for an administrator to finish reviewing one before submitting another.`,
+      );
+    }
 
     if (
       recentSubmissions.filter(
@@ -802,7 +842,7 @@ export const submitLocationProposal = mutation({
         ? identity.name.trim()
         : typeof identity.email === 'string' && identity.email.trim()
           ? identity.email.trim()
-          : 'Trusted Contributor';
+          : 'Community Contributor';
     const batchId = await ctx.db.insert('ingestBatches', {
       contentType: 'location',
       sourceType: 'user_submission',
@@ -844,7 +884,7 @@ export const submitLocationProposal = mutation({
 export const getMyLocationSubmissions = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await requireContentContributor(ctx);
+    const { identity } = await requireCommunityContributor(ctx);
     const batches = await ctx.db
       .query('ingestBatches')
       .withIndex('by_creator_and_created_at', (q) =>

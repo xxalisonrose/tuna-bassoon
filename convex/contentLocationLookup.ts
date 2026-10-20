@@ -1,7 +1,8 @@
 import { ConvexError, v } from 'convex/values';
 
+import { internal } from './_generated/api';
 import { action } from './_generated/server';
-import { requireContentContributor } from './lib/auth';
+import { requireAuthenticatedIdentity } from './lib/auth';
 
 type Coordinates = {
   latitude: number;
@@ -173,7 +174,15 @@ export const resolveSubmissionLocationInput = action({
     input: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireContentContributor(ctx);
+    const identity = await requireAuthenticatedIdentity(ctx);
+    const access = await ctx.runQuery(
+      internal.communityAccess.getForSubject,
+      { clerkUserId: identity.subject },
+    );
+
+    if (!access.canSubmitContent) {
+      throw new ConvexError('Community Contributor access required.');
+    }
     const input = args.input.trim();
 
     if (!input) {

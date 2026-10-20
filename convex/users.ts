@@ -1,11 +1,7 @@
 import { ConvexError, v } from 'convex/values';
 
 import { mutation, query } from './_generated/server';
-import {
-  canSubmitContent,
-  isAdminSubject,
-  isTrustedContributorSubject,
-} from './lib/auth';
+import { getCommunityContributorStatus } from './lib/communityContributor';
 
 export const getCurrentUser = query({
   args: {},
@@ -17,8 +13,8 @@ export const getCurrentUser = query({
       return null;
     }
 
-    const isAdmin = isAdminSubject(identity.subject);
-    const isTrustedContributor = isTrustedContributorSubject(
+    const communityStatus = await getCommunityContributorStatus(
+      ctx,
       identity.subject,
     );
 
@@ -26,14 +22,20 @@ export const getCurrentUser = query({
       clerkUserId: identity.subject,
       name: identity.name,
       email: identity.email,
-      isAdmin,
-      isTrustedContributor,
-      canSubmitContent: canSubmitContent(identity.subject),
-      contentRole: isAdmin
-        ? ('admin' as const)
-        : isTrustedContributor
-          ? ('trusted_contributor' as const)
-          : ('member' as const),
+      isAdmin: communityStatus.isAdmin,
+      isCommunityContributor:
+        communityStatus.isCommunityContributor,
+      isRegionalModerator:
+        communityStatus.isRegionalModerator,
+      canSubmitContent: communityStatus.canSubmitContent,
+      contentRole: communityStatus.contentRole,
+      communityContributor: {
+        accessSource: communityStatus.accessSource,
+        isBlocked: communityStatus.isBlocked,
+        requirements: communityStatus.requirements,
+      },
+      shouldShowCommunitySubmissionIntro:
+        communityStatus.shouldShowCommunitySubmissionIntro,
     };
   },
 });
@@ -93,6 +95,57 @@ const trailBasicsSelection: AvatarSelection = {
   neckId: 'none',
   faceId: 'none',
 };
+
+export const acknowledgeCommunitySubmissionIntro = mutation({
+  args: {},
+
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (identity === null) {
+      throw new ConvexError('Authentication required.');
+    }
+
+    const communityStatus = await getCommunityContributorStatus(
+      ctx,
+      identity.subject,
+    );
+
+    if (!communityStatus.canSubmitContent) {
+      throw new ConvexError('Community Contributor access required.');
+    }
+
+    const existingProfile = await ctx.db
+      .query('userProfiles')
+      .withIndex('by_user', (queryBuilder) =>
+        queryBuilder.eq('clerkUserId', identity.subject),
+      )
+      .unique();
+    const now = Date.now();
+
+    if (existingProfile === null) {
+      await ctx.db.insert('userProfiles', {
+        clerkUserId: identity.subject,
+        avatarPresetId: 'explorer',
+        avatarTopId: explorerSelection.topId,
+        avatarBottomId: explorerSelection.bottomId,
+        avatarShoesId: explorerSelection.shoesId,
+        avatarNeckId: explorerSelection.neckId,
+        avatarFaceId: explorerSelection.faceId,
+        communitySubmissionIntroSeenAt: now,
+        createdAt: now,
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.patch(existingProfile._id, {
+        communitySubmissionIntroSeenAt: now,
+        updatedAt: now,
+      });
+    }
+
+    return { acknowledgedAt: now };
+  },
+});
 
 function selectionForPreset(presetId: string | undefined) {
   return presetId === 'trail_basics'

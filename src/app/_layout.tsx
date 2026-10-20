@@ -7,6 +7,7 @@ import { useColorScheme } from 'react-native';
 
 import AppTabs from '@/components/app-tabs';
 import { AwardCelebrationProvider } from '@/components/award-celebration-provider';
+import { CommunityContributorProvider } from '@/components/community-contributor-provider';
 
 const publishableKey =
   process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
@@ -46,9 +47,11 @@ export default function TabLayout() {
               ? DarkTheme
               : DefaultTheme
           }>
-          <AwardCelebrationProvider>
-            <AppTabs />
-          </AwardCelebrationProvider>
+          <CommunityContributorProvider>
+            <AwardCelebrationProvider>
+              <AppTabs />
+            </AwardCelebrationProvider>
+          </CommunityContributorProvider>
         </ThemeProvider>
       </ConvexProviderWithClerk>
     </ClerkProvider>

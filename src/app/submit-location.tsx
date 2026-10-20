@@ -438,9 +438,9 @@ export default function SubmitLocationScreen() {
               Submission Access Required
             </ThemedText>
             <ThemedText themeColor="textSecondary">
-              Location suggestions are currently available to administrators
-              and Trusted Contributors. More ways to qualify will be added as
-              the community program develops.
+              Location suggestions are available to administrators, Regional
+              Moderators, and Community Contributors who have completed the
+              exploration and account-age requirements.
             </ThemedText>
             <Pressable
               accessibilityRole="button"

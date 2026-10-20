@@ -41,14 +41,22 @@ Publishing remains an explicit per-item action. Incomplete proposals stay privat
 
 The importer has a read-only command-line validation check for its working documents. It opens the `.docx` files through the same Word XML and content parsers used by the portal, reports proposal and confidence counts, verifies expected totals when supplied, confirms suggested location tags exist in the badge document, and fails if badge messages retain wrapping quotation marks. The check never connects to Convex and cannot stage or publish content. The current reference documents validate as 239 location proposals from `Pins.docx` and 83 badge proposals from `Capstone Plan.docx`.
 
-### Trusted Contributor submissions
+### Community Contributor submissions
 
-Administrators and manually approved **Trusted Contributors** can suggest a
-location from Settings. Their proposals enter the dedicated **Community
+Administrators, Regional Moderators, and earned or manually approved
+**Community Contributors** can suggest a location from Settings. Earned access
+requires seven days of recorded activity, ten unique check-ins, and three
+different earned badges. Their proposals enter the dedicated **Community
 Submissions** review queue, including automatic category, map-pin, badge-tag,
 duplicate, and suggested-edit checks. Contributors can see only the status of
 their own recent submissions; they cannot open the Content Portal or publish
-content.
+content. They may have up to three unresolved proposals at once and submit no
+more than five per hour.
+
+Settings shows progress toward Contributor access without exposing the submit
+button early. When access is first earned, an app-wide popup explains the
+private review workflow and submission rules. A question-mark button beside
+the unlocked submission button reopens the same explanation.
 
 The contributor selects the proposed location on an embedded map instead of
 typing coordinates. The map can begin at an already permitted device location,

@@ -20,6 +20,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BuildInfoPanel } from '@/components/admin/build-info-panel';
+import { CommunitySubmissionInfoModal } from '@/components/community-submission-info-modal';
 import { DraggableScrollView } from '@/components/draggable-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -80,6 +81,8 @@ export default function SettingsScreen() {
   const [signingOut, setSigningOut] = useState(false);
   const [accountError, setAccountError] =
     useState<string | null>(null);
+  const [communityInfoVisible, setCommunityInfoVisible] =
+    useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -171,6 +174,17 @@ export default function SettingsScreen() {
   const accountName =
     currentUser?.name ?? 'Harvard Explorer';
   const accountEmail = currentUser?.email;
+  const communityContributor =
+    currentUser?.communityContributor;
+  const communityRequirements =
+    communityContributor?.requirements;
+  const communityRoleLabel = currentUser?.isAdmin
+    ? 'ADMIN'
+    : currentUser?.isRegionalModerator
+      ? 'REGIONAL MODERATOR'
+      : currentUser?.canSubmitContent
+        ? 'COMMUNITY CONTRIBUTOR'
+        : 'EXPLORER';
 
   if (view === 'submit-location') {
     return <SubmitLocationScreen />;
@@ -285,7 +299,7 @@ export default function SettingsScreen() {
             )}
           </ThemedView>
 
-          {currentUser?.canSubmitContent && (
+          {currentUser && communityRequirements && (
             <ThemedView
               type="backgroundElement"
               style={[styles.card, { borderColor: theme.border }]}>
@@ -297,9 +311,9 @@ export default function SettingsScreen() {
                     Content Contributions
                   </ThemedText>
                   <ThemedText themeColor="textSecondary">
-                    Suggest a location for the Tuna Bassoon map. Every
-                    submission remains private until an administrator reviews
-                    and approves it.
+                    {currentUser.canSubmitContent
+                      ? 'Suggest locations for the Tuna Bassoon map. Every submission remains private until an administrator reviews and approves it.'
+                      : 'Explore the map to unlock the ability to suggest new locations for administrator review.'}
                   </ThemedText>
                 </View>
 
@@ -309,37 +323,89 @@ export default function SettingsScreen() {
                     { backgroundColor: theme.accentSoft },
                   ]}>
                   <ThemedText type="smallBold">
-                    {currentUser.isAdmin ? 'ADMIN' : 'TRUSTED CONTRIBUTOR'}
+                    {communityRoleLabel}
                   </ThemedText>
                 </ThemedView>
               </View>
 
-              <ThemedText type="small" themeColor="textSecondary">
-                Tuna Bassoon checks suggestions for possible duplicates,
-                missing details, and content-safety concerns before placing
-                them in the review queue.
-              </ThemedText>
+              {currentUser.canSubmitContent ? (
+                <>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Tuna Bassoon checks suggestions for possible duplicates,
+                    missing details, and content-safety concerns before placing
+                    them in the review queue.
+                  </ThemedText>
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Submit a Location"
-                accessibilityHint="Opens the private location suggestion form"
-                onPress={() =>
-                  router.push({
-                    pathname: '/settings',
-                    params: { view: 'submit-location' },
-                  })
-                }
-                style={({ pressed }) => [
-                  styles.primaryButton,
-                  pressed && styles.pressed,
-                ]}>
-                <ThemedText
-                  type="smallBold"
-                  style={styles.primaryButtonText}>
-                  Submit a Location
-                </ThemedText>
-              </Pressable>
+                  <View style={styles.actionRow}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Submit a Location"
+                      accessibilityHint="Opens the private location suggestion form"
+                      onPress={() =>
+                        router.push({
+                          pathname: '/settings',
+                          params: { view: 'submit-location' },
+                        })
+                      }
+                      style={({ pressed }) => [
+                        styles.primaryButton,
+                        pressed && styles.pressed,
+                      ]}>
+                      <ThemedText
+                        type="smallBold"
+                        style={styles.primaryButtonText}>
+                        Submit a Location
+                      </ThemedText>
+                    </Pressable>
+
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="About Community Submissions"
+                      accessibilityHint="Explains Community Contributor access and submission review"
+                      onPress={() => setCommunityInfoVisible(true)}
+                      style={({ pressed }) => [
+                        styles.helpButton,
+                        { borderColor: theme.borderStrong },
+                        pressed && styles.pressed,
+                      ]}>
+                      <ThemedText
+                        accessible={false}
+                        style={styles.helpButtonText}>
+                        ?
+                      </ThemedText>
+                    </Pressable>
+                  </View>
+                </>
+              ) : (
+                <View style={styles.requirementList}>
+                  <View style={styles.requirementRow}>
+                    <ThemedText type="smallBold">Account Age</ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {communityRequirements.accountAgeDays} of{' '}
+                      {communityRequirements.accountAgeDaysRequired} days
+                    </ThemedText>
+                  </View>
+                  <View style={styles.requirementRow}>
+                    <ThemedText type="smallBold">Unique Places</ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {communityRequirements.uniqueVisitCount} of{' '}
+                      {communityRequirements.uniqueVisitsRequired}
+                    </ThemedText>
+                  </View>
+                  <View style={styles.requirementRow}>
+                    <ThemedText type="smallBold">Different Badges</ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {communityRequirements.distinctBadgeCount} of{' '}
+                      {communityRequirements.distinctBadgesRequired}
+                    </ThemedText>
+                  </View>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Complete all three requirements to become a Community
+                    Contributor. The submission button will appear here
+                    automatically.
+                  </ThemedText>
+                </View>
+              )}
             </ThemedView>
           )}
 
@@ -486,6 +552,14 @@ export default function SettingsScreen() {
 
           <BuildInfoPanel />
         </DraggableScrollView>
+
+        {communityRequirements ? (
+          <CommunitySubmissionInfoModal
+            onClose={() => setCommunityInfoVisible(false)}
+            requirements={communityRequirements}
+            visible={communityInfoVisible}
+          />
+        ) : null}
       </SafeAreaView>
     </ThemedView>
   );
@@ -559,6 +633,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.two,
+  },
+  requirementList: {
+    gap: Spacing.two,
+  },
+  requirementRow: {
+    alignItems: 'center',
+    borderBottomColor: Palette.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+    justifyContent: 'space-between',
+    minHeight: 36,
+  },
+  helpButton: {
+    alignItems: 'center',
+    borderRadius: 24,
+    borderWidth: 1,
+    height: 48,
+    justifyContent: 'center',
+    width: 48,
+  },
+  helpButtonText: {
+    fontSize: 22,
+    fontWeight: '800',
+    lineHeight: 26,
   },
   primaryButton: {
     alignItems: 'center',
