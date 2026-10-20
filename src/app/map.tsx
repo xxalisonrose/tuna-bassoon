@@ -63,6 +63,10 @@ const MAP_CONTROL_SIZE = 52;
 const MAP_CONTROL_GAP = 10;
 const MAP_CONTROL_STEP =
   MAP_CONTROL_SIZE + MAP_CONTROL_GAP;
+const PLAYER_MARKER_WIDTH = 116;
+const PLAYER_MARKER_HEIGHT = 118;
+const PLAYER_SCREEN_Y_RATIO = 0.7;
+const LOCATION_PIN_HIT_RADIUS = 25;
 const WHEEL_ROTATION_MULTIPLIER = 1;
 const MINIMUM_WHEEL_RADIUS = 44;
 const SIMULATOR_STEP_METERS = 10;
@@ -70,6 +74,18 @@ const EARTH_RADIUS_METERS = 6_371_000;
 const RECENTER_MINIMUM_DURATION_MS = 450;
 const RECENTER_MAXIMUM_DURATION_MS = 1_600;
 const RECENTER_MILLISECONDS_PER_METER = 1.4;
+
+function getPlayerCameraPadding(viewportHeight: number) {
+  return {
+    top: Math.max(
+      0,
+      viewportHeight * (PLAYER_SCREEN_Y_RATIO * 2 - 1),
+    ),
+    right: 0,
+    bottom: 0,
+    left: 0,
+  };
+}
 
 function normalizeBearing(value: number) {
   return ((value % 360) + 360) % 360;
@@ -491,6 +507,9 @@ export default function MapScreen() {
       zoom: cameraViewRef.current.zoom,
       bearing: lookBearingRef.current,
       pitch: LOOK_AROUND_PITCH,
+      padding: getPlayerCameraPadding(
+        mapViewportRef.current.height,
+      ),
       duration: 650,
     });
   }, [userCoordinates]);
@@ -538,6 +557,9 @@ export default function MapScreen() {
       zoom: cameraViewRef.current.zoom,
       bearing: nextBearing,
       pitch: LOOK_AROUND_PITCH,
+      padding: getPlayerCameraPadding(
+        mapViewportRef.current.height,
+      ),
     });
   }, [northArrowRotation, userCoordinates]);
 
@@ -646,6 +668,9 @@ export default function MapScreen() {
           zoom: cameraViewRef.current.zoom,
           bearing: cameraViewRef.current.bearing,
           pitch: LOOK_AROUND_PITCH,
+          padding: getPlayerCameraPadding(
+            mapViewportRef.current.height,
+          ),
           duration: 800,
         });
       }
@@ -668,6 +693,9 @@ export default function MapScreen() {
         zoom: cameraViewRef.current.zoom,
         bearing: cameraViewRef.current.bearing,
         pitch: LOOK_AROUND_PITCH,
+        padding: getPlayerCameraPadding(
+          mapViewportRef.current.height,
+        ),
         duration: 800,
       });
     }
@@ -690,6 +718,9 @@ export default function MapScreen() {
         zoom: cameraViewRef.current.zoom,
         bearing: cameraViewRef.current.bearing,
         pitch: LOOK_AROUND_PITCH,
+        padding: getPlayerCameraPadding(
+          mapViewportRef.current.height,
+        ),
         duration: 800,
       });
     }
@@ -747,6 +778,9 @@ export default function MapScreen() {
         zoom: targetZoom,
         bearing: targetBearing,
         pitch: LOOK_AROUND_PITCH,
+        padding: getPlayerCameraPadding(
+          mapViewportRef.current.height,
+        ),
       });
       recenteringRef.current = false;
       return;
@@ -793,6 +827,9 @@ export default function MapScreen() {
         zoom: targetZoom,
         bearing: targetBearing,
         pitch: LOOK_AROUND_PITCH,
+        padding: getPlayerCameraPadding(
+          mapViewportRef.current.height,
+        ),
       });
 
       if (progress < 1) {
@@ -826,6 +863,9 @@ export default function MapScreen() {
       zoom: clampedZoom,
       bearing: cameraViewRef.current.bearing,
       pitch: LOOK_AROUND_PITCH,
+      padding: getPlayerCameraPadding(
+        mapViewportRef.current.height,
+      ),
     });
   }, [userCoordinates]);
 
@@ -858,6 +898,9 @@ export default function MapScreen() {
       zoom: LOOK_AROUND_ZOOM,
       bearing: 0,
       pitch: LOOK_AROUND_PITCH,
+      padding: getPlayerCameraPadding(
+        mapViewportRef.current.height,
+      ),
       duration: 900,
     });
     AccessibilityInfo.announceForAccessibility(
@@ -957,6 +1000,59 @@ export default function MapScreen() {
     AccessibilityInfo.announceForAccessibility(
       `${place.title} selected.`,
     );
+  };
+
+  const selectPlaceBehindPlayerMarker = async () => {
+    const map = mapRef.current;
+
+    if (!map || !userCoordinates) {
+      return;
+    }
+
+    try {
+      const playerPoint = await map.project(userCoordinates);
+      const projectedPlaces = await Promise.all(
+        places.map(async (place) => ({
+          place,
+          point: await map.project(place.coordinates),
+        })),
+      );
+      const horizontalReach =
+        PLAYER_MARKER_WIDTH / 2 + LOCATION_PIN_HIT_RADIUS;
+      const upperReach =
+        PLAYER_MARKER_HEIGHT + LOCATION_PIN_HIT_RADIUS;
+      const coveredPlaces = projectedPlaces
+        .filter(({ point }) => {
+          const horizontalDelta = Math.abs(
+            point[0] - playerPoint[0],
+          );
+          const verticalDelta = point[1] - playerPoint[1];
+
+          return (
+            horizontalDelta <= horizontalReach &&
+            verticalDelta >= -upperReach &&
+            verticalDelta <= LOCATION_PIN_HIT_RADIUS
+          );
+        })
+        .sort((first, second) => {
+          const firstDistance = Math.hypot(
+            first.point[0] - playerPoint[0],
+            first.point[1] - playerPoint[1],
+          );
+          const secondDistance = Math.hypot(
+            second.point[0] - playerPoint[0],
+            second.point[1] - playerPoint[1],
+          );
+
+          return firstDistance - secondDistance;
+        });
+
+      if (coveredPlaces[0]) {
+        selectPlace(coveredPlaces[0].place, false);
+      }
+    } catch {
+      // The marker remains decorative if map projection is temporarily unavailable.
+    }
   };
 
   const closeSelectedPlace = () => {
@@ -1065,7 +1161,11 @@ export default function MapScreen() {
               <Marker
                 id="current-user-location"
                 lngLat={userCoordinates}
-                anchor="bottom">
+                anchor="bottom"
+                onPress={() => {
+                  void selectPlaceBehindPlayerMarker();
+                }}
+                pointerEvents="none">
                 <PlayerMarker
                   presetId={avatarProfile?.avatarPresetId}
                   selection={avatarProfile?.selection}

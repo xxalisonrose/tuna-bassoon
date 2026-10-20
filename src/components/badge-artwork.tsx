@@ -14,7 +14,7 @@ type BadgeArtworkProps = {
   imageKey?: string;
   imageUrl?: string;
   name: string;
-  size?: 'card' | 'celebration';
+  size?: 'compact' | 'card' | 'celebration';
 };
 
 function getBadgeArtworkSource(imageKey?: string) {
@@ -52,6 +52,7 @@ export function BadgeArtwork({
   const source = imageUrl?.trim() ||
     getBadgeArtworkSource(imageKey);
   const isCelebration = size === 'celebration';
+  const isCompact = size === 'compact';
 
   return (
     <View
@@ -59,7 +60,11 @@ export function BadgeArtwork({
       importantForAccessibility="no-hide-descendants"
       style={[
         styles.frame,
-        isCelebration ? styles.celebrationFrame : styles.cardFrame,
+        isCelebration
+          ? styles.celebrationFrame
+          : isCompact
+            ? styles.compactFrame
+            : styles.cardFrame,
         {
           backgroundColor: theme.background,
           borderColor: theme.textSecondary,
@@ -72,7 +77,9 @@ export function BadgeArtwork({
             styles.fallbackText,
             isCelebration
               ? styles.celebrationFallbackText
-              : styles.cardFallbackText,
+              : isCompact
+                ? styles.compactFallbackText
+                : styles.cardFallbackText,
           ]}>
           {getFallbackText(name)}
         </ThemedText>
@@ -101,6 +108,10 @@ const styles = StyleSheet.create({
     height: 72,
     width: 72,
   },
+  compactFrame: {
+    height: 54,
+    width: 54,
+  },
   celebrationFrame: {
     height: 132,
     marginBottom: 16,
@@ -117,6 +128,10 @@ const styles = StyleSheet.create({
   cardFallbackText: {
     fontSize: 30,
     lineHeight: 38,
+  },
+  compactFallbackText: {
+    fontSize: 22,
+    lineHeight: 28,
   },
   celebrationFallbackText: {
     fontSize: 52,

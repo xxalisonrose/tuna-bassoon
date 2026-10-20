@@ -47,10 +47,23 @@ const STORYBOOK_MAP_STYLE =
   'https://tiles.openfreemap.org/styles/liberty';
 const DEFAULT_ZOOM = 17;
 const DEFAULT_PITCH = 55;
+const PLAYER_MARKER_WIDTH = 116;
+const PLAYER_MARKER_HEIGHT = 118;
+const PLAYER_SCREEN_Y_RATIO = 0.7;
 const SIMULATOR_STEP_METERS = 10;
 const EARTH_RADIUS_METERS = 6_371_000;
 const PIN_SOURCE_ID = 'web-location-pins';
 const PIN_HIT_LAYER_ID = 'web-location-pins-hit';
+
+function getPlayerCameraOffset(
+  map: MapLibreMap | null,
+): [number, number] {
+  return [
+    0,
+    (map?.getContainer().clientHeight ?? 0) *
+      (PLAYER_SCREEN_Y_RATIO - 0.5),
+  ];
+}
 
 type LocationPinProperties = {
   personVariant: 'general' | 'women_history';
@@ -589,8 +602,8 @@ export default function MapWebScreen() {
 
     if (!playerMarkerRef.current) {
       const markerElement = document.createElement('div');
-      markerElement.style.width = '70px';
-      markerElement.style.height = '82px';
+      markerElement.style.width = `${PLAYER_MARKER_WIDTH}px`;
+      markerElement.style.height = `${PLAYER_MARKER_HEIGHT}px`;
       markerElement.style.pointerEvents = 'none';
       markerElement.setAttribute('aria-hidden', 'true');
 
@@ -616,6 +629,7 @@ export default function MapWebScreen() {
       hasCenteredOnPlayerRef.current = true;
       map.easeTo({
         center: userCoordinates,
+        offset: getPlayerCameraOffset(map),
         zoom: DEFAULT_ZOOM,
         pitch: DEFAULT_PITCH,
         duration: 850,
@@ -639,6 +653,7 @@ export default function MapWebScreen() {
 
     map.easeTo({
       center: target,
+      offset: getPlayerCameraOffset(map),
       zoom: Math.max(map.getZoom(), 16),
       pitch: DEFAULT_PITCH,
       duration: 900,
@@ -663,6 +678,7 @@ export default function MapWebScreen() {
       hasCenteredOnPlayerRef.current = true;
       mapRef.current?.easeTo({
         center: HARVARD_YARD,
+        offset: getPlayerCameraOffset(mapRef.current),
         zoom: DEFAULT_ZOOM,
         pitch: DEFAULT_PITCH,
         duration: 800,
@@ -675,6 +691,7 @@ export default function MapWebScreen() {
     if (liveCoordinates) {
       mapRef.current?.easeTo({
         center: liveCoordinates,
+        offset: getPlayerCameraOffset(mapRef.current),
         zoom: DEFAULT_ZOOM,
         pitch: DEFAULT_PITCH,
         duration: 800,
@@ -684,8 +701,11 @@ export default function MapWebScreen() {
 
   const moveTestPlayer = (coordinates: [number, number]) => {
     setSimulatedCoordinates(coordinates);
-    mapRef.current?.easeTo({
+    const map = mapRef.current;
+
+    map?.easeTo({
       center: coordinates,
+      offset: getPlayerCameraOffset(map),
       duration: 450,
     });
   };
@@ -706,8 +726,11 @@ export default function MapWebScreen() {
         SIMULATOR_STEP_METERS,
       );
 
-      mapRef.current?.easeTo({
+      const map = mapRef.current;
+
+      map?.easeTo({
         center: nextCoordinates,
+        offset: getPlayerCameraOffset(map),
         duration: 300,
       });
 

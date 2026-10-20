@@ -12,13 +12,29 @@ export function PlayerMarker({
   selection?: Partial<AvatarSelection>;
 }) {
   return (
-    <View accessible={false} style={styles.playerMarker}>
-      <View accessible={false} style={styles.playerDirection} />
-      <View accessible={false} style={styles.playerShadow} />
+    <View
+      accessible={false}
+      pointerEvents="none"
+      style={styles.playerMarker}>
+      <View
+        accessible={false}
+        pointerEvents="none"
+        style={styles.playerDirection}
+      />
+      <View
+        accessible={false}
+        pointerEvents="none"
+        style={styles.playerPlatform}>
+        <View
+          accessible={false}
+          pointerEvents="none"
+          style={styles.playerPlatformInset}
+        />
+      </View>
       <AvatarPreview
         presetId={presetId}
         selection={selection}
-        size={58}
+        size={92}
         style={styles.avatar}
       />
     </View>
@@ -27,14 +43,14 @@ export function PlayerMarker({
 
 const styles = StyleSheet.create({
   playerMarker: {
-    width: 70,
-    height: 82,
+    width: 116,
+    height: 118,
     alignItems: 'center',
     justifyContent: 'center',
   },
   playerDirection: {
     position: 'absolute',
-    top: 1,
+    top: 0,
     width: 0,
     height: 0,
     borderRightColor: 'transparent',
@@ -44,18 +60,33 @@ const styles = StyleSheet.create({
     borderLeftColor: 'transparent',
     borderLeftWidth: 7,
   },
-  playerShadow: {
+  playerPlatform: {
     position: 'absolute',
     bottom: 2,
-    width: 44,
-    height: 14,
-    backgroundColor: 'rgba(43, 53, 40, 0.3)',
-    borderRadius: 18,
-    transform: [{ scaleX: 1.18 }],
+    width: 98,
+    height: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Palette.lightBronze,
+    borderColor: Palette.paper,
+    borderRadius: 14,
+    borderWidth: 2,
+    shadowColor: '#172019',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.32,
+    shadowRadius: 3,
+  },
+  playerPlatformInset: {
+    width: 78,
+    height: 13,
+    backgroundColor: Palette.teaGreen,
+    borderColor: Palette.bronzeDeep,
+    borderRadius: 8,
+    borderWidth: 1,
   },
   avatar: {
     position: 'absolute',
-    top: 12,
+    top: 4,
     backgroundColor: 'transparent',
     borderRadius: 0,
   },

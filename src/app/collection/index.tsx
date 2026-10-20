@@ -127,6 +127,9 @@ export default function PassportScreen() {
     useState<BadgeFilter>('all');
   const [badgeClassificationFilter, setBadgeClassificationFilter] =
     useState<BadgeClassificationFilter>('all');
+  const [expandedBadgeIds, setExpandedBadgeIds] = useState<
+    Set<string>
+  >(() => new Set());
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -581,6 +584,7 @@ export default function PassportScreen() {
               </ThemedView>
             ) : visibleBadges.map((badge) => {
               const displayStatus = getBadgeDisplayStatus(badge);
+              const expanded = expandedBadgeIds.has(badge._id);
               const progressWidth =
                 `${Math.round(badge.progress * 100)}%` as `${number}%`;
               const classification =
@@ -597,7 +601,12 @@ export default function PassportScreen() {
                   : badgeStatusLabels[displayStatus];
               const progressVisitCount = badge.levelsEnabled
                 ? badge.levelProgressVisits
-                : badge.completedVisits;
+                : Math.min(
+                    badge.completedVisits,
+                    badge.requiredVisits,
+                  );
+              const compactProgressLabel =
+                `${progressVisitCount} of ${badge.requiredVisits}`;
               const progressMessage = badge.levelsEnabled
                 ? `${progressVisitCount} of ${badge.requiredVisits} ` +
                   `${badge.requiredVisits === 1 ? 'location' : 'locations'} ` +
@@ -634,11 +643,43 @@ export default function PassportScreen() {
                 `${availabilityMessage} ` +
                 `Progress: ${progressMessage}`;
 
+              const compactAnnouncement =
+                `${badge.name}. ${statusLabel}. ` +
+                `${compactProgressLabel}. ` +
+                `${expanded ? 'Details expanded.' : 'Details collapsed.'}`;
+
               return (
-                <View
+                <Pressable
                   key={badge._id}
-                  accessible
-                  accessibilityLabel={badgeAnnouncement}>
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    expanded
+                      ? `${badgeAnnouncement} Details expanded.`
+                      : compactAnnouncement
+                  }
+                  accessibilityHint={
+                    expanded
+                      ? 'Collapses the badge details.'
+                      : 'Expands the badge details.'
+                  }
+                  accessibilityState={{ expanded }}
+                  onPress={() => {
+                    setExpandedBadgeIds((currentIds) => {
+                      const nextIds = new Set(currentIds);
+
+                      if (nextIds.has(badge._id)) {
+                        nextIds.delete(badge._id);
+                      } else {
+                        nextIds.add(badge._id);
+                      }
+
+                      return nextIds;
+                    });
+                  }}
+                  style={({ pressed }) => [
+                    styles.badgePressable,
+                    pressed && styles.pressed,
+                  ]}>
                   <ThemedView
                     accessible={false}
                     importantForAccessibility="no-hide-descendants"
@@ -650,58 +691,31 @@ export default function PassportScreen() {
                       displayStatus === 'locked' && styles.lockedBadgeCard,
                       displayStatus === 'retired' && styles.retiredBadgeCard,
                     ]}>
-                    <View style={styles.badgeHeader}>
+                    <View style={styles.badgeCompactHeader}>
                       <BadgeArtwork
                         earned={badge.earned}
                         imageKey={badge.imageKey}
                         imageUrl={badge.imageUrl}
                         name={badge.name}
+                        size="compact"
                       />
 
-                      <View style={styles.badgeTitleContainer}>
-                        <ThemedText type="subtitle">
+                      <View style={styles.badgeCompactTitleContainer}>
+                        <ThemedText style={styles.badgeCompactName}>
                           {badge.name}
-                        </ThemedText>
-
-                        <ThemedText
-                          type="small"
-                          themeColor="textSecondary">
-                          {metadata}
-                        </ThemedText>
-
-                        <ThemedText
-                          type="small"
-                          themeColor="textSecondary">
-                          {badge.tag}
                         </ThemedText>
                       </View>
 
                       <View
-                        style={[
-                          styles.badgeStatusPill,
-                          displayStatus === 'earned' && styles.badgeStatusEarned,
-                          displayStatus === 'in_progress' && styles.badgeStatusInProgress,
-                          displayStatus === 'available' && styles.badgeStatusAvailable,
-                          displayStatus === 'locked' && styles.badgeStatusLocked,
-                          displayStatus === 'retired' && styles.badgeStatusRetired,
-                        ]}>
+                        accessible={false}
+                        importantForAccessibility="no-hide-descendants"
+                        style={styles.badgeExpandIndicator}>
                         <ThemedText
-                          type="small"
-                          style={styles.badgeStatusText}>
-                          {statusLabel}
+                          style={styles.badgeExpandIndicatorText}>
+                          {expanded ? '⌄' : '›'}
                         </ThemedText>
                       </View>
                     </View>
-
-                    <ThemedText themeColor="textSecondary">
-                      {badge.description}
-                    </ThemedText>
-
-                    <ThemedText
-                      type="smallBold"
-                      themeColor="textSecondary">
-                      {availabilityMessage}
-                    </ThemedText>
 
                     <View style={styles.progressTrack}>
                       <View
@@ -715,13 +729,63 @@ export default function PassportScreen() {
                       />
                     </View>
 
-                    <ThemedText
-                      type="small"
-                      themeColor="textSecondary">
-                      {progressMessage}
-                    </ThemedText>
+                    <View style={styles.badgeProgressSummary}>
+                      <ThemedText
+                        type="smallBold"
+                        themeColor="textSecondary">
+                        {compactProgressLabel}
+                      </ThemedText>
+
+                      <ThemedText
+                        type="small"
+                        themeColor="textSecondary">
+                        {statusLabel}
+                      </ThemedText>
+                    </View>
+
+                    {expanded ? (
+                      <View style={styles.badgeExpandedDetails}>
+                        <View style={styles.badgeDetailMetadataRow}>
+                          <ThemedView
+                            type="surfaceWarm"
+                            style={styles.badgeDetailChip}>
+                            <ThemedText type="smallBold">
+                              {classification}
+                            </ThemedText>
+                          </ThemedView>
+
+                          <ThemedView
+                            type="surfaceWarm"
+                            style={styles.badgeDetailChip}>
+                            <ThemedText type="code">
+                              {badge.tag}
+                            </ThemedText>
+                          </ThemedView>
+
+                          {editionText ? (
+                            <ThemedView
+                              type="surfaceWarm"
+                              style={styles.badgeDetailChip}>
+                              <ThemedText type="small">
+                                {editionText}
+                              </ThemedText>
+                            </ThemedView>
+                          ) : null}
+                        </View>
+
+                        <ThemedText themeColor="textSecondary">
+                          {badge.description}
+                        </ThemedText>
+
+                        <ThemedText
+                          type="small"
+                          themeColor="textSecondary">
+                          {availabilityMessage}
+                        </ThemedText>
+                      </View>
+                    ) : null}
                   </ThemedView>
-                </View>
+                </Pressable>
               );
             })}
           </View>
@@ -964,11 +1028,14 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   badgeCard: {
-    gap: Spacing.three,
-    padding: Spacing.four,
+    gap: Spacing.two,
+    padding: Spacing.three,
     borderWidth: 1,
     borderColor: 'transparent',
-    borderRadius: Spacing.four,
+    borderRadius: Spacing.three,
+  },
+  badgePressable: {
+    borderRadius: Spacing.three,
   },
   earnedBadgeCard: {
     borderColor: '#18864B',
@@ -1009,47 +1076,40 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.8,
   },
-  badgeHeader: {
+  badgeCompactHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: Spacing.three,
+    alignItems: 'center',
+    gap: Spacing.two,
   },
-  badgeTitleContainer: {
+  badgeCompactTitleContainer: {
     flex: 1,
-    gap: Spacing.one,
   },
-  badgeStatusPill: {
-    borderRadius: 999,
-    flexShrink: 0,
-    paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.one,
-  },
-  badgeStatusEarned: {
-    backgroundColor: '#18864B',
-  },
-  badgeStatusInProgress: {
-    backgroundColor: '#A51C30',
-  },
-  badgeStatusAvailable: {
-    backgroundColor: '#175CD3',
-  },
-  badgeStatusLocked: {
-    backgroundColor: '#667085',
-  },
-  badgeStatusRetired: {
-    backgroundColor: '#912018',
-  },
-  badgeStatusText: {
-    color: '#FFFFFF',
+  badgeCompactName: {
+    fontSize: 18,
     fontWeight: '700',
+    lineHeight: 24,
+  },
+  badgeExpandIndicator: {
+    alignItems: 'center',
+    borderColor: Palette.border,
+    borderRadius: 16,
+    borderWidth: 1,
+    flexShrink: 0,
+    height: 32,
+    justifyContent: 'center',
+    width: 32,
+  },
+  badgeExpandIndicatorText: {
+    fontSize: 22,
+    fontWeight: '700',
+    lineHeight: 26,
   },
   progressTrack: {
     width: '100%',
-    height: 10,
+    height: 8,
     overflow: 'hidden',
     backgroundColor: '#D8D8D8',
-    borderRadius: 5,
+    borderRadius: 4,
   },
   progressFill: {
     height: '100%',
@@ -1058,6 +1118,30 @@ const styles = StyleSheet.create({
   },
   progressFillEarned: {
     backgroundColor: '#18864B',
+  },
+  badgeProgressSummary: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+    justifyContent: 'space-between',
+  },
+  badgeExpandedDetails: {
+    borderTopColor: Palette.border,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.two,
+    marginTop: Spacing.one,
+    paddingTop: Spacing.three,
+  },
+  badgeDetailMetadataRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.one,
+  },
+  badgeDetailChip: {
+    borderRadius: 999,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.one,
   },
   emptyCard: {
     alignItems: 'center',

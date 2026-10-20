@@ -4,7 +4,7 @@
 
 The map uses a warm, storybook-inspired presentation while preserving the location pins, location details, accessible location list, and check-in workflow. It opens at a 55-degree angle so parks, water, pedestrian areas, and the available OpenStreetMap building heights read as a small navigable world instead of a flat utility map.
 
-The player marker renders the signed-in user's saved layered cow avatar at the active real or simulated GPS position. While an avatar profile is loading or has never been saved, the Traditional Explorer selection provides a stable fallback so the map never loses its player focal point.
+The player marker renders the signed-in user's saved layered cow avatar at the active real or simulated GPS position. The avatar is intentionally larger than the location markers, stands on a small oval explorer platform, and rests near the lower third of the screen when the camera follows or recenters on it, leaving more of the world visible ahead. While an avatar profile is loading or has never been saved, the Traditional Explorer selection provides a stable fallback so the map never loses its player focal point.
 
 ## Web testing companion
 
@@ -18,7 +18,7 @@ The web controls intentionally follow familiar desktop map behavior rather than 
 
 The eye control leads a vertical stack of map controls and switches between two map behaviors:
 
-- **Look Around** keeps the player centered. A one-finger swipe in any direction rotates the view around the player, while pinch zoom remains available. Dragging right or down turns the view left; dragging left or up turns it right. The angled pitch stays fixed.
+- **Look Around** keeps the player anchored near the lower third of the screen. A one-finger swipe in any direction rotates the view around the player, while pinch zoom remains available. Dragging right or down turns the view left; dragging left or up turns it right. The angled pitch stays fixed.
 - **Explore** leaves the player at their live GPS position and returns one-finger swipes to normal map panning. The eye's pupil moves from side to side to show that the map is in browsing mode.
 - Pressing the eye again returns to Look Around, recenters on the player when location is available, restores the angled camera, and faces north.
 
@@ -52,7 +52,7 @@ Prototype category artwork is shared by the native and web maps. Historic Sites 
 
 The built-in MapLibre information ornament is hidden from the control area. Required map-data credit remains visible as unobtrusive plain text on the map and is repeated at the end of the Locations list without opening MapLibre options.
 
-The recenter control uses a direct eased camera move with zero viewport padding. In both Look Around and Explore modes, it places the active real or simulated player coordinate at the visual center of the map.
+The recenter control uses a direct eased camera move. In both Look Around and Explore modes, it places the active real or simulated player near the lower third of the map so the forward view remains visible above the avatar.
 
 ## Future visual passes
 
