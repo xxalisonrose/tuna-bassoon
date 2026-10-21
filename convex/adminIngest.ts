@@ -1299,18 +1299,38 @@ export const getLocationDrafts = query({
   handler: async (ctx) => {
     await requireAdmin(ctx);
     const drafts = await ctx.db.query('locationIngestDrafts').collect();
-
-    return await Promise.all(
-      drafts
-        .sort((left, right) => right.createdAt - left.createdAt)
-        .map(async (draft) => ({
-          ...draft,
-          batch: await ctx.db.get(draft.batchId),
-          matchedLocation: draft.matchedLocationId
-            ? await ctx.db.get(draft.matchedLocationId)
-            : null,
-        })),
+    const batchEntries = await Promise.all(
+      [...new Set(drafts.map((draft) => draft.batchId))].map(
+        async (batchId) =>
+          [batchId, await ctx.db.get(batchId)] as const,
+      ),
     );
+    const matchedLocationEntries = await Promise.all(
+      [
+        ...new Set(
+          drafts.flatMap((draft) =>
+            draft.matchedLocationId === undefined
+              ? []
+              : [draft.matchedLocationId],
+          ),
+        ),
+      ].map(
+        async (locationId) =>
+          [locationId, await ctx.db.get(locationId)] as const,
+      ),
+    );
+    const batchesById = new Map(batchEntries);
+    const matchedLocationsById = new Map(matchedLocationEntries);
+
+    return drafts
+      .sort((left, right) => right.createdAt - left.createdAt)
+      .map((draft) => ({
+        ...draft,
+        batch: batchesById.get(draft.batchId) ?? null,
+        matchedLocation: draft.matchedLocationId
+          ? matchedLocationsById.get(draft.matchedLocationId) ?? null
+          : null,
+      }));
   },
 });
 
@@ -1319,18 +1339,43 @@ export const getBadgeDrafts = query({
   handler: async (ctx) => {
     await requireAdmin(ctx);
     const drafts = await ctx.db.query('badgeIngestDrafts').collect();
-
-    return await Promise.all(
-      drafts
-        .sort((left, right) => right.createdAt - left.createdAt)
-        .map(async (draft) => ({
-          ...draft,
-          batch: await ctx.db.get(draft.batchId),
-          matchedBadge: draft.matchedBadgeDefinitionId
-            ? await ctx.db.get(draft.matchedBadgeDefinitionId)
-            : null,
-        })),
+    const batchEntries = await Promise.all(
+      [...new Set(drafts.map((draft) => draft.batchId))].map(
+        async (batchId) =>
+          [batchId, await ctx.db.get(batchId)] as const,
+      ),
     );
+    const matchedBadgeEntries = await Promise.all(
+      [
+        ...new Set(
+          drafts.flatMap((draft) =>
+            draft.matchedBadgeDefinitionId === undefined
+              ? []
+              : [draft.matchedBadgeDefinitionId],
+          ),
+        ),
+      ].map(
+        async (badgeDefinitionId) =>
+          [
+            badgeDefinitionId,
+            await ctx.db.get(badgeDefinitionId),
+          ] as const,
+      ),
+    );
+    const batchesById = new Map(batchEntries);
+    const matchedBadgesById = new Map(matchedBadgeEntries);
+
+    return drafts
+      .sort((left, right) => right.createdAt - left.createdAt)
+      .map((draft) => ({
+        ...draft,
+        batch: batchesById.get(draft.batchId) ?? null,
+        matchedBadge: draft.matchedBadgeDefinitionId
+          ? matchedBadgesById.get(
+              draft.matchedBadgeDefinitionId,
+            ) ?? null
+          : null,
+      }));
   },
 });
 

@@ -4,7 +4,7 @@ import {
   useQuery,
 } from 'convex/react';
 import { type Href, useRouter, useScrollToTop } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -139,6 +139,7 @@ export default function PassportScreen() {
   >(() => new Set());
   const [selectedMissionKey, setSelectedMissionKey] =
     useState<string | null>(null);
+  const [badgeEvaluationTime] = useState(() => Date.now());
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -162,10 +163,113 @@ export default function PassportScreen() {
     isAuthenticated ? {} : 'skip',
   );
 
-  const badgeProgress = useQuery(
-    api.badges.getMyBadgeProgress,
+  const badgeCatalog = useQuery(
+    api.badges.getBadgeCatalog,
     isAuthenticated ? {} : 'skip',
   );
+  const badgeProgressState = useQuery(
+    api.badges.getMyBadgeProgressState,
+    isAuthenticated ? {} : 'skip',
+  );
+  const badgeProgress = useMemo(() => {
+    if (
+      badgeCatalog === undefined ||
+      badgeProgressState === undefined
+    ) {
+      return undefined;
+    }
+
+    const progressByBadge = new Map(
+      badgeProgressState.progress.map((record) => [
+        record.badgeDefinitionId,
+        record,
+      ]),
+    );
+    const highestAwardedLevelByBadge = new Map(
+      badgeProgressState.highestAwardedLevels.map((record) => [
+        record.badgeDefinitionId,
+        record.level,
+      ]),
+    );
+    const now = badgeEvaluationTime;
+
+    return badgeCatalog.map((badge) => {
+      const progressRecord = progressByBadge.get(badge._id);
+      const completedVisits =
+        progressRecord?.completedVisits ?? 0;
+      const missionBadge = badge.classification === 'mission';
+      const calculatedLevel = missionBadge || badge.requiredVisits < 1
+        ? 0
+        : badge.levelsEnabled
+          ? Math.floor(completedVisits / badge.requiredVisits)
+          : completedVisits >= badge.requiredVisits
+            ? 1
+            : 0;
+      const highestAwardedLevel =
+        highestAwardedLevelByBadge.get(badge._id) ?? 0;
+      const displaysLevel =
+        badge.classification !== 'seasonal' &&
+        (badge.levelsEnabled || highestAwardedLevel > 1);
+      const currentLevel = missionBadge
+        ? highestAwardedLevel
+        : badge.classification === 'seasonal'
+          ? highestAwardedLevel > 0 || calculatedLevel > 0
+            ? 1
+            : 0
+          : Math.max(calculatedLevel, highestAwardedLevel);
+      const earned = currentLevel > 0;
+      const levelProgressVisits =
+        badge.levelsEnabled && badge.requiredVisits > 0
+          ? completedVisits % badge.requiredVisits
+          : Math.min(completedVisits, badge.requiredVisits);
+      const activeWindowRecord = badge.availabilityWindows.find(
+        (window) =>
+          now >= window.startsAt && now < window.endsAt,
+      );
+      const nextWindow = badge.availabilityWindows
+        .filter((window) => window.startsAt > now)
+        .sort(
+          (firstWindow, secondWindow) =>
+            firstWindow.startsAt - secondWindow.startsAt,
+        )[0];
+      const activeWindow = activeWindowRecord !== undefined;
+      const available =
+        !badge.retired &&
+        (badge.availabilityWindows.length === 0 || activeWindow);
+      const progress = missionBadge
+        ? earned
+          ? 1
+          : 0
+        : badge.requiredVisits === 0
+          ? 1
+          : badge.levelsEnabled
+            ? levelProgressVisits / badge.requiredVisits
+            : Math.min(
+                completedVisits / badge.requiredVisits,
+                1,
+              );
+
+      return {
+        ...badge,
+        completedVisits,
+        currentLevel,
+        displaysLevel,
+        earned,
+        levelProgressVisits,
+        nextLevel: currentLevel + 1,
+        inProgress: badge.levelsEnabled
+          ? levelProgressVisits > 0
+          : !missionBadge && !earned && completedVisits > 0,
+        available,
+        locked: !available && !badge.retired,
+        activeWindow,
+        activeWindowEndsAt: activeWindowRecord?.endsAt,
+        nextWindowStartsAt: nextWindow?.startsAt,
+        progress,
+        progressPercentage: Math.round(progress * 100),
+      };
+    });
+  }, [badgeCatalog, badgeEvaluationTime, badgeProgressState]);
   const missions = useQuery(
     api.missions.getMyMissions,
     isAuthenticated ? {} : 'skip',

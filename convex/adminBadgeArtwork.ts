@@ -3,6 +3,7 @@ import { ConvexError, v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import {
   mutation,
+  query,
   type MutationCtx,
 } from './_generated/server';
 import { requireAdmin } from './lib/auth';
@@ -45,6 +46,74 @@ async function deleteArtworkIfUnreferenced(
     await ctx.storage.delete(storageId);
   }
 }
+
+export const getArtworkStorageAudit = query({
+  args: {},
+
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const [definitions, files] = await Promise.all([
+      ctx.db.query('badgeDefinitions').collect(),
+      ctx.db.system.query('_storage').collect(),
+    ]);
+    const referencedStorageIds = new Set(
+      definitions.flatMap((definition) =>
+        definition.imageStorageId === undefined
+          ? []
+          : [definition.imageStorageId],
+      ),
+    );
+    const filesByHash = new Map<
+      string,
+      typeof files
+    >();
+
+    for (const file of files) {
+      const matchingFiles = filesByHash.get(file.sha256) ?? [];
+      matchingFiles.push(file);
+      filesByHash.set(file.sha256, matchingFiles);
+    }
+
+    const unreferencedFiles = files.filter(
+      (file) => !referencedStorageIds.has(file._id),
+    );
+    const duplicateGroups = [...filesByHash.values()]
+      .filter((group) => group.length > 1)
+      .map((group) => ({
+        sha256: group[0].sha256,
+        size: group[0].size,
+        storageIds: group.map((file) => file._id),
+        referencedStorageIds: group
+          .filter((file) => referencedStorageIds.has(file._id))
+          .map((file) => file._id),
+      }));
+
+    return {
+      totalFiles: files.length,
+      totalBytes: files.reduce((total, file) => total + file.size, 0),
+      referencedFiles: files.length - unreferencedFiles.length,
+      referencedBytes: files
+        .filter((file) => referencedStorageIds.has(file._id))
+        .reduce((total, file) => total + file.size, 0),
+      unreferencedFiles: unreferencedFiles.map((file) => ({
+        storageId: file._id,
+        size: file.size,
+        contentType: file.contentType,
+        uploadedAt: file._creationTime,
+      })),
+      unreferencedBytes: unreferencedFiles.reduce(
+        (total, file) => total + file.size,
+        0,
+      ),
+      duplicateGroups,
+      duplicateBytes: duplicateGroups.reduce(
+        (total, group) =>
+          total + group.size * (group.storageIds.length - 1),
+        0,
+      ),
+    };
+  },
+});
 
 export const generateArtworkUploadUrl = mutation({
   args: {},

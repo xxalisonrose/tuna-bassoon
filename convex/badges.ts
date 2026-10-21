@@ -798,6 +798,114 @@ export const getMyBadgeProgress = query({
   },
 });
 
+// Keep the shared badge catalog separate from user-specific progress. Convex
+// can reuse this query result across users and rerun it only when badge
+// definitions or availability windows change, instead of rereading the full
+// catalog for every personalized progress subscription.
+export const getBadgeCatalog = query({
+  args: {},
+
+  handler: async (ctx) => {
+    const [definitions, availabilityWindows] = await Promise.all([
+      ctx.db.query('badgeDefinitions').collect(),
+      ctx.db.query('badgeAvailabilityWindows').collect(),
+    ]);
+    const windowsByBadge = groupAvailabilityWindows(
+      availabilityWindows,
+    );
+
+    const catalog = await Promise.all(
+      definitions.map(async (definition) => ({
+        _id: definition._id,
+        name: definition.name,
+        tag: definition.tag,
+        description: definition.description,
+        requiredVisits: definition.requiredVisits,
+        classification: definition.classification ?? 'general',
+        retired: definition.retired === true,
+        imageKey: definition.imageKey,
+        imageUrl: definition.imageStorageId === undefined
+          ? undefined
+          : (await ctx.storage.getUrl(
+              definition.imageStorageId,
+            )) ?? undefined,
+        annualSeriesId: definition.annualSeriesId,
+        editionYear: definition.editionYear,
+        levelsEnabled: definitionUsesLevels(definition),
+        availabilityWindows:
+          windowsByBadge.get(definition._id) ?? [],
+      })),
+    );
+
+    return catalog.sort((firstBadge, secondBadge) =>
+      firstBadge.name.localeCompare(secondBadge.name),
+    );
+  },
+});
+
+export const getMyBadgeProgressState = query({
+  args: {},
+
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (identity === null) {
+      return {
+        progress: [],
+        highestAwardedLevels: [],
+      };
+    }
+
+    const [progress, awards] = await Promise.all([
+      ctx.db
+        .query('badgeProgress')
+        .withIndex('by_user', (queryBuilder) =>
+          queryBuilder.eq('clerkUserId', identity.subject),
+        )
+        .collect(),
+      ctx.db
+        .query('badgeAwards')
+        .withIndex('by_user', (queryBuilder) =>
+          queryBuilder.eq('clerkUserId', identity.subject),
+        )
+        .collect(),
+    ]);
+    const highestAwardedLevelByBadge = new Map<
+      Id<'badgeDefinitions'>,
+      number
+    >();
+
+    for (const award of awards) {
+      const level = award.level ?? 1;
+      const currentHighest =
+        highestAwardedLevelByBadge.get(
+          award.badgeDefinitionId,
+        ) ?? 0;
+
+      if (level > currentHighest) {
+        highestAwardedLevelByBadge.set(
+          award.badgeDefinitionId,
+          level,
+        );
+      }
+    }
+
+    return {
+      progress: progress.map((record) => ({
+        badgeDefinitionId: record.badgeDefinitionId,
+        completedVisits: record.completedVisits,
+        groupKey: record.groupKey,
+      })),
+      highestAwardedLevels: [...highestAwardedLevelByBadge].map(
+        ([badgeDefinitionId, level]) => ({
+          badgeDefinitionId,
+          level,
+        }),
+      ),
+    };
+  },
+});
+
 export const getUnannouncedAwards = query({
   args: {},
 
