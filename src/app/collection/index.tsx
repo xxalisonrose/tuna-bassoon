@@ -17,6 +17,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AvatarPreview } from '@/components/avatar-preview';
 import { BadgeArtwork } from '@/components/badge-artwork';
 import { DraggableScrollView } from '@/components/draggable-scroll-view';
+import {
+  MissionDetailModal,
+  type MissionDetail,
+} from '@/components/mission-detail-modal';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
@@ -41,7 +45,8 @@ type BadgeClassificationFilter =
   | 'general'
   | 'theme'
   | 'seasonal'
-  | 'special_place';
+  | 'special_place'
+  | 'mission';
 
 type BadgeDisplayStatus =
   | 'earned'
@@ -67,6 +72,7 @@ const badgeClassificationFilterLabels: Record<
   theme: 'Theme',
   seasonal: 'Seasonal',
   special_place: 'Special Place',
+  mission: 'Mission',
 };
 
 const badgeStatusLabels: Record<BadgeDisplayStatus, string> = {
@@ -82,6 +88,7 @@ const classificationLabels = {
   theme: 'Theme',
   special_place: 'Special Place',
   seasonal: 'Seasonal',
+  mission: 'Mission',
 } as const;
 
 function formatAvailabilityTime(value: number) {
@@ -130,6 +137,8 @@ export default function PassportScreen() {
   const [expandedBadgeIds, setExpandedBadgeIds] = useState<
     Set<string>
   >(() => new Set());
+  const [selectedMissionKey, setSelectedMissionKey] =
+    useState<string | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -155,6 +164,10 @@ export default function PassportScreen() {
 
   const badgeProgress = useQuery(
     api.badges.getMyBadgeProgress,
+    isAuthenticated ? {} : 'skip',
+  );
+  const missions = useQuery(
+    api.missions.getMyMissions,
     isAuthenticated ? {} : 'skip',
   );
 
@@ -199,6 +212,7 @@ export default function PassportScreen() {
   if (
     visits === undefined ||
     badgeProgress === undefined ||
+    missions === undefined ||
     currentUser === undefined ||
     avatarProfile === undefined
   ) {
@@ -224,10 +238,13 @@ export default function PassportScreen() {
       secondVisit.visitedAt - firstVisit.visitedAt,
   );
 
-  const earnedBadgeCount = badgeProgress.filter(
+  const collectibleBadgeProgress = badgeProgress.filter(
+    (badge) => badge.classification !== 'mission' || badge.earned,
+  );
+  const earnedBadgeCount = collectibleBadgeProgress.filter(
     (badge) => badge.earned,
   ).length;
-  const totalBadgeLevels = badgeProgress.reduce(
+  const totalBadgeLevels = collectibleBadgeProgress.reduce(
     (total, badge) => total + badge.currentLevel,
     0,
   );
@@ -252,7 +269,7 @@ export default function PassportScreen() {
 
   const annualSeriesSortNames = new Map<string, string>();
 
-  for (const badge of badgeProgress) {
+  for (const badge of collectibleBadgeProgress) {
     if (badge.annualSeriesId === undefined) {
       continue;
     }
@@ -273,7 +290,7 @@ export default function PassportScreen() {
     }
   }
 
-  const visibleBadges = badgeProgress
+  const visibleBadges = collectibleBadgeProgress
     .filter((badge) => {
       if (
         badgeClassificationFilter !== 'all' &&
@@ -328,11 +345,15 @@ export default function PassportScreen() {
 
       return firstBadge.name.localeCompare(secondBadge.name);
     });
+  const activeMissions = missions.filter((mission) => !mission.completed);
+  const selectedMission =
+    activeMissions.find((mission) => mission.key === selectedMissionKey) ??
+    null;
 
   const passportSummary =
     `Passport summary. ${visits.length} ` +
     `${visits.length === 1 ? 'place' : 'places'} visited. ` +
-    `${earnedBadgeCount} of ${badgeProgress.length} badges earned. ` +
+    `${earnedBadgeCount} of ${collectibleBadgeProgress.length} badges earned. ` +
     `${totalBadgeLevels} total badge ${totalBadgeLevels === 1 ? 'level' : 'levels'}.`;
 
   return (
@@ -470,7 +491,7 @@ export default function PassportScreen() {
               accessibilityRole="header"
               accessibilityLabel={
                 `Badges. ${earnedBadgeCount} of ` +
-                `${badgeProgress.length} earned.`
+                `${collectibleBadgeProgress.length} earned.`
               }
               style={styles.sectionHeading}>
               <ThemedText
@@ -483,7 +504,7 @@ export default function PassportScreen() {
                 accessible={false}
                 type="small"
                 themeColor="textSecondary">
-                {earnedBadgeCount} of {badgeProgress.length} earned
+                {earnedBadgeCount} of {collectibleBadgeProgress.length} earned
               </ThemedText>
             </View>
 
@@ -565,8 +586,101 @@ export default function PassportScreen() {
               </View>
             </View>
 
+            {activeMissions.length > 0 ? (
+              <View style={styles.missionSection}>
+                <View
+                  accessible
+                  accessibilityRole="header"
+                  accessibilityLabel={
+                    `Mission. ${activeMissions.length} ` +
+                    `${activeMissions.length === 1 ? 'mission' : 'missions'} active.`
+                  }
+                  style={styles.sectionHeading}>
+                  <ThemedText accessible={false} type="subtitle">
+                    Mission
+                  </ThemedText>
+                  <ThemedText
+                    accessible={false}
+                    type="small"
+                    themeColor="textSecondary">
+                    {activeMissions.length} active
+                  </ThemedText>
+                </View>
+
+                {activeMissions.map((mission) => {
+                  const progress =
+                    mission.completedStepCount / mission.stepCount;
+                  const progressWidth =
+                    `${Math.round(progress * 100)}%` as `${number}%`;
+
+                  return (
+                    <Pressable
+                      key={mission.key}
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        `${mission.name}. ${mission.description} ` +
+                        `${mission.completedStepCount} of ${mission.stepCount} steps complete.`
+                      }
+                      accessibilityHint="Opens the mission steps and rewards."
+                      onPress={() => {
+                        setSelectedMissionKey(mission.key);
+                      }}
+                      style={({ pressed }) => [
+                        styles.missionPressable,
+                        pressed && styles.pressed,
+                      ]}>
+                      <ThemedView
+                        type="backgroundElement"
+                        style={styles.missionCard}>
+                        <BadgeArtwork
+                          imageKey={mission.rewards.badge.imageKey}
+                          name={mission.rewards.badge.name}
+                          size="compact"
+                        />
+                        <View style={styles.missionCardCopy}>
+                          <View style={styles.missionCardHeading}>
+                            <ThemedText type="smallBold">
+                              {mission.name}
+                            </ThemedText>
+                            <ThemedText
+                              type="small"
+                              themeColor="textSecondary">
+                              {mission.completedStepCount} of {mission.stepCount}
+                            </ThemedText>
+                          </View>
+                          <ThemedText
+                            type="small"
+                            themeColor="textSecondary">
+                            {mission.currentStep?.title ?? mission.description}
+                          </ThemedText>
+                          <View style={styles.progressTrack}>
+                            <View
+                              style={[
+                                styles.progressFill,
+                                { width: progressWidth },
+                              ]}
+                            />
+                          </View>
+                          <ThemedText
+                            type="small"
+                            themeColor="textSecondary">
+                            Rewards: {mission.rewards.badge.name} badge +{' '}
+                            {mission.rewards.avatarItems
+                              .map((item) => item.name)
+                              .join(', ')}
+                          </ThemedText>
+                        </View>
+                        <ThemedText style={styles.missionChevron}>›</ThemedText>
+                      </ThemedView>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null}
+
             <ThemedText type="small" themeColor="textSecondary">
-              Showing {visibleBadges.length} of {badgeProgress.length} badges
+              Showing {visibleBadges.length} of{' '}
+              {collectibleBadgeProgress.length} badges
             </ThemedText>
 
             {visibleBadges.length === 0 ? (
@@ -606,8 +720,12 @@ export default function PassportScreen() {
                     badge.requiredVisits,
                   );
               const compactProgressLabel =
-                `${progressVisitCount} of ${badge.requiredVisits}`;
-              const progressMessage = badge.levelsEnabled
+                badge.classification === 'mission'
+                  ? 'Mission complete'
+                  : `${progressVisitCount} of ${badge.requiredVisits}`;
+              const progressMessage = badge.classification === 'mission'
+                ? 'Mission complete.'
+                : badge.levelsEnabled
                 ? `${progressVisitCount} of ${badge.requiredVisits} ` +
                   `${badge.requiredVisits === 1 ? 'location' : 'locations'} ` +
                   `toward Level ${badge.nextLevel}.`
@@ -616,7 +734,9 @@ export default function PassportScreen() {
                     `${badge.completedVisits === 1 ? 'location' : 'locations'}.`
                 : `${progressVisitCount} of ${badge.requiredVisits} ` +
                   `${badge.requiredVisits === 1 ? 'location' : 'locations'}.`;
-              const availabilityMessage = badge.retired
+              const availabilityMessage = badge.classification === 'mission'
+                ? 'Mission completed. This badge is permanently part of your Passport.'
+                : badge.retired
                 ? 'No longer available. Existing levels and progress are preserved.'
                 : badge.levelsEnabled && badge.earned
                   ? `Level ${badge.currentLevel} earned. Progress continues toward Level ${badge.nextLevel}.`
@@ -916,6 +1036,10 @@ export default function PassportScreen() {
 
         </DraggableScrollView>
       </SafeAreaView>
+      <MissionDetailModal
+        mission={selectedMission as MissionDetail | null}
+        onClose={() => setSelectedMissionKey(null)}
+      />
     </ThemedView>
   );
 }
@@ -1051,6 +1175,40 @@ const styles = StyleSheet.create({
   },
   badgeFilterGroup: {
     gap: Spacing.one,
+  },
+  missionSection: {
+    borderTopColor: Palette.border,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.two,
+    marginTop: Spacing.one,
+    paddingTop: Spacing.three,
+  },
+  missionPressable: {
+    borderRadius: Spacing.three,
+  },
+  missionCard: {
+    alignItems: 'center',
+    borderColor: Palette.lightBronze,
+    borderRadius: Spacing.three,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: Spacing.three,
+    padding: Spacing.three,
+  },
+  missionCardCopy: {
+    flex: 1,
+    gap: Spacing.one,
+  },
+  missionCardHeading: {
+    alignItems: 'baseline',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+    justifyContent: 'space-between',
+  },
+  missionChevron: {
+    fontSize: 28,
+    fontWeight: '700',
   },
   badgeFilterRow: {
     flexDirection: 'row',

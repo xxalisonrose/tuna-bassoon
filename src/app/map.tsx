@@ -49,6 +49,7 @@ import { MapZoomControl } from '@/components/map/map-zoom-control';
 import { PlayerMarker } from '@/components/map/player-marker';
 import { StorybookMapLayers } from '@/components/map/storybook-map-layers';
 import { BottomTabInset } from '@/constants/theme';
+import { useAppTabBar } from '@/contexts/app-tab-bar-context';
 import type { Place } from '@/data/places';
 import { api } from '../../convex/_generated/api';
 
@@ -247,6 +248,7 @@ export default function MapScreen() {
     pitch: LOOK_AROUND_PITCH,
   });
   const insets = useSafeAreaInsets();
+  const { setHidden: setTabBarHidden } = useAppTabBar();
 
   const { isAuthenticated } = useConvexAuth();
 
@@ -373,6 +375,14 @@ export default function MapScreen() {
 
   const modalContentVisible =
     selectedPlace !== null || locationListVisible;
+
+  useEffect(() => {
+    setTabBarHidden(simulationIsActive);
+
+    return () => {
+      setTabBarHidden(false);
+    };
+  }, [setTabBarHidden, simulationIsActive]);
 
   useEffect(() => {
     if (!locationsAreLoading) {
@@ -1326,6 +1336,7 @@ export default function MapScreen() {
         {isAdmin && !modalContentVisible && (
           <AdminLocationSimulator
             awardingBadge={awardingTestBadge}
+            bottom={simulationIsActive ? 0 : undefined}
             coordinates={simulatedCoordinates}
             enabled={simulationIsActive}
             onAwardBadge={awardTestBadge}
@@ -1335,9 +1346,11 @@ export default function MapScreen() {
             onStep={walkSimulatedPlayer}
             resettingProgress={resettingTestProgress}
             top={
-              insets.top +
-              12 +
-              MAP_CONTROL_STEP * 4
+              simulationIsActive
+                ? undefined
+                : insets.top +
+                  12 +
+                  MAP_CONTROL_STEP * 4
             }
           />
         )}

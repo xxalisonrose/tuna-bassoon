@@ -1,6 +1,6 @@
 # Content Submission Workflow
 
-Tuna Bassoon lets a limited group suggest new locations without giving that
+Lorcal lets a limited group suggest new locations without giving that
 group access to the Content Portal or permission to publish content.
 
 ## Roles

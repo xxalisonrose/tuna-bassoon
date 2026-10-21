@@ -55,7 +55,11 @@ export default defineSchema({
       v.literal('custom'),
     ),
     avatarTopId: v.optional(
-      v.union(v.literal('trail_tank'), v.literal('explorer_field')),
+      v.union(
+        v.literal('trail_tank'),
+        v.literal('explorer_field'),
+        v.literal('new_explorer_tee'),
+      ),
       ),
     avatarBottomId: v.optional(
       v.union(v.literal('trail_shorts'), v.literal('explorer_cargo')),
@@ -69,6 +73,8 @@ export default defineSchema({
     avatarFaceId: v.optional(
       v.union(v.literal('none'), v.literal('explorer_goggles')),
       ),
+    unlockedAvatarItemIds: v.optional(v.array(v.string())),
+    avatarCustomizedAt: v.optional(v.number()),
     communitySubmissionIntroSeenAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -124,6 +130,7 @@ export default defineSchema({
         v.literal('theme'),
         v.literal('special_place'),
         v.literal('seasonal'),
+        v.literal('mission'),
       ),
     ),
     rule: v.optional(
@@ -221,6 +228,19 @@ export default defineSchema({
         'badgeDefinitionId',
         'level',
       ]),
+
+    missionProgress: defineTable({
+      clerkUserId: v.string(),
+      missionKey: v.string(),
+      version: v.optional(v.number()),
+      completedStepKeys: v.array(v.string()),
+      startedAt: v.number(),
+      introSeenAt: v.optional(v.number()),
+      completedAt: v.optional(v.number()),
+      updatedAt: v.number(),
+    })
+      .index('by_user', ['clerkUserId'])
+      .index('by_user_and_mission', ['clerkUserId', 'missionKey']),
 
     // Kept temporarily so an existing development shared-bank row remains
     // schema-valid while badge-specific pools replace it.

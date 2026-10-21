@@ -6,7 +6,7 @@ Block 5 of the capstone roadmap establishes one uninterrupted visitor path:
 
 ## Authentication entry
 
-- A signed-out visitor sees only the Tuna Bassoon authentication screen.
+- A signed-out visitor sees only the Lorcal authentication screen.
 - Map, Passport, and content-management navigation are unavailable until Clerk and Convex both confirm the session.
 - A short branded loading screen covers session restoration and the Clerk-to-Convex handoff.
 - A new sign-in, a new account, and a restored native session open directly on the Map.
@@ -28,6 +28,10 @@ Block 5 of the capstone roadmap establishes one uninterrupted visitor path:
 - A successful check-in updates badge progress without administrator intervention.
 - Level 1 uses the full-screen celebration; later repeatable levels use the banner.
 - Passport shows the saved avatar, visited places, earned badges, and badge levels.
+- Passport shows incomplete Missions beneath the badge filters. Completed
+  Missions become badges and may unlock avatar clothing.
+- The Welcome to Lorcal mission advances only when the user checks in at five
+  places, earns a non-Mission badge, and saves an avatar customization.
 - Retired and unavailable content remains labeled and does not become a new active goal.
 
 ## Acceptance pass

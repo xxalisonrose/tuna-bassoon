@@ -1015,7 +1015,7 @@ export default function AdminPortalScreen() {
             style={styles.subtitle}
             themeColor="textSecondary">
             Create, review, and maintain the locations and badges used by
-            the Tuna Bassoon app.
+            the Lorcal app.
           </ThemedText>
         </ThemedView>
 

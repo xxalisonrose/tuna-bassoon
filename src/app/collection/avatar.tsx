@@ -98,6 +98,9 @@ export default function CustomizeAvatarScreen() {
     savedSelection,
   );
   const previewSize = Math.min(Math.max(width - 64, 240), 430);
+  const unlockedAvatarItemIds = new Set(
+    avatarProfile?.unlockedAvatarItemIds ?? [],
+  );
 
   const returnToPassport = () => {
     router.replace('/collection');
@@ -317,6 +320,9 @@ export default function CustomizeAvatarScreen() {
               }`}
               style={styles.choiceGrid}>
               {visibleItems.map((item) => {
+                const locked =
+                  item.unlockMissionKey !== undefined &&
+                  !unlockedAvatarItemIds.has(item.id);
                 const selected =
                   getAvatarSlotValue(activeSelection, activeCategory) ===
                   item.id;
@@ -331,7 +337,8 @@ export default function CustomizeAvatarScreen() {
                     key={item.id}
                     accessibilityLabel={`${item.name}. ${item.description}`}
                     accessibilityRole="radio"
-                    accessibilityState={{ selected }}
+                    accessibilityState={{ disabled: locked, selected }}
+                    disabled={locked}
                     onPress={() => chooseItem(activeCategory, item.id)}
                     style={({ pressed }) => [
                       styles.choiceCard,
@@ -343,6 +350,7 @@ export default function CustomizeAvatarScreen() {
                           ? theme.borderStrong
                           : theme.border,
                       },
+                      locked && styles.lockedChoiceCard,
                       pressed && styles.pressed,
                     ]}>
                     <AvatarPreview selection={previewSelection} size={150} />
@@ -354,8 +362,19 @@ export default function CustomizeAvatarScreen() {
                       <ThemedText
                         type="smallBold"
                         style={selected ? { color: theme.link } : undefined}>
-                        {selected ? 'Equipped' : 'Choose Item'}
+                        {locked
+                          ? 'Locked Mission Reward'
+                          : selected
+                            ? 'Equipped'
+                            : 'Choose Item'}
                       </ThemedText>
+                      {locked && item.unlockMessage ? (
+                        <ThemedText
+                          type="small"
+                          themeColor="textSecondary">
+                          {item.unlockMessage}
+                        </ThemedText>
+                      ) : null}
                     </View>
                   </Pressable>
                 );
@@ -517,6 +536,9 @@ const styles = StyleSheet.create({
   choiceCopy: {
     flex: 1,
     gap: Spacing.one,
+  },
+  lockedChoiceCard: {
+    opacity: 0.62,
   },
   comingSoonCard: {
     borderRadius: Spacing.four,

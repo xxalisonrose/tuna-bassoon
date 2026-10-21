@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1254" height="1254" viewBox="0 0 1254 1254">
+  <defs>
+    <linearGradient id="shirt" x2="0" y2="1">
+      <stop stop-color="#fff4df"/>
+      <stop offset="1" stop-color="#dfc9a5"/>
+    </linearGradient>
+    <clipPath id="shirtClip">
+      <path d="M548 286 C570 290 589 307 608 311 C624 315 642 315 658 311 C677 307 696 290 706 286 L733 303 C715 341 708 379 711 420 L720 510 C666 526 590 526 534 510 L543 420 C546 379 539 341 521 303 Z"/>
+    </clipPath>
+  </defs>
+  <path
+    d="M548 286 C570 290 589 307 608 311 C624 315 642 315 658 311 C677 307 696 290 706 286 L733 303 C715 341 708 379 711 420 L720 510 C666 526 590 526 534 510 L543 420 C546 379 539 341 521 303 Z"
+    fill="url(#shirt)"
+    stroke="#38251b"
+    stroke-width="6"
+    stroke-linecap="round"
+    stroke-linejoin="round"/>
+  <g clip-path="url(#shirtClip)" fill="#30231f">
+    <path d="M545 308q26-25 50-4 12 17-5 32-29 17-48-5z"/>
+    <path d="M674 298q31-17 49 10 8 23-19 31-24 4-34-17z"/>
+    <path d="M520 384q23-23 44-4 9 20-14 30-22 7-30-10z"/>
+    <path d="M681 400q25-25 46-5 12 19-10 31-24 8-36-8z"/>
+    <path d="M560 474q20-22 43-8 12 18-10 30-20 9-33-4z"/>
+    <path d="M638 440q23-20 43-5 9 17-10 27-22 9-33-4z"/>
+  </g>
+  <path d="M627 314v196" fill="none" stroke="#704a32" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="615" cy="374" r="4" fill="#a36a39"/>
+  <circle cx="615" cy="408" r="4" fill="#a36a39"/>
+  <text x="628" y="452" text-anchor="middle"
+    font-family="Arial, sans-serif" font-size="28" font-weight="900"
+    fill="#38251b" stroke="#fff4df" stroke-width="2" paint-order="stroke">Newbie</text>
+</svg>

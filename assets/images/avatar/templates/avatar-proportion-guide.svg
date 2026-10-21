@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="2048" height="2048" viewBox="0 0 2048 2048">
-  <title>Tuna Bassoon Avatar Proportion Guide</title>
+  <title>Lorcal Avatar Proportion Guide</title>
   <desc>Deterministic 2048 pixel front-facing cow avatar template with centerline, safe zones, joint guides, and accessory anchor points.</desc>
   <defs>
     <style>
@@ -106,7 +106,7 @@
   </g>
 
   <g id="template-notes">
-    <text class="title" x="80" y="2000">Tuna Bassoon Avatar Template · 2048 × 2048 · Front View</text>
+    <text class="title" x="80" y="2000">Lorcal Avatar Template · 2048 × 2048 · Front View</text>
     <text class="subtitle" x="1380" y="2000">Keep the full canvas. Never trim layers.</text>
   </g>
 </svg>

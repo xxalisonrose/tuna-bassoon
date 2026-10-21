@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760">
+  <defs>
+    <linearGradient id="shirt" x2="0" y2="1">
+      <stop stop-color="#fff4df"/>
+      <stop offset="1" stop-color="#dfc9a5"/>
+    </linearGradient>
+    <linearGradient id="denim" x2="0" y2="1">
+      <stop stop-color="#6385a3"/>
+      <stop offset="1" stop-color="#344f6b"/>
+    </linearGradient>
+    <linearGradient id="leather" x2="0" y2="1">
+      <stop stop-color="#b97945"/>
+      <stop offset="1" stop-color="#704126"/>
+    </linearGradient>
+    <style>
+      .ink { stroke:#38251b; stroke-width:8; stroke-linejoin:round; stroke-linecap:round; }
+      .detail { fill:none; stroke:#704a32; stroke-width:4; stroke-linecap:round; stroke-linejoin:round; }
+    </style>
+    <clipPath id="shirtClip">
+      <path d="M95 88 157 64 205 83 259 66 319 94 366 171 323 204 293 174 288 327 118 327 112 174 82 204 40 170Z"/>
+    </clipPath>
+  </defs>
+
+  <g id="newbie-shirt" transform="translate(35 35)">
+    <path class="ink" fill="url(#shirt)"
+      d="M95 88 157 64 205 83 259 66 319 94 366 171 323 204 293 174 288 327 118 327 112 174 82 204 40 170Z"/>
+    <g clip-path="url(#shirtClip)" fill="#30231f">
+      <path d="M89 109q24-25 49-4 12 15-4 31-28 18-48-3z"/>
+      <path d="M248 93q30-17 48 9 9 22-18 31-23 4-34-16z"/>
+      <path d="M59 166q22-23 43-5 8 20-14 30-22 7-29-10z"/>
+      <path d="M277 191q24-25 45-5 12 18-10 30-23 8-35-8z"/>
+      <path d="M142 286q19-22 42-8 12 18-9 29-19 9-33-4z"/>
+      <path d="M228 246q22-20 42-5 9 16-10 26-21 9-32-4z"/>
+    </g>
+    <path class="detail" d="M197 83v244M130 175h39M239 175h39"/>
+    <circle cx="184" cy="186" r="4" fill="#a36a39"/>
+    <circle cx="184" cy="220" r="4" fill="#a36a39"/>
+    <text x="204" y="247" text-anchor="middle"
+      font-family="Arial, sans-serif" font-size="28" font-weight="900"
+      fill="#38251b" stroke="#fff4df" stroke-width="2" paint-order="stroke">
+      Newbie
+    </text>
+  </g>
+
+  <g id="jeans" transform="translate(420 43)">
+    <path class="ink" fill="url(#denim)"
+      d="M45 74q94 20 190 0l-9 74-12 198h-79l-10-154-14 154H32L21 148Z"/>
+    <path class="detail" d="M47 91q92 18 185 0M138 102l-9 190M48 120l-8 126M226 120l-8 126"/>
+    <path fill="#8fa7b5" stroke="#38251b" stroke-width="4"
+      d="M72 109h37v39H72zM173 109h37v39h-37z"/>
+    <path class="detail" d="M88 112v30M190 112v30M42 324h78M145 324h62"/>
+    <circle cx="139" cy="101" r="5" fill="#d8b36e" stroke="#38251b" stroke-width="3"/>
+  </g>
+
+  <g id="shoes" transform="translate(690 80)">
+    <path class="ink" fill="#eee3cd"
+      d="M20 134q28-9 43-46l16-42 43 12 1 61q34 12 58 29 14 10 8 28H27q-20-6-7-42Z"/>
+    <path class="ink" fill="#eee3cd"
+      d="M145 134q28-9 43-46l16-42 43 12 1 61q34 12 58 29 14 10 8 28H152q-20-6-7-42Z"/>
+    <path fill="#826044" stroke="#38251b" stroke-width="6"
+      d="M18 169h171q8 23-12 31H31q-22-7-13-31ZM143 169h171q8 23-12 31H156q-22-7-13-31Z"/>
+    <path class="detail" d="m82 76 34 16M76 91l39 14M207 76l34 16M201 91l39 14"/>
+    <path d="M94 79l22 29M219 79l22 29" stroke="#a36a39" stroke-width="5"/>
+  </g>
+
+  <g id="cap" transform="translate(940 55)">
+    <path class="ink" fill="#5b765d"
+      d="M24 120q4-80 79-91 78 4 91 91l-85 20Z"/>
+    <path class="ink" fill="#71886b"
+      d="M109 126q62-24 117 4-44 28-118 14Z"/>
+    <path class="detail" d="M102 39q10 42 1 81M37 104q60 19 129 0"/>
+    <circle cx="105" cy="42" r="5" fill="#d3b06d"/>
+  </g>
+
+  <g id="beanie" transform="translate(85 455)">
+    <path class="ink" fill="#bd704e"
+      d="M27 91q2-75 83-84 82 9 84 84Z"/>
+    <path class="ink" fill="#d18b62" d="M20 88h181v38H20z"/>
+    <path class="detail" d="M62 44v34M105 28v50M149 43v35"/>
+    <circle cx="110" cy="8" r="10" fill="#d18b62" stroke="#38251b" stroke-width="5"/>
+  </g>
+
+  <g id="scarf" transform="translate(350 475)">
+    <path class="ink" fill="#b95f43"
+      d="M25 20q77 43 158 0l-13 43q-68 35-132 0Z"/>
+    <path class="ink" fill="#c97652"
+      d="M52 59l62 10-8 94-44-19Z"/>
+    <path class="detail" d="M63 80l35 7M60 96l34 7M58 112l34 7"/>
+  </g>
+
+  <g id="glasses" transform="translate(660 505)" fill="#72502d" stroke="#38251b" stroke-width="8">
+    <circle cx="69" cy="63" r="48" fill="#b98343"/>
+    <circle cx="69" cy="63" r="34" fill="#514638"/>
+    <circle cx="177" cy="63" r="48" fill="#b98343"/>
+    <circle cx="177" cy="63" r="34" fill="#514638"/>
+    <path d="M117 61q6-13 12 0" fill="none"/>
+    <path d="M21 52 0 43M225 52l22-9" fill="none"/>
+    <path d="M48 41l33 37M157 41l33 37" stroke="#c5a16a" stroke-width="5" opacity=".8"/>
+  </g>
+</svg>

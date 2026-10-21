@@ -15,6 +15,7 @@ const reservedUsernames = new Set([
   'staff',
   'support',
   'system',
+  'lorcal',
   'tuna-bassoon',
   'tunabassoon',
 ]);

@@ -31,6 +31,7 @@ import type * as lib_locationMapPin from "../lib/locationMapPin.js";
 import type * as lib_username from "../lib/username.js";
 import type * as locationAgent from "../locationAgent.js";
 import type * as locations from "../locations.js";
+import type * as missions from "../missions.js";
 import type * as seed from "../seed.js";
 import type * as users from "../users.js";
 import type * as visits from "../visits.js";
@@ -65,6 +66,7 @@ declare const fullApi: ApiFromModules<{
   "lib/username": typeof lib_username;
   locationAgent: typeof locationAgent;
   locations: typeof locations;
+  missions: typeof missions;
   seed: typeof seed;
   users: typeof users;
   visits: typeof visits;

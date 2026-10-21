@@ -222,7 +222,7 @@ export default function SettingsScreen() {
                   Account
                 </ThemedText>
                 <ThemedText themeColor="textSecondary">
-                  Your Tuna Bassoon explorer account.
+                  Your Lorcal explorer account.
                 </ThemedText>
               </View>
 
@@ -312,7 +312,7 @@ export default function SettingsScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Sign Out"
-              accessibilityHint="Returns to the Tuna Bassoon sign-in screen"
+              accessibilityHint="Returns to the Lorcal sign-in screen"
               disabled={signingOut}
               onPress={handleSignOut}
               style={({ pressed }) => [
@@ -358,7 +358,7 @@ export default function SettingsScreen() {
                   </ThemedText>
                   <ThemedText themeColor="textSecondary">
                     {currentUser.canSubmitContent
-                      ? 'Suggest locations for the Tuna Bassoon map. Every submission remains private until an administrator reviews and approves it.'
+                      ? 'Suggest locations for the Lorcal map. Every submission remains private until an administrator reviews and approves it.'
                       : 'Explore the map to unlock the ability to suggest new locations for administrator review.'}
                   </ThemedText>
                 </View>
@@ -377,7 +377,7 @@ export default function SettingsScreen() {
               {currentUser.canSubmitContent ? (
                 <>
                   <ThemedText type="small" themeColor="textSecondary">
-                    Tuna Bassoon checks suggestions for possible duplicates,
+                    Lorcal checks suggestions for possible duplicates,
                     missing details, and content-safety concerns before placing
                     them in the review queue.
                   </ThemedText>
@@ -467,7 +467,7 @@ export default function SettingsScreen() {
                 </ThemedText>
                 <ThemedText themeColor="textSecondary">
                   Location is used to place your explorer and confirm nearby
-                  check-ins. Tuna Bassoon requests foreground access only.
+                  check-ins. Lorcal requests foreground access only.
                 </ThemedText>
               </View>
 
@@ -560,13 +560,13 @@ export default function SettingsScreen() {
                 Accessibility & Appearance
               </ThemedText>
               <ThemedText themeColor="textSecondary">
-                Tuna Bassoon follows your device’s light or dark appearance
+                Lorcal follows your device’s light or dark appearance
                 and its preferred text size. Buttons and map tools include
                 screen-reader labels where their visual icons need names.
               </ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
                 These preferences are changed in your device or browser
-                settings, not inside Tuna Bassoon.
+                settings, not inside Lorcal.
               </ThemedText>
             </View>
 

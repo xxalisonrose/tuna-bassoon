@@ -8,6 +8,7 @@ import { useColorScheme } from 'react-native';
 import AppTabs from '@/components/app-tabs';
 import { AwardCelebrationProvider } from '@/components/award-celebration-provider';
 import { CommunityContributorProvider } from '@/components/community-contributor-provider';
+import { MissionProvider } from '@/components/mission-provider';
 import { UserProfileProvider } from '@/components/user-profile-provider';
 
 const publishableKey =
@@ -49,11 +50,13 @@ export default function TabLayout() {
               : DefaultTheme
           }>
           <UserProfileProvider>
-            <CommunityContributorProvider>
-              <AwardCelebrationProvider>
-                <AppTabs />
-              </AwardCelebrationProvider>
-            </CommunityContributorProvider>
+            <MissionProvider>
+              <CommunityContributorProvider>
+                <AwardCelebrationProvider>
+                  <AppTabs />
+                </AwardCelebrationProvider>
+              </CommunityContributorProvider>
+            </MissionProvider>
           </UserProfileProvider>
         </ThemeProvider>
       </ConvexProviderWithClerk>

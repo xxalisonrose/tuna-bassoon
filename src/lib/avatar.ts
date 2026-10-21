@@ -8,6 +8,7 @@ export type AvatarPresetId = (typeof avatarPresetIds)[number];
 export const avatarTopIds = [
   'trail_tank',
   'explorer_field',
+  'new_explorer_tee',
 ] as const;
 export const avatarBottomIds = [
   'trail_shorts',
@@ -61,6 +62,8 @@ export type AvatarItemOption = {
   id: string;
   name: string;
   description: string;
+  unlockMissionKey?: string;
+  unlockMessage?: string;
 };
 
 export const trailBasicsSelection: AvatarSelection = {
@@ -129,6 +132,13 @@ export const avatarItemOptions: Record<
       id: 'explorer_field',
       name: 'Explorer Field Set',
       description: 'A rolled-sleeve field shirt with an olive utility vest.',
+    },
+    {
+      id: 'new_explorer_tee',
+      name: 'New Explorer Shirt',
+      description: 'A cow-print shirt awarded for completing the tutorial.',
+      unlockMissionKey: 'welcome-to-lorcal',
+      unlockMessage: 'Complete the Welcome to Lorcal mission.',
     },
   ],
   bottom: [

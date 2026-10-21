@@ -475,7 +475,7 @@ export default function SubmitLocationScreen() {
               Submit a Location
             </ThemedText>
             <ThemedText themeColor="textSecondary">
-              Share a place that belongs on the Tuna Bassoon map. Your idea
+              Share a place that belongs on the Lorcal map. Your idea
               stays private until an administrator reviews it.
             </ThemedText>
           </View>

@@ -7,6 +7,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export type SimulatorDirection =
   | 'up'
@@ -73,6 +74,7 @@ export function AdminLocationSimulator({
   resettingProgress,
   top,
 }: AdminLocationSimulatorProps) {
+  const insets = useSafeAreaInsets();
   const [coordinateEditorVisible, setCoordinateEditorVisible] =
     useState(false);
   const [latitudeText, setLatitudeText] = useState('');
@@ -135,7 +137,15 @@ export function AdminLocationSimulator({
   }
 
   return (
-    <View style={[styles.container, { bottom, top }]}>
+    <View
+      style={[
+        styles.container,
+        {
+          bottom,
+          top,
+          paddingBottom: Math.max(insets.bottom, 10),
+        },
+      ]}>
       {coordinateEditorVisible && (
         <View
           accessibilityViewIsModal
@@ -212,117 +222,121 @@ export function AdminLocationSimulator({
         </View>
       )}
 
-      <View style={styles.header}>
-        <View>
+      <View style={styles.dockContent}>
+        <View style={styles.panelSide}>
+          <View style={styles.titleBlock}>
           <Text style={styles.title}>Test GPS</Text>
           <Text style={styles.previewLabel}>Admin preview</Text>
-        </View>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Turn off admin test GPS"
-          onPress={() => {
-            closeCoordinateEditor();
-            onEnabledChange(false);
-          }}
-          style={({ pressed }) => [
-            styles.offButton,
-            pressed && styles.buttonPressed,
-          ]}>
-          <Text style={styles.offButtonText}>Off</Text>
-        </Pressable>
-      </View>
-
-      <View style={styles.directionPad}>
-        <View style={styles.directionRow}>
-          <View style={styles.directionSpacer} />
-          <DirectionButton
-            accessibilityLabel="Walk test player up"
-            arrow="↑"
-            onPress={() => onStep('up')}
-          />
-          <View style={styles.directionSpacer} />
-        </View>
-
-        <View style={styles.directionRow}>
-          <DirectionButton
-            accessibilityLabel="Walk test player left"
-            arrow="←"
-            onPress={() => onStep('left')}
-          />
+          </View>
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Enter test GPS coordinates"
-            accessibilityState={{
-              expanded: coordinateEditorVisible,
+            accessibilityLabel="Turn off admin test GPS"
+            onPress={() => {
+              closeCoordinateEditor();
+              onEnabledChange(false);
             }}
-            onPress={openCoordinateEditor}
             style={({ pressed }) => [
-              styles.coordinateButton,
+              styles.offButton,
               pressed && styles.buttonPressed,
             ]}>
-            <Text
-              accessible={false}
-              allowFontScaling={false}
-              style={styles.coordinateButtonIcon}>
-              ⌖
+            <Text style={styles.offButtonText}>Off</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.directionCluster}>
+          <View style={styles.directionPad}>
+            <View style={styles.directionRow}>
+              <View style={styles.directionSpacer} />
+              <DirectionButton
+                accessibilityLabel="Walk test player up"
+                arrow="↑"
+                onPress={() => onStep('up')}
+              />
+              <View style={styles.directionSpacer} />
+            </View>
+
+            <View style={styles.directionRow}>
+              <DirectionButton
+                accessibilityLabel="Walk test player left"
+                arrow="←"
+                onPress={() => onStep('left')}
+              />
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Enter test GPS coordinates"
+                accessibilityState={{
+                  expanded: coordinateEditorVisible,
+                }}
+                onPress={openCoordinateEditor}
+                style={({ pressed }) => [
+                  styles.coordinateButton,
+                  pressed && styles.buttonPressed,
+                ]}>
+                <Text
+                  accessible={false}
+                  allowFontScaling={false}
+                  style={styles.coordinateButtonIcon}>
+                  ⌖
+                </Text>
+              </Pressable>
+
+              <DirectionButton
+                accessibilityLabel="Walk test player right"
+                arrow="→"
+                onPress={() => onStep('right')}
+              />
+            </View>
+
+            <View style={styles.directionRow}>
+              <View style={styles.directionSpacer} />
+              <DirectionButton
+                accessibilityLabel="Walk test player down"
+                arrow="↓"
+                onPress={() => onStep('down')}
+              />
+              <View style={styles.directionSpacer} />
+            </View>
+          </View>
+
+          <Text style={styles.stepHelp}>10 m per step</Text>
+        </View>
+
+        <View style={styles.actionColumn}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Award my next test badge level"
+            accessibilityHint="Awards Level 1 on the first use and the next level on each later use"
+            disabled={awardingBadge}
+            onPress={onAwardBadge}
+            style={({ pressed }) => [
+              styles.awardButton,
+              awardingBadge && styles.resetButtonDisabled,
+              pressed && styles.buttonPressed,
+            ]}>
+            <Text style={styles.awardButtonText}>
+              {awardingBadge ? 'Awarding…' : 'Test Badge'}
             </Text>
           </Pressable>
 
-          <DirectionButton
-            accessibilityLabel="Walk test player right"
-            arrow="→"
-            onPress={() => onStep('right')}
-          />
-        </View>
-
-        <View style={styles.directionRow}>
-          <View style={styles.directionSpacer} />
-          <DirectionButton
-            accessibilityLabel="Walk test player down"
-            arrow="↓"
-            onPress={() => onStep('down')}
-          />
-          <View style={styles.directionSpacer} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Reset my test progress"
+            accessibilityHint="Deletes only your check-ins, badge progress, and earned badges after confirmation"
+            disabled={resettingProgress}
+            onPress={onResetProgress}
+            style={({ pressed }) => [
+              styles.resetButton,
+              resettingProgress && styles.resetButtonDisabled,
+              pressed && styles.buttonPressed,
+            ]}>
+            <Text style={styles.resetButtonText}>
+              {resettingProgress ? 'Resetting…' : 'Reset'}
+            </Text>
+          </Pressable>
         </View>
       </View>
-
-      <Text style={styles.stepHelp}>
-        Arrows walk 10 m in the direction shown.
-      </Text>
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Award my next test badge level"
-        accessibilityHint="Awards Level 1 on the first use and the next level on each later use"
-        disabled={awardingBadge}
-        onPress={onAwardBadge}
-        style={({ pressed }) => [
-          styles.awardButton,
-          awardingBadge && styles.resetButtonDisabled,
-          pressed && styles.buttonPressed,
-        ]}>
-        <Text style={styles.awardButtonText}>
-          {awardingBadge ? 'Awarding…' : 'Award Test Badge'}
-        </Text>
-      </Pressable>
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Reset my test progress"
-        accessibilityHint="Deletes only your check-ins, badge progress, and earned badges after confirmation"
-        disabled={resettingProgress}
-        onPress={onResetProgress}
-        style={({ pressed }) => [
-          styles.resetButton,
-          resettingProgress && styles.resetButtonDisabled,
-          pressed && styles.buttonPressed,
-        ]}>
-        <Text style={styles.resetButtonText}>
-          {resettingProgress ? 'Resetting…' : 'Reset Test Progress'}
-        </Text>
-      </Pressable>
     </View>
   );
 }
@@ -330,14 +344,16 @@ export function AdminLocationSimulator({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    right: 14,
-    zIndex: 10,
-    width: 160,
-    padding: 10,
+    right: 0,
+    left: 0,
+    zIndex: 20,
+    paddingTop: 12,
+    paddingHorizontal: 12,
     backgroundColor: 'rgba(255, 248, 231, 0.97)',
     borderColor: '#2F7E78',
-    borderWidth: 2,
-    borderRadius: 18,
+    borderTopWidth: 2,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     elevation: 8,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 3 },
@@ -367,11 +383,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
   },
-  header: {
+  dockContent: {
     flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  panelSide: {
+    flex: 1,
+    minWidth: 70,
+    maxWidth: 110,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 6,
+    justifyContent: 'flex-end',
+    gap: 10,
+    paddingBottom: 3,
+  },
+  titleBlock: {
+    alignItems: 'center',
   },
   title: {
     color: '#24423F',
@@ -384,12 +412,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   offButton: {
-    minWidth: 42,
-    minHeight: 30,
+    width: 52,
+    height: 52,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#E8EEE7',
-    borderRadius: 15,
+    borderColor: '#2F7E78',
+    borderWidth: 1,
+    borderRadius: 26,
   },
   offButtonText: {
     color: '#24423F',
@@ -399,6 +429,9 @@ const styles = StyleSheet.create({
   directionPad: {
     alignItems: 'center',
     gap: 3,
+  },
+  directionCluster: {
+    alignItems: 'center',
   },
   directionRow: {
     flexDirection: 'row',
@@ -439,29 +472,35 @@ const styles = StyleSheet.create({
     lineHeight: 25,
   },
   stepHelp: {
-    marginTop: 6,
+    marginTop: 3,
     color: '#50706B',
     fontSize: 10,
     lineHeight: 13,
     textAlign: 'center',
   },
+  actionColumn: {
+    flex: 1,
+    minWidth: 70,
+    maxWidth: 110,
+    justifyContent: 'flex-end',
+    gap: 10,
+    paddingBottom: 3,
+  },
   resetButton: {
-    minHeight: 34,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     backgroundColor: '#F8E5E1',
     borderColor: '#B7473A',
     borderWidth: 1,
     borderRadius: 17,
   },
   awardButton: {
-    minHeight: 34,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     backgroundColor: '#D8EEE6',
     borderColor: '#2F7E78',
     borderWidth: 1,
@@ -482,9 +521,10 @@ const styles = StyleSheet.create({
   },
   coordinateEditor: {
     position: 'absolute',
-    right: 0,
-    bottom: 206,
+    left: '50%',
+    bottom: 180,
     width: 280,
+    transform: [{ translateX: -140 }],
     padding: 14,
     backgroundColor: '#FFFDF5',
     borderColor: '#2F7E78',

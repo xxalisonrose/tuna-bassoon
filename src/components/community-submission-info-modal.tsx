@@ -53,7 +53,7 @@ export function CommunitySubmissionInfoModal({
                 You’re a Community Contributor!
               </ThemedText>
               <ThemedText themeColor="textSecondary">
-                You can now suggest new locations for the Tuna Bassoon map.
+                You can now suggest new locations for the Lorcal map.
               </ThemedText>
             </View>
 

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The companion content portal is the web interface for managing Tuna Bassoon content. It is an administration tool for the project’s content team, not a public-facing website.
+The companion content portal is the web interface for managing Lorcal content. It is an administration tool for the project’s content team, not a public-facing website.
 
 The portal is available at `/admin` in the Expo web app. Clerk handles sign-in, and Convex verifies administrator access on the server before protected functions run. Changes saved through the portal are read by the mobile app without requiring a new app build.
 
@@ -401,4 +401,4 @@ These additions must preserve server-side authorization, existing awards and pro
 
 Server-side rendering is not required for the current portal. It is an authenticated, interactive form application that relies on JavaScript.
 
-Static or server-rendered pages can be reconsidered if Tuna Bassoon later adds a public informational website.
+Static or server-rendered pages can be reconsidered if Lorcal later adds a public informational website.

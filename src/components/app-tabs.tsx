@@ -6,8 +6,12 @@ import { useEffect, useRef } from 'react';
 import { useColorScheme } from 'react-native';
 
 import { Colors } from '@/constants/theme';
+import {
+  AppTabBarProvider,
+  useAppTabBar,
+} from '@/contexts/app-tab-bar-context';
 
-export default function AppTabs() {
+function AppTabsContent() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
   const router = useRouter();
@@ -18,6 +22,7 @@ export default function AppTabs() {
     isLoading: isConvexLoading,
   } = useConvexAuth();
   const shouldOpenMapRef = useRef(true);
+  const { hidden: isTabBarHidden } = useAppTabBar();
   const authenticationReady =
     isLoaded &&
     isSignedIn === true &&
@@ -58,7 +63,7 @@ export default function AppTabs() {
   return (
     <NativeTabs
       backgroundColor={colors.background}
-      hidden={!authenticationReady}
+      hidden={!authenticationReady || isTabBarHidden}
       indicatorColor={colors.accentSoft}
       labelStyle={{ selected: { color: colors.text } }}>
       <NativeTabs.Trigger
@@ -125,5 +130,13 @@ export default function AppTabs() {
         />
       </NativeTabs.Trigger>
     </NativeTabs>
+  );
+}
+
+export default function AppTabs() {
+  return (
+    <AppTabBarProvider>
+      <AppTabsContent />
+    </AppTabBarProvider>
   );
 }

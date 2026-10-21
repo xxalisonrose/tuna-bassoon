@@ -118,7 +118,8 @@ type BadgeClassification =
   | 'general'
   | 'theme'
   | 'special_place'
-  | 'seasonal';
+  | 'seasonal'
+  | 'mission';
 
 function definitionUsesLevels(definition: {
   classification?: BadgeClassification;
@@ -476,6 +477,10 @@ export const syncMyAwards = mutation({
     const now = Date.now();
 
     for (const definition of definitions) {
+      if (definition.classification === 'mission') {
+        continue;
+      }
+
       const windows = windowsByBadge.get(definition._id) ?? [];
       const storedProgress = progressByBadge.get(definition._id);
       const retired = definition.retired === true;
@@ -702,18 +707,23 @@ export const getMyBadgeProgress = query({
           progressByBadge.get(definition._id)?.completedVisits ?? 0;
         const classification =
           definition.classification ?? 'general';
+        const missionBadge = classification === 'mission';
         const levelsEnabled = definitionUsesLevels(definition);
-        const calculatedLevel = getEarnedLevel(
-          completedVisits,
-          definition.requiredVisits,
-          levelsEnabled,
-        );
+        const calculatedLevel = missionBadge
+          ? 0
+          : getEarnedLevel(
+              completedVisits,
+              definition.requiredVisits,
+              levelsEnabled,
+            );
         const highestAwardedLevel =
           highestAwardedLevelByBadge.get(definition._id) ?? 0;
         const displaysLevel =
           classification !== 'seasonal' &&
           (levelsEnabled || highestAwardedLevel > 1);
-        const currentLevel = classification === 'seasonal'
+        const currentLevel = missionBadge
+          ? highestAwardedLevel
+          : classification === 'seasonal'
           ? highestAwardedLevel > 0 || calculatedLevel > 0
             ? 1
             : 0
@@ -734,7 +744,11 @@ export const getMyBadgeProgress = query({
           retired,
           windows,
         );
-        const progress = definition.requiredVisits === 0
+        const progress = missionBadge
+          ? earned
+            ? 1
+            : 0
+          : definition.requiredVisits === 0
           ? 1
           : levelsEnabled
             ? levelProgressVisits / definition.requiredVisits
@@ -765,8 +779,8 @@ export const getMyBadgeProgress = query({
           earned,
           inProgress: levelsEnabled
             ? levelProgressVisits > 0
-            : !earned && completedVisits > 0,
-          unearned: !earned && levelProgressVisits === 0,
+            : !missionBadge && !earned && completedVisits > 0,
+          unearned: !earned && (missionBadge || levelProgressVisits === 0),
           available,
           locked: !available && !retired,
           activeWindow,

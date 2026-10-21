@@ -128,7 +128,7 @@ export default function AppTabsWeb() {
           <ThemedText
             type="smallBold"
             style={[styles.brand, { color: theme.text }]}>
-            Tuna Bassoon
+            Lorcal
           </ThemedText>
 
           <NavLink href="/map" label="Map" />

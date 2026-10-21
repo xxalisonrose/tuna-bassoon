@@ -255,13 +255,18 @@ function getClassificationPresetChange(definition: {
   _id: Id<'badgeDefinitions'>;
   name: string;
   tag: string;
-  classification?: BadgeClassification;
+  classification?: BadgeClassification | 'mission';
   requiredVisits: number;
   levelsEnabled?: boolean;
   congratulationsMessages?: string[];
   rule?: StoredBadgeRule;
 }) {
   const classification = definition.classification ?? 'general';
+
+  if (classification === 'mission') {
+    return null;
+  }
+
   const preset = classificationPresets[classification];
   const requiredVisits = classification === 'general'
     ? normalizeRequiredVisits(definition.requiredVisits)
@@ -469,7 +474,9 @@ export const getBadgesForAdmin = query({
       .collect();
 
     const definitionsWithArtwork = await Promise.all(
-      definitions.map(async (definition) => ({
+      definitions
+        .filter((definition) => definition.classification !== 'mission')
+        .map(async (definition) => ({
         ...definition,
         imageUrl: definition.imageStorageId === undefined
           ? undefined
@@ -511,6 +518,10 @@ export const previewClassificationPresetMigration = query({
     >[] = [];
 
     for (const definition of definitions) {
+      if (definition.classification === 'mission') {
+        continue;
+      }
+
       const change = getClassificationPresetChange(definition);
 
       if (change !== null) {
@@ -537,6 +548,10 @@ export const applyClassificationPresetMigration = mutation({
     >[] = [];
 
     for (const definition of definitions) {
+      if (definition.classification === 'mission') {
+        continue;
+      }
+
       const change = getClassificationPresetChange(definition);
 
       if (change !== null) {

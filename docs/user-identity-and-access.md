@@ -32,7 +32,7 @@ The Content Portal includes a **Users** section. Administrators can search
 registered profiles by public username, display name, or private email. A user
 must open the updated app at least once before the profile can appear in this
 directory. This avoids importing or duplicating Clerk's account directory and
-keeps the app database limited to people who have actually used Tuna Bassoon.
+keeps the app database limited to people who have actually used Lorcal.
 
 Search results show the effective role and how the user received access:
 earned progress, a manual grant, Regional Moderator status, or Admin

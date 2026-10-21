@@ -24,6 +24,12 @@ Every saved selection renders by stacking full-canvas transparent assets over th
 
 Existing profiles remain compatible. A saved `explorer` preset becomes the complete Explorer item selection, while `trail_basics` becomes the Trail Basics selection. Older clients may still submit `avatarPresetId`; the mutation translates that preset into item-level fields. New clients submit a full `selection` object.
 
+The wardrobe also supports mission-locked items. The New Explorer Shirt is
+visible but locked until the Welcome to Lorcal tutorial is complete.
+Mission completion records the unlock on the user profile, and the server
+rejects attempts to save a locked item even if an older client bypasses the
+wardrobe interface.
+
 The schema retains `avatarPresetId` as a derived convenience value. It is `explorer` or `trail_basics` when all equipped items match a preset, and `custom` for mixed looks.
 
 ## Customization screen

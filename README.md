@@ -1,4 +1,4 @@
-# Tuna Bassoon
+# Lorcal
 
 Docs for map - https://maplibre.org/maplibre-gl-js/docs/
 

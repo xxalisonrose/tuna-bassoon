@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "tuna-bassoon-app",
+    "name": "Lorcal",
     "slug": "tuna-bassoon-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -12,7 +12,7 @@
     },
     "android": {
       "predictiveBackGestureEnabled": false,
-      "package": "com.dffallonsteam.tunabassoonapp",
+      "package": "com.Lorcalapp",
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
@@ -27,7 +27,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Tuna Bassoon uses your location to show your position on the map."
+          "locationWhenInUsePermission": "Lorcal uses your location to show your position on the map."
         }
       ],
       "@maplibre/maplibre-react-native",

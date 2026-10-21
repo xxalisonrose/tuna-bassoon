@@ -55,7 +55,7 @@ export default function AuthenticationEntryScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   if (!isLoaded) {
-    return <AuthenticationLoadingScreen message="Opening Tuna Bassoon..." />;
+    return <AuthenticationLoadingScreen message="Opening Lorcal..." />;
   }
 
   if (isSignedIn) {
@@ -111,7 +111,7 @@ export default function AuthenticationEntryScreen() {
               accessibilityRole="header"
               type="title"
               style={styles.centeredText}>
-              Welcome to Tuna Bassoon
+              Welcome to Lorcal
             </ThemedText>
 
             <ThemedText
@@ -142,7 +142,7 @@ export default function AuthenticationEntryScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Sign In"
-              accessibilityHint="Opens the secure Tuna Bassoon sign-in screen"
+              accessibilityHint="Opens the secure Lorcal sign-in screen"
               disabled={authenticationBusy}
               onPress={() => beginAuthentication('sign-in')}
               style={({ pressed }) => [

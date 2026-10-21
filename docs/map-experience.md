@@ -42,6 +42,8 @@ Signed-in administrators have a red circular **TEST** control beneath the standa
 
 While Test GPS is active, location details, distance checks, and check-ins use the simulated position. The location card shows an **Admin Test GPS** notice because a successful test check-in is saved to the administrator's account and can award progress. Turning Test GPS off returns the map and check-ins to the device location when one is available.
 
+The expanded Test GPS panel temporarily hides the native bottom navigation and takes its place as a wide bottom dock. The movement pad stays centered, **Off** sits on the left, and the test-badge and reset actions sit on the right. This keeps the map and player visible above the controls while preventing accidental tab changes. Turning Test GPS off restores the bottom navigation immediately.
+
 The expanded Test GPS panel also offers **Reset Test Progress**. After destructive confirmation, it deletes the signed-in administrator's check-ins, calculated badge progress, and earned badge awards so badge celebrations can be retested from Level 1. The reset never targets another account.
 
 **Award Test Badge** awards the next level of an active repeatable badge directly to the signed-in administrator. After a reset, the first tap queues the Level 1 full-screen celebration and the second tap queues the Level 2 banner. It does not create a location visit. Moving the simulated player preserves the current zoom instead of returning to the standard zoom level.

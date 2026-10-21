@@ -75,6 +75,7 @@ const avatarPresetValidator = v.union(
 const avatarTopValidator = v.union(
   v.literal('trail_tank'),
   v.literal('explorer_field'),
+  v.literal('new_explorer_tee'),
 );
 const avatarBottomValidator = v.union(
   v.literal('trail_shorts'),
@@ -101,7 +102,7 @@ const avatarSelectionValidator = v.object({
 });
 
 type AvatarSelection = {
-  topId: 'trail_tank' | 'explorer_field';
+  topId: 'trail_tank' | 'explorer_field' | 'new_explorer_tee';
   bottomId: 'trail_shorts' | 'explorer_cargo';
   shoesId: 'bare_hooves' | 'explorer_boots';
   neckId: 'none' | 'rust_neckerchief';
@@ -383,6 +384,7 @@ export const getMyAvatarProfile = query({
     return {
       avatarPresetId: getMatchingPresetId(selection),
       selection,
+      unlockedAvatarItemIds: profile?.unlockedAvatarItemIds ?? [],
       hasSavedAvatar: profile !== null,
     };
   },
@@ -409,6 +411,18 @@ export const saveMyAvatarProfile = mutation({
       .unique();
     const selection =
       args.selection ?? selectionForPreset(args.avatarPresetId);
+
+    if (
+      selection.topId === 'new_explorer_tee' &&
+      !existingProfile?.unlockedAvatarItemIds?.includes(
+        'new_explorer_tee',
+      )
+    ) {
+      throw new ConvexError(
+        'Complete the Welcome to Lorcal mission to unlock this shirt.',
+      );
+    }
+
     const avatarPresetId = getMatchingPresetId(selection);
     const now = Date.now();
     const avatarFields = {
@@ -418,6 +432,7 @@ export const saveMyAvatarProfile = mutation({
       avatarShoesId: selection.shoesId,
       avatarNeckId: selection.neckId,
       avatarFaceId: selection.faceId,
+      avatarCustomizedAt: now,
       updatedAt: now,
     };
 

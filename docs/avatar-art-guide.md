@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This kit defines the proportions, alignment, layer order, naming, and export rules for Tuna Bassoon avatar artwork. New clothing and accessories should fit this template so placeholder art can be replaced without changing saved avatar selections or repositioning every item.
+This kit defines the proportions, alignment, layer order, naming, and export rules for Lorcal avatar artwork. New clothing and accessories should fit this template so placeholder art can be replaced without changing saved avatar selections or repositioning every item.
 
 The approved character is a friendly upright cow with slightly lanky proportions, a long cow muzzle, prominent ears, short visible horns, a dark hair tuft, and black-and-cream markings. The default outfit is a traditional explorer ensemble with an olive utility vest, cream field shirt, tan cargo shorts, brown walking boots, a rust-red neckerchief, round sunglasses, and a tan backpack.
 

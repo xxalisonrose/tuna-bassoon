@@ -19,6 +19,7 @@ const avatarImages = {
   base: require('../../assets/images/avatar/references/avatar-neutral-reference.png'),
   explorerReference: require('../../assets/images/avatar/references/avatar-explorer-reference.png'),
   explorerTop: require('../../assets/images/avatar/items/top/avatar-top-explorer-field.png'),
+  newExplorerTop: require('../../assets/images/avatar/items/top/avatar-top-new-explorer-tee.png'),
   explorerBottom: require('../../assets/images/avatar/items/bottom/avatar-bottom-explorer-cargo.png'),
   rustNeckerchief: require('../../assets/images/avatar/items/neck/avatar-neck-rust-neckerchief.png'),
 } as const;
@@ -27,7 +28,9 @@ function getAvatarDescription(selection: AvatarSelection) {
   const parts = [
     selection.topId === 'explorer_field'
       ? 'an explorer field shirt and vest'
-      : 'a cream trail tank',
+      : selection.topId === 'new_explorer_tee'
+        ? 'a cow-print New Explorer shirt'
+        : 'a cream trail tank',
     selection.bottomId === 'explorer_cargo'
       ? 'tan cargo shorts'
       : 'neutral trail shorts',
@@ -147,6 +150,12 @@ export function AvatarPreview({
             <AvatarLayer
               source={avatarImages.explorerTop}
               style={styles.topLayer}
+            />
+          ) : null}
+          {activeSelection.topId === 'new_explorer_tee' ? (
+            <AvatarLayer
+              source={avatarImages.newExplorerTop}
+              style={styles.fullLayer}
             />
           ) : null}
           {activeSelection.neckId === 'rust_neckerchief' ? (
