@@ -76,7 +76,7 @@ The expanded Test GPS panel temporarily hides the native bottom navigation and t
 
 The expanded Test GPS panel also offers **Reset Test Progress**. After destructive confirmation, it deletes the signed-in administrator's check-ins, calculated badge progress, earned badge awards, and saved tutorial mission progress. Badge celebrations can then be retested from Level 1, and the tutorial introduction appears again after the app is reopened. The reset never targets another account.
 
-The dock uses at least 48-point movement controls and expanded touch targets for its actions so the bottom row remains reliable on physical Android devices. Android maps use MapLibre's texture-backed view because Lorcal layers location details, the location list, and testing controls over the map; this prevents the native map surface from flashing when those overlays open or close.
+The dock uses at least 48-point movement controls and expanded touch targets for its actions. On Android, its interactive content also clears the full native tab-bar touch region so the complete Down and Reset buttons respond even while the tab bar is visually hidden. Android maps use MapLibre's texture-backed view because Lorcal layers location details, the location list, and testing controls over the map; this prevents the native map surface from flashing when those overlays open or close.
 
 **Award Test Badge** awards the next level of an active repeatable badge directly to the signed-in administrator. After a reset, the first tap queues the Level 1 full-screen celebration and the second tap queues the Level 2 banner. It does not create a location visit. Moving the simulated player preserves the current zoom instead of returning to the standard zoom level.
 

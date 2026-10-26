@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BottomTabInset } from '@/constants/theme';
+
 export type SimulatorDirection =
   | 'up'
   | 'right'
@@ -40,7 +42,6 @@ type DirectionButtonProps = {
 
 const CONTROL_HIT_SLOP = 12;
 const CONTROL_PRESS_RETENTION = 24;
-const ANDROID_BOTTOM_TOUCH_CLEARANCE = 28;
 
 function DirectionButton({
   accessibilityLabel,
@@ -150,11 +151,10 @@ export function AdminLocationSimulator({
         {
           bottom,
           top,
-          paddingBottom:
-            Math.max(insets.bottom, 10) +
-            (Platform.OS === 'android'
-              ? ANDROID_BOTTOM_TOUCH_CLEARANCE
-              : 0),
+          paddingBottom: Math.max(
+            insets.bottom,
+            Platform.OS === 'android' ? BottomTabInset : 10,
+          ),
         },
       ]}>
       {coordinateEditorVisible && (
