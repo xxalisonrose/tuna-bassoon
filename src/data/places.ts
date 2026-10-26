@@ -10,6 +10,9 @@ export type Place = {
   isLore?: boolean;
   coordinates: [number, number];
   category?: string;
+  city?: string;
+  state?: string;
   mapPinType: LocationMapPinType;
   badges: string[];
+  betaOnly?: boolean;
 };

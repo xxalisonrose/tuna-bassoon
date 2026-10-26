@@ -268,6 +268,7 @@ export function LocationPinLayer({
           return (
             <Layer
               key={`${artworkLayer.pinType}-${artworkLayer.state}`}
+              afterId="location-pin-visited-selected"
               id={`location-pin-artwork-${artworkLayer.pinType}-${artworkLayer.state}`}
               type="symbol"
               filter={filter}

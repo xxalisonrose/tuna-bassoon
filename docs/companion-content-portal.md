@@ -300,7 +300,7 @@ Celebration size is automatic. Earning Level 1 of a badge, including a one-time 
 
 The full-screen celebration presents the badge artwork, badge name, level when applicable, and the selected congratulations message. It does not repeat the badge's editor description, preventing internal drafting notes or scheduling shorthand from appearing in the celebration.
 
-For repeated mobile testing, a signed-in administrator can open Test GPS on the map and choose Reset Test Progress. The action requires destructive confirmation and deletes only that administrator's check-ins, badge progress, and earned badge awards. Clearing check-ins is necessary because badge progress is recalculated from visit history. Award Test Badge then awards sequential levels of an active repeatable badge without check-ins, allowing Level 1 popup and Level 2 banner testing back to back.
+For repeated mobile testing, a signed-in administrator can open Test GPS on the map and choose Reset Test Progress. The action requires destructive confirmation and deletes only that administrator's check-ins, badge progress, earned badge awards, and tutorial mission progress. Clearing check-ins is necessary because badge progress is recalculated from visit history. Reopening the app shows the tutorial introduction again. Award Test Badge then awards sequential levels of an active repeatable badge without check-ins, allowing Level 1 popup and Level 2 banner testing back to back.
 
 ### Badge artwork
 
@@ -383,6 +383,11 @@ The portal follows the credential rules in `AGENTS.md`.
 - `/editor` is retained only as a compatibility redirect to `/admin`.
 
 Badge management is part of the existing content portal rather than a separate public route.
+
+Location records include optional City and State fields. Administrators should
+fill in both whenever they are known because the app uses them for destination
+search and trip-planning filters. These fields remain optional while older
+published locations are reviewed and backfilled.
 
 ## Future Work
 

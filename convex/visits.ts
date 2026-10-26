@@ -80,6 +80,13 @@ export const checkIn = mutation({
     }
 
     if (
+      location.ownerClerkUserId !== undefined &&
+      location.ownerClerkUserId !== identity.subject
+    ) {
+      throw new ConvexError('This private test location is not available.');
+    }
+
+    if (
       location.latitude === undefined ||
       location.longitude === undefined
     ) {
@@ -174,7 +181,7 @@ export const resetMyTestingProgress = mutation({
   handler: async (ctx) => {
     const identity = await requireAdmin(ctx);
 
-    const [visits, badgeProgress, badgeAwards] =
+    const [visits, badgeProgress, badgeAwards, missionProgress] =
       await Promise.all([
         ctx.db
           .query('visits')
@@ -194,6 +201,12 @@ export const resetMyTestingProgress = mutation({
             queryBuilder.eq('clerkUserId', identity.subject),
           )
           .collect(),
+        ctx.db
+          .query('missionProgress')
+          .withIndex('by_user', (queryBuilder) =>
+            queryBuilder.eq('clerkUserId', identity.subject),
+          )
+          .collect(),
       ]);
 
     await Promise.all([
@@ -204,12 +217,16 @@ export const resetMyTestingProgress = mutation({
       ...badgeAwards.map((award) =>
         ctx.db.delete(award._id),
       ),
+      ...missionProgress.map((progress) =>
+        ctx.db.delete(progress._id),
+      ),
     ]);
 
     return {
       deletedVisits: visits.length,
       deletedProgressRecords: badgeProgress.length,
       deletedAwards: badgeAwards.length,
+      deletedMissionProgressRecords: missionProgress.length,
     };
   },
 });

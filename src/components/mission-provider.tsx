@@ -81,7 +81,10 @@ export function MissionProvider({ children }: { children: ReactNode }) {
       await acknowledgeMissionIntro({ missionKey: tutorialMission.key });
       setIsSaving(false);
       if (openPassport) {
-        router.push('/collection');
+        router.push({
+          pathname: '/collection',
+          params: { mission: tutorialMission.key },
+        });
       }
     } catch (caughtError) {
       setError(

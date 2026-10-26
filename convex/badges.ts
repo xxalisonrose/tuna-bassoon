@@ -409,6 +409,7 @@ export const syncMyAwards = mutation({
       progress,
       awards,
       availabilityWindows,
+      profile,
     ] =
       await Promise.all([
         ctx.db.query('badgeDefinitions').collect(),
@@ -431,7 +432,18 @@ export const syncMyAwards = mutation({
           )
           .collect(),
         ctx.db.query('badgeAvailabilityWindows').collect(),
+        ctx.db
+          .query('userProfiles')
+          .withIndex('by_user', (queryBuilder) =>
+            queryBuilder.eq('clerkUserId', identity.subject),
+          )
+          .unique(),
       ]);
+    const eligibleDefinitions = definitions.filter(
+      (definition) =>
+        definition.betaOnly !== true ||
+        profile?.betaStarterContentCreatedAt !== undefined,
+    );
 
     const distinctLocationIds = [
       ...new Set(visits.map((visit) => visit.locationId)),
@@ -476,7 +488,7 @@ export const syncMyAwards = mutation({
     }> = [];
     const now = Date.now();
 
-    for (const definition of definitions) {
+    for (const definition of eligibleDefinitions) {
       if (definition.classification === 'mission') {
         continue;
       }
@@ -803,9 +815,11 @@ export const getMyBadgeProgress = query({
 // definitions or availability windows change, instead of rereading the full
 // catalog for every personalized progress subscription.
 export const getBadgeCatalog = query({
-  args: {},
+  args: {
+    includeBeta: v.optional(v.boolean()),
+  },
 
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const [definitions, availabilityWindows] = await Promise.all([
       ctx.db.query('badgeDefinitions').collect(),
       ctx.db.query('badgeAvailabilityWindows').collect(),
@@ -815,26 +829,31 @@ export const getBadgeCatalog = query({
     );
 
     const catalog = await Promise.all(
-      definitions.map(async (definition) => ({
-        _id: definition._id,
-        name: definition.name,
-        tag: definition.tag,
-        description: definition.description,
-        requiredVisits: definition.requiredVisits,
-        classification: definition.classification ?? 'general',
-        retired: definition.retired === true,
-        imageKey: definition.imageKey,
-        imageUrl: definition.imageStorageId === undefined
-          ? undefined
-          : (await ctx.storage.getUrl(
-              definition.imageStorageId,
-            )) ?? undefined,
-        annualSeriesId: definition.annualSeriesId,
-        editionYear: definition.editionYear,
-        levelsEnabled: definitionUsesLevels(definition),
-        availabilityWindows:
-          windowsByBadge.get(definition._id) ?? [],
-      })),
+      definitions
+        .filter(
+          (definition) =>
+            definition.betaOnly !== true || args.includeBeta === true,
+        )
+        .map(async (definition) => ({
+          _id: definition._id,
+          name: definition.name,
+          tag: definition.tag,
+          description: definition.description,
+          requiredVisits: definition.requiredVisits,
+          classification: definition.classification ?? 'general',
+          retired: definition.retired === true,
+          imageKey: definition.imageKey,
+          imageUrl: definition.imageStorageId === undefined
+            ? undefined
+            : (await ctx.storage.getUrl(
+                definition.imageStorageId,
+              )) ?? undefined,
+          annualSeriesId: definition.annualSeriesId,
+          editionYear: definition.editionYear,
+          levelsEnabled: definitionUsesLevels(definition),
+          availabilityWindows:
+            windowsByBadge.get(definition._id) ?? [],
+        })),
     );
 
     return catalog.sort((firstBadge, secondBadge) =>

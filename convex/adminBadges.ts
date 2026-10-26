@@ -475,7 +475,11 @@ export const getBadgesForAdmin = query({
 
     const definitionsWithArtwork = await Promise.all(
       definitions
-        .filter((definition) => definition.classification !== 'mission')
+        .filter(
+          (definition) =>
+            definition.classification !== 'mission' &&
+            definition.betaOnly !== true,
+        )
         .map(async (definition) => ({
         ...definition,
         imageUrl: definition.imageStorageId === undefined
@@ -518,7 +522,10 @@ export const previewClassificationPresetMigration = query({
     >[] = [];
 
     for (const definition of definitions) {
-      if (definition.classification === 'mission') {
+      if (
+        definition.classification === 'mission' ||
+        definition.betaOnly === true
+      ) {
         continue;
       }
 
@@ -548,7 +555,10 @@ export const applyClassificationPresetMigration = mutation({
     >[] = [];
 
     for (const definition of definitions) {
-      if (definition.classification === 'mission') {
+      if (
+        definition.classification === 'mission' ||
+        definition.betaOnly === true
+      ) {
         continue;
       }
 

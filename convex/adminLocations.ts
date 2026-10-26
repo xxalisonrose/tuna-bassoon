@@ -252,6 +252,8 @@ function normalizeLocationInput(args: {
   badges: string[];
   storyKey?: string;
   regionKey?: string;
+  city?: string;
+  state?: string;
 }) {
   const name = normalizeRequiredString(args.name, 'name', MAX_STRING_LENGTH);
   const key = normalizeRequiredString(args.key, 'key', MAX_STRING_LENGTH);
@@ -281,6 +283,8 @@ function normalizeLocationInput(args: {
 
   const storyKey = normalizeOptionalSlug(args.storyKey, 'storyKey');
   const regionKey = normalizeOptionalSlug(args.regionKey, 'regionKey');
+  const city = normalizeOptionalText(args.city, 'City', MAX_STRING_LENGTH);
+  const state = normalizeOptionalText(args.state, 'State', MAX_STRING_LENGTH);
   const latitude = normalizeLatitude(args.latitude);
   const longitude = normalizeLongitude(args.longitude);
   const badges = normalizeBadgeTags(args.badges);
@@ -307,6 +311,8 @@ function normalizeLocationInput(args: {
     badges,
     storyKey,
     regionKey,
+    city,
+    state,
   };
 }
 
@@ -316,7 +322,9 @@ export const getLocationsForAdmin = query({
   handler: async (ctx) => {
     await requireAdmin(ctx);
 
-    const locations = await ctx.db.query('locations').collect();
+    const locations = (await ctx.db.query('locations').collect()).filter(
+      (location) => location.ownerClerkUserId === undefined,
+    );
 
     return locations
       .map((location) => ({
@@ -342,7 +350,9 @@ export const previewLocationCategoryStandardization = query({
   handler: async (ctx) => {
     await requireAdmin(ctx);
 
-    const locations = await ctx.db.query('locations').collect();
+    const locations = (await ctx.db.query('locations').collect()).filter(
+      (location) => location.ownerClerkUserId === undefined,
+    );
     const changes: Array<{
       locationId: typeof locations[number]['_id'];
       name: string;
@@ -391,7 +401,9 @@ export const applyLocationCategoryStandardization = mutation({
   handler: async (ctx) => {
     await requireAdmin(ctx);
 
-    const locations = await ctx.db.query('locations').collect();
+    const locations = (await ctx.db.query('locations').collect()).filter(
+      (location) => location.ownerClerkUserId === undefined,
+    );
     const changes: Array<{
       locationId: typeof locations[number]['_id'];
       name: string;
@@ -460,6 +472,8 @@ export const createLocation = mutation({
     badges: v.array(v.string()),
     storyKey: v.optional(v.string()),
     regionKey: v.optional(v.string()),
+    city: v.optional(v.string()),
+    state: v.optional(v.string()),
   },
 
   handler: async (ctx, args) => {
@@ -492,6 +506,8 @@ export const createLocation = mutation({
       badges: normalized.badges,
       storyKey: normalized.storyKey,
       regionKey: normalized.regionKey,
+      city: normalized.city,
+      state: normalized.state,
       retired: false,
     });
 
@@ -515,6 +531,8 @@ export const updateLocation = mutation({
     badges: v.array(v.string()),
     storyKey: v.optional(v.string()),
     regionKey: v.optional(v.string()),
+    city: v.optional(v.string()),
+    state: v.optional(v.string()),
   },
 
   handler: async (ctx, args) => {
@@ -561,6 +579,8 @@ export const updateLocation = mutation({
       badges: normalized.badges,
       storyKey: normalized.storyKey,
       regionKey: normalized.regionKey,
+      city: normalized.city,
+      state: normalized.state,
     });
 
     return args.locationId;

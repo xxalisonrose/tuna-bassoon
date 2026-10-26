@@ -23,6 +23,9 @@ type LocationPopupProps = {
   place: Place;
   userCoordinates: [number, number] | null;
   usingTestCoordinates?: boolean;
+  isWishlisted?: boolean;
+  wishlistBusy?: boolean;
+  onWishlistChange?: (saved: boolean) => void;
   onClose: () => void;
   style?: StyleProp<ViewStyle>;
 };
@@ -36,6 +39,9 @@ export function LocationPopup({
   place,
   userCoordinates,
   usingTestCoordinates = false,
+  isWishlisted = false,
+  wishlistBusy = false,
+  onWishlistChange,
   onClose,
   style,
 }: LocationPopupProps) {
@@ -230,6 +236,50 @@ export function LocationPopup({
             {place.category}
           </Text>
         )}
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={
+            isWishlisted
+              ? `Remove ${place.title} from Want to Visit`
+              : `Save ${place.title} to Want to Visit`
+          }
+          accessibilityState={{
+            busy: wishlistBusy,
+            disabled: !isAuthenticated || onWishlistChange === undefined,
+          }}
+          disabled={
+            !isAuthenticated ||
+            wishlistBusy ||
+            onWishlistChange === undefined
+          }
+          onPress={() => onWishlistChange?.(!isWishlisted)}
+          style={({ pressed }) => [
+            styles.wishlistButton,
+            isWishlisted && styles.wishlistButtonSaved,
+            pressed && styles.checkInButtonPressed,
+          ]}>
+          {wishlistBusy ? (
+            <ActivityIndicator color="#342b20" size="small" />
+          ) : (
+            <Text style={styles.wishlistButtonText}>
+              {isWishlisted ? '♥ Want to Visit' : '♡ Want to Visit'}
+            </Text>
+          )}
+        </Pressable>
+
+        {place.betaOnly ? (
+          <View
+            accessible
+            accessibilityLabel="Private beta test location. Only your account can see this temporary tutorial stop."
+            style={styles.betaNotice}>
+            <Text style={styles.betaHeading}>Private Beta Stop</Text>
+            <Text style={styles.betaText}>
+              This temporary tutorial location is visible only to your
+              beta account.
+            </Text>
+          </View>
+        ) : null}
 
         {usingTestCoordinates && (
           <View
@@ -434,6 +484,45 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     backgroundColor: '#E6F4FE',
     borderRadius: 12,
+  },
+  wishlistButton: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    backgroundColor: '#f3ead7',
+    borderColor: '#8d7049',
+    borderRadius: 12,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 46,
+    paddingHorizontal: 14,
+  },
+  wishlistButtonSaved: {
+    backgroundColor: '#dce7c3',
+    borderColor: '#53663c',
+  },
+  wishlistButtonText: {
+    color: '#342b20',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  betaNotice: {
+    alignSelf: 'stretch',
+    backgroundColor: '#e9e0f3',
+    borderColor: '#70558b',
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 4,
+    padding: 12,
+  },
+  betaHeading: {
+    color: '#38294a',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  betaText: {
+    color: '#38294a',
+    fontSize: 13,
+    lineHeight: 18,
   },
   description: {
     alignSelf: 'stretch',

@@ -39,13 +39,20 @@ import {
 import { PlayerMarker } from '@/components/map/player-marker';
 import { Palette, Spacing } from '@/constants/theme';
 import type { Place } from '@/data/places';
+import { isBetaBuild } from '@/lib/build-profile';
+import {
+  getLocationCityOptions,
+  getLocationStateOptions,
+  getPlaceLocality,
+  placeMatchesGeography,
+} from '@/lib/location-geography';
 import { usesWomensHistoryPersonPin } from '@/lib/location-map-pin';
 import { api } from '../../convex/_generated/api';
 
 const HARVARD_YARD: [number, number] = [-71.1167, 42.377];
 const STORYBOOK_MAP_STYLE =
   'https://tiles.openfreemap.org/styles/liberty';
-const DEFAULT_ZOOM = 17;
+const DEFAULT_ZOOM = 17.7;
 const DEFAULT_PITCH = 55;
 const PLAYER_MARKER_WIDTH = 116;
 const PLAYER_MARKER_HEIGHT = 118;
@@ -320,9 +327,12 @@ export default function MapWebScreen() {
   const playerRootRef = useRef<Root | null>(null);
   const placesRef = useRef<Place[]>([]);
   const hasCenteredOnPlayerRef = useRef(false);
+  const betaStarterRequestRef = useRef(false);
 
   const { isAuthenticated } = useConvexAuth();
-  const locations = useQuery(api.locations.getLocations);
+  const locations = useQuery(api.locations.getLocations, {
+    includeBeta: isBetaBuild,
+  });
   const visits = useQuery(
     api.visits.getMyVisits,
     isAuthenticated ? {} : 'skip',
@@ -335,11 +345,21 @@ export default function MapWebScreen() {
     api.users.getMyAvatarProfile,
     isAuthenticated ? {} : 'skip',
   );
+  const wishlist = useQuery(
+    api.wishlist.getMyWishlist,
+    isAuthenticated ? {} : 'skip',
+  );
   const resetMyTestingProgress = useMutation(
     api.visits.resetMyTestingProgress,
   );
   const awardMyTestBadgeLevel = useMutation(
     api.visits.awardMyTestBadgeLevel,
+  );
+  const setWishlistStatus = useMutation(
+    api.wishlist.setWishlistStatus,
+  );
+  const ensureBetaStarterContent = useMutation(
+    api.betaStarter.ensureMyStarterContent,
   );
 
   const [mapReady, setMapReady] = useState(false);
@@ -347,6 +367,11 @@ export default function MapWebScreen() {
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [locationListVisible, setLocationListVisible] = useState(false);
   const [locationSearch, setLocationSearch] = useState('');
+  const [wishlistOnly, setWishlistOnly] = useState(false);
+  const [selectedState, setSelectedState] = useState('');
+  const [selectedCity, setSelectedCity] = useState('');
+  const [wishlistChangingId, setWishlistChangingId] =
+    useState<string | null>(null);
   const [liveCoordinates, setLiveCoordinates] =
     useState<[number, number] | null>(null);
   const [simulatedCoordinates, setSimulatedCoordinates] =
@@ -361,12 +386,32 @@ export default function MapWebScreen() {
   const [resettingTestProgress, setResettingTestProgress] =
     useState(false);
   const [awardingTestBadge, setAwardingTestBadge] = useState(false);
+  const [betaFallbackReady, setBetaFallbackReady] =
+    useState(false);
 
   const isAdmin = currentUser?.isAdmin === true;
   const simulationIsActive = isAdmin && simulatedLocationEnabled;
+  const betaFallbackCoordinates = useMemo(() => {
+    const baseCamp = locations?.find(
+      (location) =>
+        location.betaOnly === true &&
+        location.betaStarterKey === 'base-camp' &&
+        location.latitude !== undefined &&
+        location.longitude !== undefined,
+    );
+
+    return baseCamp?.latitude === undefined ||
+      baseCamp.longitude === undefined
+      ? null
+      : ([baseCamp.longitude, baseCamp.latitude] as [number, number]);
+  }, [locations]);
   const userCoordinates = simulationIsActive
     ? simulatedCoordinates
-    : liveCoordinates;
+    : liveCoordinates ?? betaFallbackCoordinates;
+  const displayedLocationMessage =
+    liveCoordinates === null && betaFallbackCoordinates !== null
+      ? 'Private beta tutorial mode is active.'
+      : locationMessage;
 
   const places: Place[] = useMemo(
     () =>
@@ -387,8 +432,11 @@ export default function MapWebScreen() {
             source: location.source,
             isLore: location.isLore === true,
             category: location.category,
+            city: location.city,
+            state: location.state,
             mapPinType: location.mapPinType,
             badges: location.badges,
+            betaOnly: location.betaOnly === true,
             coordinates: [
               location.longitude,
               location.latitude,
@@ -405,11 +453,27 @@ export default function MapWebScreen() {
     [visits],
   );
 
+  const wishlistLocationIds = useMemo(
+    () =>
+      new Set(
+        (wishlist ?? []).map((entry) => entry.locationId),
+      ),
+    [wishlist],
+  );
+
   const filteredPlaces = useMemo(() => {
     const search = locationSearch.trim().toLowerCase();
 
     return [...places]
       .filter((place) => {
+        if (wishlistOnly && !wishlistLocationIds.has(place.id)) {
+          return false;
+        }
+
+        if (!placeMatchesGeography(place, selectedState, selectedCity)) {
+          return false;
+        }
+
         if (search === '') {
           return true;
         }
@@ -417,6 +481,8 @@ export default function MapWebScreen() {
         return [
           place.title,
           place.category ?? '',
+          place.city ?? '',
+          place.state ?? '',
           place.description,
           ...place.badges,
         ]
@@ -427,11 +493,72 @@ export default function MapWebScreen() {
       .sort((first, second) =>
         first.title.localeCompare(second.title),
       );
-  }, [locationSearch, places]);
+  }, [
+    locationSearch,
+    places,
+    selectedCity,
+    selectedState,
+    wishlistLocationIds,
+    wishlistOnly,
+  ]);
+
+  const stateOptions = useMemo(
+    () => getLocationStateOptions(places),
+    [places],
+  );
+  const cityOptions = useMemo(
+    () => getLocationCityOptions(places, selectedState),
+    [places, selectedState],
+  );
 
   useEffect(() => {
     placesRef.current = places;
   }, [places]);
+
+  useEffect(() => {
+    if (!isBetaBuild || !isAuthenticated || liveCoordinates !== null) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setBetaFallbackReady(true);
+    }, 8_000);
+
+    return () => clearTimeout(timer);
+  }, [isAuthenticated, liveCoordinates]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      betaStarterRequestRef.current = false;
+      return;
+    }
+
+    const starterOrigin =
+      liveCoordinates ?? (betaFallbackReady ? HARVARD_YARD : null);
+
+    if (
+      !isBetaBuild ||
+      starterOrigin === null ||
+      betaStarterRequestRef.current
+    ) {
+      return;
+    }
+
+    betaStarterRequestRef.current = true;
+
+    void ensureBetaStarterContent({
+      latitude: starterOrigin[1],
+      longitude: starterOrigin[0],
+      releaseChannel: 'beta',
+    }).catch(() => {
+      betaStarterRequestRef.current = false;
+    });
+  }, [
+    betaFallbackReady,
+    ensureBetaStarterContent,
+    isAuthenticated,
+    liveCoordinates,
+  ]);
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) {
@@ -670,6 +797,32 @@ export default function MapWebScreen() {
     });
   };
 
+  const changeWishlistStatus = async (
+    place: Place,
+    saved: boolean,
+  ) => {
+    if (!isAuthenticated || wishlistChangingId !== null) {
+      return;
+    }
+
+    setWishlistChangingId(place.id);
+
+    try {
+      await setWishlistStatus({
+        locationId: place.id,
+        saved,
+      });
+    } catch (error) {
+      showBrowserMessage(
+        error instanceof Error
+          ? error.message
+          : 'Unable to update the wishlist right now.',
+      );
+    } finally {
+      setWishlistChangingId(null);
+    }
+  };
+
   const changeSimulationEnabled = (enabled: boolean) => {
     setSimulatedLocationEnabled(enabled);
 
@@ -822,11 +975,13 @@ export default function MapWebScreen() {
         </View>
       )}
 
-      {locationMessage !== '' && !simulationIsActive && (
+      {displayedLocationMessage !== '' && !simulationIsActive && (
         <View
           accessibilityLiveRegion="polite"
           style={styles.locationMessage}>
-          <Text style={styles.locationMessageText}>{locationMessage}</Text>
+          <Text style={styles.locationMessageText}>
+            {displayedLocationMessage}
+          </Text>
         </View>
       )}
 
@@ -901,13 +1056,106 @@ export default function MapWebScreen() {
           </View>
 
           <TextInput
-            accessibilityLabel="Search for a Location"
+            accessibilityLabel="Find a location"
             onChangeText={setLocationSearch}
-            placeholder="Search for a Location"
+            placeholder="Type a location to plan a visit"
             placeholderTextColor="#6B6B60"
             style={styles.searchInput}
             value={locationSearch}
           />
+
+          <View
+            accessibilityRole="radiogroup"
+            accessibilityLabel="Filter locations"
+            style={styles.locationListFilters}>
+            <Pressable
+              accessibilityRole="radio"
+              accessibilityState={{ selected: !wishlistOnly }}
+              onPress={() => setWishlistOnly(false)}
+              style={({ pressed }) => [
+                styles.locationListFilter,
+                !wishlistOnly && styles.locationListFilterSelected,
+                pressed && styles.pressed,
+              ]}>
+              <Text style={styles.locationListFilterText}>All</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="radio"
+              accessibilityState={{ selected: wishlistOnly }}
+              onPress={() => setWishlistOnly(true)}
+              style={({ pressed }) => [
+                styles.locationListFilter,
+                wishlistOnly && styles.locationListFilterSelected,
+                pressed && styles.pressed,
+              ]}>
+              <Text style={styles.locationListFilterText}>
+                Want to Visit ({wishlistLocationIds.size})
+              </Text>
+            </Pressable>
+          </View>
+
+          {stateOptions.length > 0 ? (
+            <View style={styles.geographyFilters}>
+              <Text style={styles.geographyFilterLabel}>State</Text>
+              <ScrollView
+                horizontal
+                accessibilityRole="radiogroup"
+                accessibilityLabel="Filter by state"
+                contentContainerStyle={styles.geographyFilterOptions}
+                showsHorizontalScrollIndicator={false}>
+                {['', ...stateOptions].map((stateOption) => (
+                  <Pressable
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: selectedState === stateOption }}
+                    key={stateOption || 'all-states'}
+                    onPress={() => {
+                      setSelectedState(stateOption);
+                      setSelectedCity('');
+                    }}
+                    style={({ pressed }) => [
+                      styles.locationListFilter,
+                      selectedState === stateOption &&
+                        styles.locationListFilterSelected,
+                      pressed && styles.pressed,
+                    ]}>
+                    <Text style={styles.locationListFilterText}>
+                      {stateOption || 'All states'}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+
+              {cityOptions.length > 0 ? (
+                <>
+                  <Text style={styles.geographyFilterLabel}>City</Text>
+                  <ScrollView
+                    horizontal
+                    accessibilityRole="radiogroup"
+                    accessibilityLabel="Filter by city"
+                    contentContainerStyle={styles.geographyFilterOptions}
+                    showsHorizontalScrollIndicator={false}>
+                    {['', ...cityOptions].map((cityOption) => (
+                      <Pressable
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected: selectedCity === cityOption }}
+                        key={cityOption || 'all-cities'}
+                        onPress={() => setSelectedCity(cityOption)}
+                        style={({ pressed }) => [
+                          styles.locationListFilter,
+                          selectedCity === cityOption &&
+                            styles.locationListFilterSelected,
+                          pressed && styles.pressed,
+                        ]}>
+                        <Text style={styles.locationListFilterText}>
+                          {cityOption || 'All cities'}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </>
+              ) : null}
+            </View>
+          ) : null}
 
           <ScrollView
             contentContainerStyle={styles.locationListContent}
@@ -922,35 +1170,66 @@ export default function MapWebScreen() {
             ) : (
               filteredPlaces.map((place) => {
                 const visited = visitedLocationIds.has(place.id);
+                const isWishlisted = wishlistLocationIds.has(place.id);
 
                 return (
-                  <Pressable
+                  <View
                     key={place.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={
-                      `${place.title}. ${visited ? 'Visited' : 'Not visited'}.`
-                    }
-                    onPress={() => selectPlace(place)}
-                    style={({ pressed }) => [
-                      styles.locationListItem,
-                      pressed && styles.pressed,
-                    ]}>
-                    <View
-                      accessible={false}
-                      style={[
-                        styles.locationStatus,
-                        visited && styles.locationStatusVisited,
-                      ]}
-                    />
-                    <View style={styles.locationListItemText}>
-                      <Text style={styles.locationName}>{place.title}</Text>
-                      <Text
-                        numberOfLines={1}
-                        style={styles.locationCategory}>
-                        {place.category ?? 'Harvard discovery'}
+                    style={styles.locationListItem}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        `${place.title}. ${visited ? 'Visited' : 'Not visited'}.` +
+                        `${isWishlisted ? ' Want to visit.' : ''}`
+                      }
+                      onPress={() => selectPlace(place)}
+                      style={({ pressed }) => [
+                        styles.locationListItemMain,
+                        pressed && styles.pressed,
+                      ]}>
+                      <View
+                        accessible={false}
+                        style={[
+                          styles.locationStatus,
+                          visited && styles.locationStatusVisited,
+                        ]}
+                      />
+                      <View style={styles.locationListItemText}>
+                        <Text style={styles.locationName}>{place.title}</Text>
+                        <Text
+                          numberOfLines={1}
+                          style={styles.locationCategory}>
+                          {[getPlaceLocality(place), place.category ?? 'Harvard discovery']
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </Text>
+                      </View>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        isWishlisted
+                          ? `Remove ${place.title} from Want to Visit`
+                          : `Save ${place.title} to Want to Visit`
+                      }
+                      accessibilityState={{
+                        busy: wishlistChangingId === place.id,
+                      }}
+                      disabled={wishlistChangingId !== null}
+                      onPress={() =>
+                        void changeWishlistStatus(place, !isWishlisted)
+                      }
+                      style={({ pressed }) => [
+                        styles.locationListWishlistButton,
+                        isWishlisted &&
+                          styles.locationListWishlistButtonSaved,
+                        pressed && styles.pressed,
+                      ]}>
+                      <Text style={styles.locationListWishlistText}>
+                        {isWishlisted ? '♥' : '♡'}
                       </Text>
-                    </View>
-                  </Pressable>
+                    </Pressable>
+                  </View>
                 );
               })
             )}
@@ -960,11 +1239,16 @@ export default function MapWebScreen() {
 
       {selectedPlace && (
         <LocationPopup
+          isWishlisted={wishlistLocationIds.has(selectedPlace.id)}
           onClose={() => setSelectedPlace(null)}
+          onWishlistChange={(saved) =>
+            void changeWishlistStatus(selectedPlace, saved)
+          }
           place={selectedPlace}
           style={styles.locationPopup}
           userCoordinates={userCoordinates}
           usingTestCoordinates={simulationIsActive}
+          wishlistBusy={wishlistChangingId === selectedPlace.id}
         />
       )}
     </View>
@@ -1124,6 +1408,47 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
     fontSize: 15,
   },
+  locationListFilters: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingBottom: Spacing.two,
+  },
+  geographyFilters: {
+    gap: Spacing.one,
+    paddingBottom: Spacing.two,
+  },
+  geographyFilterLabel: {
+    color: Palette.mutedInk,
+    fontSize: 12,
+    fontWeight: '700',
+    paddingHorizontal: Spacing.three,
+    textTransform: 'uppercase',
+  },
+  geographyFilterOptions: {
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
+  },
+  locationListFilter: {
+    backgroundColor: Palette.paper,
+    borderColor: Palette.borderStrong,
+    borderRadius: 999,
+    borderWidth: 1,
+    minHeight: 38,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+  },
+  locationListFilterSelected: {
+    backgroundColor: Palette.teaGreen,
+    borderColor: Palette.bronzeDeep,
+    borderWidth: 2,
+  },
+  locationListFilterText: {
+    color: Palette.ink,
+    fontSize: 13,
+    fontWeight: '700',
+  },
   locationListContent: {
     gap: Spacing.two,
     padding: Spacing.three,
@@ -1134,12 +1459,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
     backgroundColor: Palette.paper,
     borderColor: Palette.border,
     borderWidth: 1,
     borderRadius: Spacing.two,
+  },
+  locationListItemMain: {
+    minHeight: 58,
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+  },
+  locationListWishlistButton: {
+    alignItems: 'center',
+    backgroundColor: Palette.beige,
+    borderColor: Palette.borderStrong,
+    borderRadius: 20,
+    borderWidth: 1,
+    height: 40,
+    justifyContent: 'center',
+    marginRight: Spacing.two,
+    width: 40,
+  },
+  locationListWishlistButtonSaved: {
+    backgroundColor: Palette.teaGreen,
+    borderColor: Palette.bronzeDeep,
+  },
+  locationListWishlistText: {
+    color: Palette.danger,
+    fontSize: 22,
+    lineHeight: 25,
   },
   locationStatus: {
     width: 14,

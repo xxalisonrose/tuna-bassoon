@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   AccessibilityInfo,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -37,6 +38,10 @@ type DirectionButtonProps = {
   onPress: () => void;
 };
 
+const CONTROL_HIT_SLOP = 12;
+const CONTROL_PRESS_RETENTION = 24;
+const ANDROID_BOTTOM_TOUCH_CLEARANCE = 28;
+
 function DirectionButton({
   accessibilityLabel,
   arrow,
@@ -46,7 +51,9 @@ function DirectionButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      hitSlop={CONTROL_HIT_SLOP}
       onPress={onPress}
+      pressRetentionOffset={CONTROL_PRESS_RETENTION}
       style={({ pressed }) => [
         styles.directionButton,
         pressed && styles.buttonPressed,
@@ -143,7 +150,11 @@ export function AdminLocationSimulator({
         {
           bottom,
           top,
-          paddingBottom: Math.max(insets.bottom, 10),
+          paddingBottom:
+            Math.max(insets.bottom, 10) +
+            (Platform.OS === 'android'
+              ? ANDROID_BOTTOM_TOUCH_CLEARANCE
+              : 0),
         },
       ]}>
       {coordinateEditorVisible && (
@@ -232,10 +243,12 @@ export function AdminLocationSimulator({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Turn off admin test GPS"
+            hitSlop={CONTROL_HIT_SLOP}
             onPress={() => {
               closeCoordinateEditor();
               onEnabledChange(false);
             }}
+            pressRetentionOffset={CONTROL_PRESS_RETENTION}
             style={({ pressed }) => [
               styles.offButton,
               pressed && styles.buttonPressed,
@@ -269,7 +282,9 @@ export function AdminLocationSimulator({
                 accessibilityState={{
                   expanded: coordinateEditorVisible,
                 }}
+                hitSlop={CONTROL_HIT_SLOP}
                 onPress={openCoordinateEditor}
+                pressRetentionOffset={CONTROL_PRESS_RETENTION}
                 style={({ pressed }) => [
                   styles.coordinateButton,
                   pressed && styles.buttonPressed,
@@ -309,7 +324,9 @@ export function AdminLocationSimulator({
             accessibilityLabel="Award my next test badge level"
             accessibilityHint="Awards Level 1 on the first use and the next level on each later use"
             disabled={awardingBadge}
+            hitSlop={CONTROL_HIT_SLOP}
             onPress={onAwardBadge}
+            pressRetentionOffset={CONTROL_PRESS_RETENTION}
             style={({ pressed }) => [
               styles.awardButton,
               awardingBadge && styles.resetButtonDisabled,
@@ -325,7 +342,9 @@ export function AdminLocationSimulator({
             accessibilityLabel="Reset my test progress"
             accessibilityHint="Deletes only your check-ins, badge progress, and earned badges after confirmation"
             disabled={resettingProgress}
+            hitSlop={CONTROL_HIT_SLOP}
             onPress={onResetProgress}
+            pressRetentionOffset={CONTROL_PRESS_RETENTION}
             style={({ pressed }) => [
               styles.resetButton,
               resettingProgress && styles.resetButtonDisabled,
@@ -438,12 +457,12 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   directionSpacer: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
   },
   directionButton: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#D8EEE6',
@@ -458,12 +477,12 @@ const styles = StyleSheet.create({
     lineHeight: 26,
   },
   coordinateButton: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#A8473F',
-    borderRadius: 20,
+    borderRadius: 24,
   },
   coordinateButtonIcon: {
     color: '#FFFFFF',
@@ -487,7 +506,7 @@ const styles = StyleSheet.create({
     paddingBottom: 3,
   },
   resetButton: {
-    minHeight: 44,
+    minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 8,
@@ -497,7 +516,7 @@ const styles = StyleSheet.create({
     borderRadius: 17,
   },
   awardButton: {
-    minHeight: 44,
+    minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 8,

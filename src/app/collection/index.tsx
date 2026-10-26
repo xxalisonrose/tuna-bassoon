@@ -3,10 +3,23 @@ import {
   useMutation,
   useQuery,
 } from 'convex/react';
-import { type Href, useRouter, useScrollToTop } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type Href,
+  useFocusEffect,
+  useLocalSearchParams,
+  useRouter,
+  useScrollToTop,
+} from 'expo-router';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
+  type LayoutChangeEvent,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -29,6 +42,7 @@ import {
   Palette,
   Spacing,
 } from '@/constants/theme';
+import { isBetaBuild } from '@/lib/build-profile';
 import { api } from '../../../convex/_generated/api';
 
 const avatarRoute = '/collection/avatar' as Href;
@@ -112,6 +126,12 @@ function getBadgeSeriesCandidateName(badge: {
 
 export default function PassportScreen() {
   const router = useRouter();
+  const { mission: missionParam } = useLocalSearchParams<{
+    mission?: string | string[];
+  }>();
+  const requestedMissionKey = Array.isArray(missionParam)
+    ? missionParam[0]
+    : missionParam;
   const scrollViewRef = useRef<ScrollView>(null);
   useScrollToTop(scrollViewRef);
   const {
@@ -139,6 +159,10 @@ export default function PassportScreen() {
   >(() => new Set());
   const [selectedMissionKey, setSelectedMissionKey] =
     useState<string | null>(null);
+  const [badgeSectionOffset, setBadgeSectionOffset] =
+    useState<number | null>(null);
+  const [missionSectionOffset, setMissionSectionOffset] =
+    useState<number | null>(null);
   const [badgeEvaluationTime] = useState(() => Date.now());
 
   useEffect(() => {
@@ -165,7 +189,7 @@ export default function PassportScreen() {
 
   const badgeCatalog = useQuery(
     api.badges.getBadgeCatalog,
-    isAuthenticated ? {} : 'skip',
+    isAuthenticated ? { includeBeta: isBetaBuild } : 'skip',
   );
   const badgeProgressState = useQuery(
     api.badges.getMyBadgeProgressState,
@@ -273,6 +297,44 @@ export default function PassportScreen() {
   const missions = useQuery(
     api.missions.getMyMissions,
     isAuthenticated ? {} : 'skip',
+  );
+  const requestedMissionIsActive =
+    requestedMissionKey !== undefined &&
+    missions?.some(
+      (mission) =>
+        mission.key === requestedMissionKey && !mission.completed,
+    ) === true;
+
+  useFocusEffect(
+    useCallback(() => {
+      if (
+        !requestedMissionIsActive ||
+        badgeSectionOffset === null ||
+        missionSectionOffset === null
+      ) {
+        return;
+      }
+
+      const frame = requestAnimationFrame(() => {
+        scrollViewRef.current?.scrollTo({
+          animated: true,
+          y: Math.max(
+            0,
+            badgeSectionOffset +
+              missionSectionOffset -
+              Spacing.three,
+          ),
+        });
+        router.setParams({ mission: undefined });
+      });
+
+      return () => cancelAnimationFrame(frame);
+    }, [
+      badgeSectionOffset,
+      missionSectionOffset,
+      requestedMissionIsActive,
+      router,
+    ]),
   );
 
   if (isAuthenticationLoading) {
@@ -589,7 +651,11 @@ export default function PassportScreen() {
             </ThemedView>
           </View>
 
-          <View style={styles.section}>
+          <View
+            onLayout={(event: LayoutChangeEvent) => {
+              setBadgeSectionOffset(event.nativeEvent.layout.y);
+            }}
+            style={styles.section}>
             <View
               accessible
               accessibilityRole="header"
@@ -691,7 +757,11 @@ export default function PassportScreen() {
             </View>
 
             {activeMissions.length > 0 ? (
-              <View style={styles.missionSection}>
+              <View
+                onLayout={(event: LayoutChangeEvent) => {
+                  setMissionSectionOffset(event.nativeEvent.layout.y);
+                }}
+                style={styles.missionSection}>
                 <View
                   accessible
                   accessibilityRole="header"

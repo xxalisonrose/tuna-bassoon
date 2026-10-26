@@ -6,6 +6,28 @@ The map uses a warm, storybook-inspired presentation while preserving the locati
 
 The player marker renders the signed-in user's saved layered cow avatar at the active real or simulated GPS position. The avatar is intentionally larger than the location markers, stands on a small oval explorer platform, and rests near the lower third of the screen when the camera follows or recenters on it, leaving more of the world visible ahead. While an avatar profile is loading or has never been saved, the Traditional Explorer selection provides a stable fallback so the map never loses its player focal point.
 
+The initial Look Around view now opens at zoom 17.7 so nearby streets, pins, and
+the player feel immediately relevant on a phone. Ordinary location updates keep
+the tester's chosen zoom, while an intentional recenter returns to this closer
+framing.
+
+## Want to Visit
+
+Every signed-in explorer can save a location to a personal **Want to Visit**
+list from either the location details card or its row in the Locations list.
+The heart control is independent from check-in status: visiting a place does not
+remove it, and only the explorer can add or remove it. A count on the list filter
+shows how many places are saved, and choosing that filter hides unsaved places
+without hiding their map markers. Wishlist state is stored with the account and
+is shared by native and web builds. The Locations panel includes a text search
+across names, categories, descriptions, and badge tags so an explorer can find
+and save a destination even when it is nowhere near their current position.
+Published locations can also store a city and state. When that structured
+geography is available, it is included in text search and the Locations panel
+adds State and City filters on native and web. Older records without geography
+remain visible under the All filters until an administrator fills in those
+fields; the feature never hides legacy content by default.
+
 ## Web testing companion
 
 The web build now includes a functional companion map for faster browser testing. It reads the same live Convex locations, visits, avatar profile, and badge-test tools as the native experience. Testers can pan, rotate, pitch, and zoom the map; open the searchable Locations list; select red or green location markers; read location details; and complete eligible check-ins without opening an iOS or Android simulator.
@@ -36,6 +58,14 @@ After foreground location permission is granted, the map reads the current posit
 
 Harvard Yard remains the starting fallback when the current position is unavailable. Location-permission and service messages remain visible, and the accessible location list does not depend on gesture mode.
 
+Google Play beta builds add a private testing fallback. After waiting briefly
+for live location, the beta creates five clearly labeled tutorial stops around
+the tester's position; if no position is available, it uses Harvard Yard. Those
+stops and their Beta Pathfinder badge belong only to that account, survive
+reinstalling or reopening the build, and never appear in the public catalog,
+content-review tools, or another tester's map. Production builds do not create
+or request this starter content.
+
 ## Admin test GPS
 
 Signed-in administrators have a red circular **TEST** control beneath the standard map controls. Turning it on places the test player in the center of Harvard Yard without changing the device's real GPS reading. The four arrow buttons walk the test player 10 meters at a time in the direction shown on the screen, accounting for the map's current rotation. The center coordinate button accepts decimal latitude and longitude for testing another area.
@@ -44,13 +74,19 @@ While Test GPS is active, location details, distance checks, and check-ins use t
 
 The expanded Test GPS panel temporarily hides the native bottom navigation and takes its place as a wide bottom dock. The movement pad stays centered, **Off** sits on the left, and the test-badge and reset actions sit on the right. This keeps the map and player visible above the controls while preventing accidental tab changes. Turning Test GPS off restores the bottom navigation immediately.
 
-The expanded Test GPS panel also offers **Reset Test Progress**. After destructive confirmation, it deletes the signed-in administrator's check-ins, calculated badge progress, and earned badge awards so badge celebrations can be retested from Level 1. The reset never targets another account.
+The expanded Test GPS panel also offers **Reset Test Progress**. After destructive confirmation, it deletes the signed-in administrator's check-ins, calculated badge progress, earned badge awards, and saved tutorial mission progress. Badge celebrations can then be retested from Level 1, and the tutorial introduction appears again after the app is reopened. The reset never targets another account.
+
+The dock uses at least 48-point movement controls and expanded touch targets for its actions so the bottom row remains reliable on physical Android devices. Android maps use MapLibre's texture-backed view because Lorcal layers location details, the location list, and testing controls over the map; this prevents the native map surface from flashing when those overlays open or close.
 
 **Award Test Badge** awards the next level of an active repeatable badge directly to the signed-in administrator. After a reset, the first tap queues the Level 1 full-screen celebration and the second tap queues the Level 2 banner. It does not create a location visit. Moving the simulated player preserves the current zoom instead of returning to the standard zoom level.
 
 Checked-in locations remain on the map. Their pin changes to the visited treatment rather than disappearing, so completed places can still be opened and revisited. Location pins now render from a persistent GeoJSON source and style layers. Checking in updates a feature's visited property instead of destroying and recreating a native marker, eliminating the annotation cleanup race.
 
 Prototype category artwork is shared by the native and web maps. Historic Sites use closed and open books, Monuments & Public Art use covered and revealed cow statues, Mystery & Lore uses red and green question emblems, and Noteworthy People uses red and green silhouette medallions. Noteworthy People locations with a women's-history tag automatically use the woman medallion pair. Other Discoveries remains the red and green gem fallback, so missing or unknown categories always retain a usable marker.
+
+Native artwork layers are explicitly placed above the red and green fallback
+circles. This preserves the visited green gem and other completed-state artwork
+on iOS instead of exposing the plain fallback dot after a check-in.
 
 The built-in MapLibre information ornament is hidden from the control area. Required map-data credit remains visible as unobtrusive plain text on the map and is repeated at the end of the Locations list without opening MapLibre options.
 

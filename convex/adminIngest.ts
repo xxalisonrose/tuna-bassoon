@@ -748,7 +748,9 @@ export const submitLocationProposal = mutation({
       );
     }
 
-    const definitions = await ctx.db.query('badgeDefinitions').collect();
+    const definitions = (
+      await ctx.db.query('badgeDefinitions').collect()
+    ).filter((definition) => definition.betaOnly !== true);
     const suggestions = suggestLocationSubmission({
       name,
       description,
@@ -809,7 +811,9 @@ export const submitLocationProposal = mutation({
       );
     }
 
-    const locations = await ctx.db.query('locations').collect();
+    const locations = (await ctx.db.query('locations').collect()).filter(
+      (location) => location.ownerClerkUserId === undefined,
+    );
     const match = getLocationMatch(proposed, locations);
 
     if (
@@ -995,7 +999,9 @@ export const stageLocationDrafts = mutation({
       throw new ConvexError('Location import batch not found.');
     }
 
-    const locations = await ctx.db.query('locations').collect();
+    const locations = (await ctx.db.query('locations').collect()).filter(
+      (location) => location.ownerClerkUserId === undefined,
+    );
     const existingDrafts = await ctx.db.query('locationIngestDrafts').collect();
     const seenFingerprints = new Set(existingDrafts.map(locationFingerprint));
     const createdAt = Date.now();
@@ -1056,7 +1062,9 @@ export const stageBadgeDrafts = mutation({
       throw new ConvexError('Badge import batch not found.');
     }
 
-    const definitions = await ctx.db.query('badgeDefinitions').collect();
+    const definitions = (
+      await ctx.db.query('badgeDefinitions').collect()
+    ).filter((definition) => definition.betaOnly !== true);
     const existingDrafts = await ctx.db.query('badgeIngestDrafts').collect();
     const seenFingerprints = new Set(existingDrafts.map(badgeFingerprint));
     const createdAt = Date.now();
@@ -1190,7 +1198,9 @@ export const updateLocationDraft = mutation({
         normalizedText(candidate.name) === normalizedText(proposed.name),
     );
     const issues = getLocationIssues(proposed, duplicateInBatch);
-    const locations = await ctx.db.query('locations').collect();
+    const locations = (await ctx.db.query('locations').collect()).filter(
+      (location) => location.ownerClerkUserId === undefined,
+    );
     const match = getLocationMatch(proposed, locations);
 
     await ctx.db.patch(draft._id, {
@@ -1267,7 +1277,9 @@ export const updateBadgeDraft = mutation({
         normalizedText(candidate.name) === normalizedText(proposed.name),
     );
     const issues = getBadgeIssues(proposed, duplicateInBatch);
-    const definitions = await ctx.db.query('badgeDefinitions').collect();
+    const definitions = (
+      await ctx.db.query('badgeDefinitions').collect()
+    ).filter((definition) => definition.betaOnly !== true);
     const match = getBadgeMatch(proposed, definitions);
 
     await ctx.db.patch(draft._id, {

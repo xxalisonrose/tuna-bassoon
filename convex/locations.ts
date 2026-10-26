@@ -26,6 +26,8 @@ export const addLocation = internalMutation({
       latitude: args.latitude,
       longitude: args.longitude,
       category: args.category,
+      city: args.city.trim() || undefined,
+      state: args.state.trim() || undefined,
       mapPinType: 'other_discoveries',
       badges: [],
       retired: false,
@@ -34,13 +36,23 @@ export const addLocation = internalMutation({
 });
 
 export const getLocations = query({
-  args: {},
+  args: {
+    includeBeta: v.optional(v.boolean()),
+  },
 
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
     const locations = await ctx.db.query('locations').collect();
 
     return locations
-      .filter((location) => location.retired !== true)
+      .filter(
+        (location) =>
+          location.retired !== true &&
+          (location.ownerClerkUserId === undefined ||
+            (args.includeBeta === true &&
+              identity !== null &&
+              location.ownerClerkUserId === identity.subject)),
+      )
       .map((location) => ({
         ...location,
         mapPinType: resolveLocationMapPinType({

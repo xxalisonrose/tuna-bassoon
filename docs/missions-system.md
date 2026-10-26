@@ -54,14 +54,16 @@ concept-sheet pieces remain source material for future fitted rewards.
 ## Acceptance checks
 
 1. A new or existing account sees the tutorial introduction once.
-2. Choosing **Not Now** preserves the incomplete mission in Passport.
-3. Passport shows only incomplete missions in the Mission section.
-4. Opening a mission shows every step, the current explanation, and rewards.
-5. Check-ins, non-Mission badge awards, and an avatar save are the only events
+2. Choosing **View Mission** opens Passport, restores the normal tab bar, and
+   scrolls directly to the active tutorial mission.
+3. Choosing **Not Now** preserves the incomplete mission in Passport.
+4. Passport shows only incomplete missions in the Mission section.
+5. Opening a mission shows every step, the current explanation, and rewards.
+6. Check-ins, non-Mission badge awards, and an avatar save are the only events
    that can satisfy the three goals.
-6. Completing the tutorial removes it from the active Mission section.
-7. The New Explorer badge appears under the Mission badge type.
-8. The New Explorer Shirt becomes selectable only after completion.
-9. The completed badge uses the normal award popup and acknowledgement flow.
-10. Existing prototype progress migrates to the Lorcal mission key without
+7. Completing the tutorial removes it from the active Mission section.
+8. The New Explorer badge appears under the Mission badge type.
+9. The New Explorer Shirt becomes selectable only after completion.
+10. The completed badge uses the normal award popup and acknowledgement flow.
+11. Existing prototype progress migrates to the Lorcal mission key without
     leaving duplicate mission records or rewards.

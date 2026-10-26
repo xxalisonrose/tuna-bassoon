@@ -28,9 +28,20 @@ export default defineSchema({
     ),
     storyKey: v.optional(v.string()),
     regionKey: v.optional(v.string()),
+    city: v.optional(v.string()),
+    state: v.optional(v.string()),
+    ownerClerkUserId: v.optional(v.string()),
+    betaStarterKey: v.optional(v.string()),
+    betaOnly: v.optional(v.boolean()),
     retired: v.optional(v.boolean()),
     retiredAt: v.optional(v.number()),
-  }).index('by_key', ['key']),
+  })
+    .index('by_key', ['key'])
+    .index('by_owner', ['ownerClerkUserId'])
+    .index('by_owner_and_beta_starter_key', [
+      'ownerClerkUserId',
+      'betaStarterKey',
+    ]),
 
   userProfiles: defineTable({
     clerkUserId: v.string(),
@@ -76,6 +87,7 @@ export default defineSchema({
     unlockedAvatarItemIds: v.optional(v.array(v.string())),
     avatarCustomizedAt: v.optional(v.number()),
     communitySubmissionIntroSeenAt: v.optional(v.number()),
+    betaStarterContentCreatedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -112,6 +124,14 @@ export default defineSchema({
     locationId: v.id('locations'),
     visitedAt: v.number(),
     distanceMeters: v.number(),
+  })
+    .index('by_user', ['clerkUserId'])
+    .index('by_user_and_location', ['clerkUserId', 'locationId']),
+
+  locationWishlist: defineTable({
+    clerkUserId: v.string(),
+    locationId: v.id('locations'),
+    createdAt: v.number(),
   })
     .index('by_user', ['clerkUserId'])
     .index('by_user_and_location', ['clerkUserId', 'locationId']),
@@ -169,6 +189,7 @@ export default defineSchema({
     annualSeriesId: v.optional(v.id('badgeAnnualSeries')),
     editionYear: v.optional(v.number()),
     levelsEnabled: v.optional(v.boolean()),
+    betaOnly: v.optional(v.boolean()),
     congratulationsMessages: v.optional(v.array(v.string())),
     // Legacy level-range entries remain valid but are no longer used.
     levelCelebrations: v.optional(

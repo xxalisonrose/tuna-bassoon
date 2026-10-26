@@ -22,6 +22,9 @@ Block 5 of the capstone roadmap establishes one uninterrupted visitor path:
 - The marker works with real GPS and administrator Test GPS.
 - Look Around, Explore, recenter, zoom, and Locations list retain their existing behavior.
 - Checked-in locations remain visible with their visited treatment.
+- A location can be added to or removed from the account's **Want to Visit**
+  list from its details or list row, then isolated with the saved-locations
+  filter without affecting its visited state.
 
 ## Progress and Passport
 

@@ -68,6 +68,8 @@ type LocationFormState = {
   isLore: boolean;
   latitude: string;
   longitude: string;
+  city: string;
+  state: string;
   category: string;
   mapPinType: string;
   badgesText: string;
@@ -89,6 +91,8 @@ const emptyForm: LocationFormState = {
   isLore: false,
   latitude: '',
   longitude: '',
+  city: '',
+  state: '',
   category: '',
   mapPinType: 'other_discoveries',
   badgesText: '',
@@ -408,6 +412,8 @@ export default function AdminPortalScreen() {
     isLore?: boolean;
     latitude?: number;
     longitude?: number;
+    city?: string;
+    state?: string;
     category?: string;
     mapPinType?: string;
     badges?: string[];
@@ -427,6 +433,8 @@ export default function AdminPortalScreen() {
       isLore: location.isLore === true,
       latitude: location.latitude != null ? String(location.latitude) : '',
       longitude: location.longitude != null ? String(location.longitude) : '',
+      city: location.city ?? '',
+      state: location.state ?? '',
       category: getCanonicalLocationCategory(location.category) ?? '',
       mapPinType:
         getCanonicalLocationMapPinType(location.mapPinType) ??
@@ -778,6 +786,8 @@ export default function AdminPortalScreen() {
     const trimmedKey = form.key.trim();
     const storyKey = form.storyKey.trim() || undefined;
     const regionKey = form.regionKey.trim() || undefined;
+    const city = form.city.trim() || undefined;
+    const state = form.state.trim() || undefined;
     const badges = parseBadgeTags(form.badgesText);
 
     setSaving(true);
@@ -801,6 +811,8 @@ export default function AdminPortalScreen() {
           badges,
           storyKey,
           regionKey,
+          city,
+          state,
         });
 
         setStatusMessage('Location created.');
@@ -820,6 +832,8 @@ export default function AdminPortalScreen() {
           badges,
           storyKey,
           regionKey,
+          city,
+          state,
         });
 
         setStatusMessage('Location changes saved.');
@@ -1720,6 +1734,10 @@ export default function AdminPortalScreen() {
               label="MAP DETAILS"
               items={[
                 {
+                  label: 'City and State',
+                  description: 'Structured place information used by map search and trip-planning filters. Add both whenever they are known.',
+                },
+                {
                   label: 'Latitude',
                   description: 'The north-south decimal coordinate that positions the map marker. Copy the full decimal value from a reliable map source.',
                 },
@@ -1732,6 +1750,46 @@ export default function AdminPortalScreen() {
                   description: 'The required broad public-facing type visitors see for this location. Choose the closest overall category and use badge tags for narrower subjects such as public-art, black-history, or transportation.',
                 },
               ]}
+            />
+
+            <ThemedText type="smallBold">City (Recommended)</ThemedText>
+            <TextInput
+              accessibilityLabel="City"
+              autoCapitalize="words"
+              autoCorrect={false}
+              maxLength={120}
+              onChangeText={(value) => updateField('city', value)}
+              placeholder="Cambridge"
+              placeholderTextColor={theme.textSecondary}
+              style={[
+                styles.formInput,
+                {
+                  backgroundColor: theme.background,
+                  borderColor: theme.textSecondary,
+                  color: theme.text,
+                },
+              ]}
+              value={form.city}
+            />
+
+            <ThemedText type="smallBold">State (Recommended)</ThemedText>
+            <TextInput
+              accessibilityLabel="State"
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={120}
+              onChangeText={(value) => updateField('state', value)}
+              placeholder="MA"
+              placeholderTextColor={theme.textSecondary}
+              style={[
+                styles.formInput,
+                {
+                  backgroundColor: theme.background,
+                  borderColor: theme.textSecondary,
+                  color: theme.text,
+                },
+              ]}
+              value={form.state}
             />
 
             <ThemedText type="smallBold">Latitude</ThemedText>
@@ -2048,6 +2106,14 @@ export default function AdminPortalScreen() {
                       <ThemedText themeColor="textSecondary">
                         {location.category}
                       </ThemedText>
+
+                      {location.city || location.state ? (
+                        <ThemedText type="small" themeColor="textSecondary">
+                          {[location.city, location.state]
+                            .filter(Boolean)
+                            .join(', ')}
+                        </ThemedText>
+                      ) : null}
 
                       {location.isLore ? (
                         <ThemedView style={styles.lorePill}>
