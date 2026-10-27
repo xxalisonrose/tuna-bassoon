@@ -22,21 +22,57 @@ const avatarImages = {
   newExplorerTop: require('../../assets/images/avatar/items/top/avatar-top-new-explorer-tee.png'),
   explorerBottom: require('../../assets/images/avatar/items/bottom/avatar-bottom-explorer-cargo.png'),
   rustNeckerchief: require('../../assets/images/avatar/items/neck/avatar-neck-rust-neckerchief.png'),
+  winterTop: require('../../assets/images/avatar/items/top/avatar-top-winter-polka-sweater.png'),
+  winterBottom: require('../../assets/images/avatar/items/bottom/avatar-bottom-winter-charcoal-pants.png'),
+  winterShoes: require('../../assets/images/avatar/items/shoes/avatar-shoes-winter-snow-boots.png'),
+  winterScarf: require('../../assets/images/avatar/items/neck/avatar-neck-winter-cream-scarf.png'),
+  winterBeanie: require('../../assets/images/avatar/items/headwear/avatar-headwear-winter-knit-beanie.png'),
+  cowboyTop: require('../../assets/images/avatar/items/top/avatar-top-cowboy-sheriff-shirt.png'),
+  cowboyPants: require('../../assets/images/avatar/items/bottom/avatar-bottom-cowboy-western-pants.png'),
+  cowboyShorts: require('../../assets/images/avatar/items/bottom/avatar-bottom-cowboy-western-shorts.png'),
+  cowboyBrownBoots: require('../../assets/images/avatar/items/shoes/avatar-shoes-cowboy-brown-boots.png'),
+  cowboyRedBoots: require('../../assets/images/avatar/items/shoes/avatar-shoes-cowboy-red-boots.png'),
+  cowboyBandana: require('../../assets/images/avatar/items/neck/avatar-neck-cowboy-red-bandana.png'),
+  cowboyHat: require('../../assets/images/avatar/items/headwear/avatar-headwear-cowboy-sheriff-hat.png'),
+  princessTop: require('../../assets/images/avatar/items/top/avatar-top-princess-puff-bodice.png'),
+  princessSkirt: require('../../assets/images/avatar/items/bottom/avatar-bottom-princess-ballgown-skirt.png'),
+  princessCrown: require('../../assets/images/avatar/items/headwear/avatar-headwear-princess-crown.png'),
+  princessWand: require('../../assets/images/avatar/items/handheld/avatar-handheld-princess-star-wand.png'),
 } as const;
 
 function getAvatarDescription(selection: AvatarSelection) {
   const parts = [
-    selection.topId === 'explorer_field'
-      ? 'an explorer field shirt and vest'
-      : selection.topId === 'new_explorer_tee'
-        ? 'a cow-print New Explorer shirt'
-        : 'a cream trail tank',
-    selection.bottomId === 'explorer_cargo'
-      ? 'tan cargo shorts'
-      : 'neutral trail shorts',
-    selection.shoesId === 'explorer_boots'
-      ? 'brown explorer boots'
-      : 'bare hooves',
+    selection.topId === 'princess_puff_bodice'
+      ? 'a sparkling pink princess bodice'
+      : selection.topId === 'cowboy_sheriff_shirt'
+        ? 'a blue sheriff shirt and fringed vest'
+        : selection.topId === 'winter_polka_sweater'
+          ? 'a mustard polka-dot sweater'
+          : selection.topId === 'explorer_field'
+            ? 'an explorer field shirt and vest'
+            : selection.topId === 'new_explorer_tee'
+              ? 'a cow-print New Explorer shirt'
+              : 'a cream trail tank',
+    selection.bottomId === 'princess_ballgown_skirt'
+      ? 'a sparkling pink ball-gown skirt'
+      : selection.bottomId === 'cowboy_western_pants'
+        ? 'long tan western pants'
+        : selection.bottomId === 'cowboy_western_shorts'
+          ? 'tan western shorts'
+          : selection.bottomId === 'winter_charcoal_pants'
+            ? 'charcoal winter pants'
+            : selection.bottomId === 'explorer_cargo'
+              ? 'tan cargo shorts'
+              : 'neutral trail shorts',
+    selection.shoesId === 'cowboy_brown_boots'
+      ? 'brown cowboy boots'
+      : selection.shoesId === 'cowboy_red_boots'
+        ? 'red sheriff boots'
+        : selection.shoesId === 'winter_snow_boots'
+          ? 'fleece-lined snow boots'
+          : selection.shoesId === 'explorer_boots'
+            ? 'brown explorer boots'
+            : 'bare hooves',
   ];
 
   if (selection.neckId === 'rust_neckerchief') {
@@ -45,21 +81,41 @@ function getAvatarDescription(selection: AvatarSelection) {
   if (selection.faceId === 'explorer_goggles') {
     parts.push('round bronze goggles');
   }
+  if (selection.neckId === 'winter_cream_scarf') {
+    parts.push('a cream knit scarf');
+  }
+  if (selection.neckId === 'cowboy_red_bandana') {
+    parts.push('a red paisley bandana');
+  }
+  if (selection.headwearId === 'winter_knit_beanie') {
+    parts.push('a teal knit beanie');
+  }
+  if (selection.headwearId === 'cowboy_sheriff_hat') {
+    parts.push('a brown sheriff hat');
+  }
+  if (selection.headwearId === 'princess_crown') {
+    parts.push('a jeweled gold crown');
+  }
+  if (selection.handheldId === 'princess_star_wand') {
+    parts.push('a pink star wand');
+  }
 
   return `Cow avatar wearing ${parts.join(', ')}.`;
 }
 
 function AvatarLayer({
+  contentFit = 'contain',
   source,
   style,
 }: {
+  contentFit?: 'contain' | 'fill';
   source: number;
   style?: StyleProp<ImageStyle>;
 }) {
   return (
     <Image
       accessible={false}
-      contentFit="contain"
+      contentFit={contentFit}
       importantForAccessibility="no"
       source={source}
       style={[styles.layer, style]}
@@ -72,7 +128,8 @@ function FittedExplorerBoots() {
     <View
       accessible={false}
       importantForAccessibility="no-hide-descendants"
-      style={styles.bootSlice}>
+      style={styles.bootSlice}
+    >
       <Image
         accessible={false}
         contentFit="contain"
@@ -84,13 +141,13 @@ function FittedExplorerBoots() {
   );
 }
 
-
 function FittedExplorerGoggles() {
   return (
     <View
       accessible={false}
       importantForAccessibility="no-hide-descendants"
-      style={styles.goggleSlice}>
+      style={styles.goggleSlice}
+    >
       <Image
         accessible={false}
         contentFit="contain"
@@ -128,7 +185,8 @@ export function AvatarPreview({
           width: size,
         },
         style,
-      ]}>
+      ]}
+    >
       {matchingPresetId === 'explorer' ? (
         <AvatarLayer
           source={avatarImages.explorerReference}
@@ -143,8 +201,50 @@ export function AvatarPreview({
               style={styles.bottomLayer}
             />
           ) : null}
+          {activeSelection.bottomId === 'winter_charcoal_pants' ? (
+            <AvatarLayer
+              source={avatarImages.winterBottom}
+              style={styles.winterBottomLayer}
+            />
+          ) : null}
+          {activeSelection.bottomId === 'cowboy_western_pants' ? (
+            <AvatarLayer
+              source={avatarImages.cowboyPants}
+              style={styles.cowboyPantsLayer}
+            />
+          ) : null}
+          {activeSelection.bottomId === 'cowboy_western_shorts' ? (
+            <AvatarLayer
+              source={avatarImages.cowboyShorts}
+              style={styles.cowboyShortsLayer}
+            />
+          ) : null}
+          {activeSelection.bottomId === 'princess_ballgown_skirt' ? (
+            <AvatarLayer
+              source={avatarImages.princessSkirt}
+              style={styles.princessSkirtLayer}
+            />
+          ) : null}
           {activeSelection.shoesId === 'explorer_boots' ? (
             <FittedExplorerBoots />
+          ) : null}
+          {activeSelection.shoesId === 'winter_snow_boots' ? (
+            <AvatarLayer
+              source={avatarImages.winterShoes}
+              style={styles.winterShoesLayer}
+            />
+          ) : null}
+          {activeSelection.shoesId === 'cowboy_brown_boots' ? (
+            <AvatarLayer
+              source={avatarImages.cowboyBrownBoots}
+              style={styles.cowboyBootsLayer}
+            />
+          ) : null}
+          {activeSelection.shoesId === 'cowboy_red_boots' ? (
+            <AvatarLayer
+              source={avatarImages.cowboyRedBoots}
+              style={styles.cowboyBootsLayer}
+            />
           ) : null}
           {activeSelection.topId === 'explorer_field' ? (
             <AvatarLayer
@@ -158,14 +258,71 @@ export function AvatarPreview({
               style={styles.fullLayer}
             />
           ) : null}
+          {activeSelection.topId === 'winter_polka_sweater' ? (
+            <AvatarLayer
+              source={avatarImages.winterTop}
+              style={styles.winterTopLayer}
+            />
+          ) : null}
+          {activeSelection.topId === 'cowboy_sheriff_shirt' ? (
+            <AvatarLayer
+              source={avatarImages.cowboyTop}
+              style={styles.cowboyTopLayer}
+            />
+          ) : null}
+          {activeSelection.topId === 'princess_puff_bodice' ? (
+            <AvatarLayer
+              source={avatarImages.princessTop}
+              style={styles.princessTopLayer}
+            />
+          ) : null}
           {activeSelection.neckId === 'rust_neckerchief' ? (
             <AvatarLayer
               source={avatarImages.rustNeckerchief}
               style={styles.neckLayer}
             />
           ) : null}
+          {activeSelection.neckId === 'winter_cream_scarf' ? (
+            <AvatarLayer
+              source={avatarImages.winterScarf}
+              style={styles.winterScarfLayer}
+            />
+          ) : null}
+          {activeSelection.neckId === 'cowboy_red_bandana' ? (
+            <AvatarLayer
+              source={avatarImages.cowboyBandana}
+              style={styles.cowboyBandanaLayer}
+            />
+          ) : null}
           {activeSelection.faceId === 'explorer_goggles' ? (
             <FittedExplorerGoggles />
+          ) : null}
+          {activeSelection.headwearId === 'winter_knit_beanie' ? (
+            <AvatarLayer
+              contentFit="fill"
+              source={avatarImages.winterBeanie}
+              style={styles.winterBeanieLayer}
+            />
+          ) : null}
+          {activeSelection.headwearId === 'cowboy_sheriff_hat' ? (
+            <AvatarLayer
+              contentFit="fill"
+              source={avatarImages.cowboyHat}
+              style={styles.cowboyHatLayer}
+            />
+          ) : null}
+          {activeSelection.headwearId === 'princess_crown' ? (
+            <AvatarLayer
+              contentFit="fill"
+              source={avatarImages.princessCrown}
+              style={styles.princessCrownLayer}
+            />
+          ) : null}
+          {activeSelection.handheldId === 'princess_star_wand' ? (
+            <AvatarLayer
+              source={avatarImages.princessWand}
+              style={styles.princessWandLayer}
+            />
           ) : null}
         </>
       )}
@@ -237,5 +394,95 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     width: '100%',
+  },
+  winterTopLayer: {
+    height: '70%',
+    left: '15%',
+    top: '7%',
+    width: '70%',
+  },
+  winterBottomLayer: {
+    height: '58%',
+    left: '21%',
+    top: '39%',
+    width: '58%',
+  },
+  winterShoesLayer: {
+    height: '44%',
+    left: '28%',
+    top: '61%',
+    width: '44%',
+  },
+  winterScarfLayer: {
+    height: '28%',
+    left: '36%',
+    top: '19%',
+    width: '28%',
+  },
+  winterBeanieLayer: {
+    height: '10%',
+    left: '36%',
+    top: 0,
+    width: '28%',
+  },
+  cowboyTopLayer: {
+    height: '68%',
+    left: '15%',
+    top: '8%',
+    width: '70%',
+  },
+  cowboyPantsLayer: {
+    height: '59%',
+    left: '21%',
+    top: '39%',
+    width: '58%',
+  },
+  cowboyShortsLayer: {
+    height: '28%',
+    left: '29%',
+    top: '43%',
+    width: '42%',
+  },
+  cowboyBootsLayer: {
+    height: '43%',
+    left: '28%',
+    top: '61%',
+    width: '44%',
+  },
+  cowboyBandanaLayer: {
+    height: '19%',
+    left: '38%',
+    top: '21%',
+    width: '24%',
+  },
+  cowboyHatLayer: {
+    height: '12%',
+    left: '31%',
+    top: 0,
+    width: '38%',
+  },
+  princessTopLayer: {
+    height: '52%',
+    left: '19%',
+    top: '10%',
+    width: '62%',
+  },
+  princessSkirtLayer: {
+    height: '65%',
+    left: '14%',
+    top: '39%',
+    width: '72%',
+  },
+  princessCrownLayer: {
+    height: '11%',
+    left: '39%',
+    top: 0,
+    width: '22%',
+  },
+  princessWandLayer: {
+    height: '52%',
+    left: '59%',
+    top: '27%',
+    width: '32%',
   },
 });

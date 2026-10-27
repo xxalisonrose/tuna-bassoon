@@ -140,12 +140,37 @@ The approved concept and reference PNGs were generated from Dan's original hand-
 
 ## Current prototype wardrobe layers
 
-The first item-level prototype uses the neutral reference as its base and stacks five 1254 × 1254 transparent overlays:
+The item-level prototype uses the neutral reference as its base and stacks full-canvas transparent overlays. The Explorer set includes:
 
 - `items/top/avatar-top-explorer-field.png`
 - `items/bottom/avatar-bottom-explorer-cargo.png`
 - `items/shoes/avatar-shoes-explorer-boots.png`
 - `items/neck/avatar-neck-rust-neckerchief.png`
 - `items/face/avatar-face-explorer-goggles.png`
+
+The Cozy Winter set adds:
+
+- `items/top/avatar-top-winter-polka-sweater.png`
+- `items/bottom/avatar-bottom-winter-charcoal-pants.png`
+- `items/shoes/avatar-shoes-winter-snow-boots.png`
+- `items/neck/avatar-neck-winter-cream-scarf.png`
+- `items/headwear/avatar-headwear-winter-knit-beanie.png`
+
+The Cowboy sets add:
+
+- `items/top/avatar-top-cowboy-sheriff-shirt.png`
+- `items/bottom/avatar-bottom-cowboy-western-pants.png`
+- `items/bottom/avatar-bottom-cowboy-western-shorts.png`
+- `items/shoes/avatar-shoes-cowboy-brown-boots.png`
+- `items/shoes/avatar-shoes-cowboy-red-boots.png`
+- `items/neck/avatar-neck-cowboy-red-bandana.png`
+- `items/headwear/avatar-headwear-cowboy-sheriff-hat.png`
+
+The Pink Princess set adds:
+
+- `items/top/avatar-top-princess-puff-bodice.png`
+- `items/bottom/avatar-bottom-princess-ballgown-skirt.png`
+- `items/headwear/avatar-headwear-princess-crown.png`
+- `items/handheld/avatar-handheld-princess-star-wand.png`
 
 The Trail Tank and Trail Shorts remain baked into the neutral reference during this prototype. Final production artwork should split those garments from the body layer while preserving the current stable item IDs.

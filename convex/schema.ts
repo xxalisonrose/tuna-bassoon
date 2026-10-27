@@ -63,6 +63,10 @@ export default defineSchema({
     avatarPresetId: v.union(
       v.literal('explorer'),
       v.literal('trail_basics'),
+      v.literal('cozy_winter'),
+      v.literal('classic_cowboy'),
+      v.literal('rodeo_cowboy'),
+      v.literal('pink_princess'),
       v.literal('custom'),
     ),
     avatarTopId: v.optional(
@@ -70,20 +74,52 @@ export default defineSchema({
         v.literal('trail_tank'),
         v.literal('explorer_field'),
         v.literal('new_explorer_tee'),
+        v.literal('winter_polka_sweater'),
+        v.literal('cowboy_sheriff_shirt'),
+        v.literal('princess_puff_bodice'),
       ),
-      ),
+    ),
     avatarBottomId: v.optional(
-      v.union(v.literal('trail_shorts'), v.literal('explorer_cargo')),
+      v.union(
+        v.literal('trail_shorts'),
+        v.literal('explorer_cargo'),
+        v.literal('winter_charcoal_pants'),
+        v.literal('cowboy_western_pants'),
+        v.literal('cowboy_western_shorts'),
+        v.literal('princess_ballgown_skirt'),
       ),
+    ),
     avatarShoesId: v.optional(
-      v.union(v.literal('bare_hooves'), v.literal('explorer_boots')),
+      v.union(
+        v.literal('bare_hooves'),
+        v.literal('explorer_boots'),
+        v.literal('winter_snow_boots'),
+        v.literal('cowboy_brown_boots'),
+        v.literal('cowboy_red_boots'),
       ),
+    ),
     avatarNeckId: v.optional(
-      v.union(v.literal('none'), v.literal('rust_neckerchief')),
+      v.union(
+        v.literal('none'),
+        v.literal('rust_neckerchief'),
+        v.literal('winter_cream_scarf'),
+        v.literal('cowboy_red_bandana'),
       ),
+    ),
     avatarFaceId: v.optional(
       v.union(v.literal('none'), v.literal('explorer_goggles')),
+    ),
+    avatarHeadwearId: v.optional(
+      v.union(
+        v.literal('none'),
+        v.literal('winter_knit_beanie'),
+        v.literal('cowboy_sheriff_hat'),
+        v.literal('princess_crown'),
       ),
+    ),
+    avatarHandheldId: v.optional(
+      v.union(v.literal('none'), v.literal('princess_star_wand')),
+    ),
     unlockedAvatarItemIds: v.optional(v.array(v.string())),
     avatarCustomizedAt: v.optional(v.number()),
     communitySubmissionIntroSeenAt: v.optional(v.number()),
