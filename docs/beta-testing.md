@@ -24,6 +24,11 @@ The `beta` submission profile completes the release on the internal testing
 track after the App Bundle passes Google Play processing. Use the production
 submission profile only for a deliberate production release.
 
+Automated submission also requires a Google Play service-account key configured
+for the app in EAS. Until that key is available, let the beta build finish,
+download its `.aab` artifact from Expo, and upload it through the Internal
+testing release form in Google Play Console.
+
 The beta profile uses the production EAS environment, so its Clerk and Convex
 variables must remain configured there. For local iOS and Android testing, run
 `npm run start:beta` and then press `i` or `a`. A normal `npm start` session is
