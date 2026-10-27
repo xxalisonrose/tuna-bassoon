@@ -16,4 +16,5 @@ export const buildProfile = readBuildInfo(
   Constants.expoConfig?.extra?.buildInfo,
 ).buildProfile ?? 'local';
 
-export const isBetaBuild = buildProfile === 'beta';
+export const isBetaBuild =
+  buildProfile === 'beta' || buildProfile === 'beta-apk';

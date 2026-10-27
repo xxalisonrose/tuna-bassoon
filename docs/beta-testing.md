@@ -35,6 +35,21 @@ variables must remain configured there. For local iOS and Android testing, run
 intentionally treated as local development and does not create beta starter
 pins, even when the same beta-tester account signs in.
 
+## Sideloadable Android build
+
+The `beta-apk` profile produces a signed APK for a tester who installs apps
+directly instead of through Google Play:
+
+```sh
+eas build --platform android --profile beta-apk
+```
+
+It inherits the production EAS environment and all private beta behavior, uses
+the current `com.Lorcalapp` application ID, and does not advance the shared
+Google Play version code. Share only a current `beta-apk` artifact; the older
+development APKs use the retired application ID and do not contain the current
+beta work.
+
 ## Private starter content
 
 After a signed-in beta build receives a usable position, it creates five small
