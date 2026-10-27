@@ -1,8 +1,4 @@
-import {
-  useConvexAuth,
-  useMutation,
-  useQuery,
-} from 'convex/react';
+import { useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -31,6 +27,7 @@ import {
   avatarCategories,
   avatarItemOptions,
   avatarPresets,
+  getAvatarItemPrice,
   getAvatarSlotValue,
   getMatchingAvatarPresetId,
   normalizeAvatarSelection,
@@ -50,13 +47,10 @@ function getErrorMessage(error: unknown) {
     return error.data;
   }
 
-  return 'Unable to save your avatar right now.';
+  return 'Unable to update your wardrobe right now.';
 }
 
-function selectionsMatch(
-  first: AvatarSelection,
-  second: AvatarSelection,
-) {
+function selectionsMatch(first: AvatarSelection, second: AvatarSelection) {
   return Object.keys(first).every(
     (key) =>
       first[key as keyof AvatarSelection] ===
@@ -68,22 +62,24 @@ export default function CustomizeAvatarScreen() {
   const router = useRouter();
   const theme = useTheme();
   const { width } = useWindowDimensions();
-  const {
-    isAuthenticated,
-    isLoading: isAuthenticationLoading,
-  } = useConvexAuth();
+  const { isAuthenticated, isLoading: isAuthenticationLoading } =
+    useConvexAuth();
   const avatarProfile = useQuery(
     api.users.getMyAvatarProfile,
     isAuthenticated ? {} : 'skip',
   );
-  const saveMyAvatarProfile = useMutation(
-    api.users.saveMyAvatarProfile,
+  const wallet = useQuery(
+    api.lorcoins.getMyWallet,
+    isAuthenticated ? {} : 'skip',
   );
-  const [draftSelection, setDraftSelection] =
-    useState<AvatarSelection | null>(null);
-  const [activeCategory, setActiveCategory] =
-    useState<AvatarCategoryId>('outfits');
+  const saveMyAvatarProfile = useMutation(api.users.saveMyAvatarProfile);
+  const purchaseAvatarItem = useMutation(api.lorcoins.purchaseAvatarItem);
+  const [draftSelection, setDraftSelection] = useState<AvatarSelection | null>(
+    null,
+  );
+  const [activeCategory, setActiveCategory] = useState<AvatarCategoryId>('top');
   const [saving, setSaving] = useState(false);
+  const [purchasingItemId, setPurchasingItemId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -93,13 +89,13 @@ export default function CustomizeAvatarScreen() {
   );
   const activeSelection = draftSelection ?? savedSelection;
   const matchingPresetId = getMatchingAvatarPresetId(activeSelection);
-  const hasUnsavedChanges = !selectionsMatch(
-    activeSelection,
-    savedSelection,
-  );
+  const hasUnsavedChanges = !selectionsMatch(activeSelection, savedSelection);
   const previewSize = Math.min(Math.max(width - 64, 240), 430);
   const unlockedAvatarItemIds = new Set(
     avatarProfile?.unlockedAvatarItemIds ?? [],
+  );
+  const purchasedAvatarItemIds = new Set(
+    avatarProfile?.purchasedAvatarItemIds ?? [],
   );
 
   const returnToPassport = () => {
@@ -112,8 +108,34 @@ export default function CustomizeAvatarScreen() {
     setErrorMessage(null);
   };
 
-  const chooseItem = (slot: AvatarItemSlot, itemId: string) => {
+  const chooseItem = async (
+    slot: AvatarItemSlot,
+    itemId: string,
+    itemName: string,
+  ) => {
+    const price = getAvatarItemPrice(itemId);
+    const owned = price === 0 || purchasedAvatarItemIds.has(itemId);
+
+    setErrorMessage(null);
+
+    if (!owned) {
+      setPurchasingItemId(itemId);
+
+      try {
+        await purchaseAvatarItem({ itemId });
+      } catch (error) {
+        setErrorMessage(getErrorMessage(error));
+        return;
+      } finally {
+        setPurchasingItemId(null);
+      }
+    }
+
     updateSelection(applyAvatarItem(activeSelection, slot, itemId));
+
+    if (!owned) {
+      setStatusMessage(`${itemName} purchased and equipped.`);
+    }
   };
 
   const saveAvatar = async () => {
@@ -150,9 +172,7 @@ export default function CustomizeAvatarScreen() {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.signedOutSafeArea}>
-          <ThemedView
-            type="backgroundElement"
-            style={styles.messageCard}>
+          <ThemedView type="backgroundElement" style={styles.messageCard}>
             <ThemedText accessibilityRole="header" type="title">
               Sign In to Customize
             </ThemedText>
@@ -165,7 +185,8 @@ export default function CustomizeAvatarScreen() {
               style={({ pressed }) => [
                 styles.secondaryButton,
                 pressed && styles.pressed,
-              ]}>
+              ]}
+            >
               <ThemedText type="smallBold">Back to Passport</ThemedText>
             </Pressable>
           </ThemedView>
@@ -189,8 +210,7 @@ export default function CustomizeAvatarScreen() {
     );
   }
 
-  const selectedSlot =
-    activeCategory === 'outfits' ? null : activeCategory;
+  const selectedSlot = activeCategory === 'outfits' ? null : activeCategory;
   const visibleItems =
     selectedSlot === null ? [] : avatarItemOptions[selectedSlot];
 
@@ -200,30 +220,39 @@ export default function CustomizeAvatarScreen() {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           nativeID={Platform.OS === 'web' ? 'app-page-scroll-view' : undefined}
-          showsVerticalScrollIndicator={Platform.OS === 'web'}>
+          showsVerticalScrollIndicator={Platform.OS === 'web'}
+        >
           <View style={styles.heading}>
-            <ThemedText accessibilityRole="header" type="title">
-              Customize Avatar
-            </ThemedText>
+            <View style={styles.headingRow}>
+              <ThemedText accessibilityRole="header" type="title">
+                Customize Avatar
+              </ThemedText>
+              <ThemedView
+                accessibilityLabel={`${wallet?.balance ?? 0} Lorcoins available`}
+                accessible
+                type="backgroundElement"
+                style={styles.walletChip}
+              >
+                <ThemedText type="smallBold">
+                  {wallet === undefined
+                    ? 'Lorcoins…'
+                    : `${wallet?.balance ?? 0} Lorcoins`}
+                </ThemedText>
+              </ThemedView>
+            </View>
             <ThemedText themeColor="textSecondary">
-              Mix individual clothing and accessories, or begin with a
-              complete outfit.
+              Build your look one piece at a time. Complete looks are saved for
+              the end of the wardrobe.
             </ThemedText>
           </View>
 
-          <ThemedView
-            type="backgroundElement"
-            style={styles.previewCard}>
-            <AvatarPreview
-              selection={activeSelection}
-              size={previewSize}
-            />
+          <ThemedView type="backgroundElement" style={styles.previewCard}>
+            <AvatarPreview selection={activeSelection} size={previewSize} />
             <ThemedText type="smallBold">
               {matchingPresetId === 'custom'
                 ? 'Custom Look'
-                : avatarPresets.find(
-                    (preset) => preset.id === matchingPresetId,
-                  )?.name}
+                : avatarPresets.find((preset) => preset.id === matchingPresetId)
+                    ?.name}
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               {hasUnsavedChanges ? 'Unsaved Changes' : 'Saved Look'}
@@ -237,7 +266,8 @@ export default function CustomizeAvatarScreen() {
             <View
               accessibilityRole="tablist"
               accessibilityLabel="Avatar wardrobe categories"
-              style={styles.categoryList}>
+              style={styles.categoryList}
+            >
               {avatarCategories.map((category) => {
                 const selected = activeCategory === category.id;
 
@@ -258,10 +288,12 @@ export default function CustomizeAvatarScreen() {
                           : theme.border,
                       },
                       pressed && styles.pressed,
-                    ]}>
+                    ]}
+                  >
                     <ThemedText
                       type="smallBold"
-                      style={selected ? { color: theme.link } : undefined}>
+                      style={selected ? { color: theme.link } : undefined}
+                    >
                       {category.label}
                     </ThemedText>
                   </Pressable>
@@ -270,17 +302,32 @@ export default function CustomizeAvatarScreen() {
             </View>
           </View>
 
+          <ThemedView type="backgroundElement" style={styles.economyCard}>
+            <ThemedText type="smallBold">Earn and spend Lorcoins</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              New check-ins earn 5, badges earn 50, and each new wardrobe piece
+              costs 100 Lorcoins.
+            </ThemedText>
+          </ThemedView>
+
           {activeCategory === 'outfits' ? (
             <View style={styles.choiceGrid}>
               {avatarPresets.map((preset) => {
                 const selected = matchingPresetId === preset.id;
+                const missingItemCount = Object.values(preset.selection).filter(
+                  (itemId) =>
+                    getAvatarItemPrice(itemId) > 0 &&
+                    !purchasedAvatarItemIds.has(itemId),
+                ).length;
+                const locked = missingItemCount > 0;
 
                 return (
                   <Pressable
                     key={preset.id}
                     accessibilityLabel={`${preset.name}. ${preset.description}`}
                     accessibilityRole="radio"
-                    accessibilityState={{ selected }}
+                    accessibilityState={{ disabled: locked, selected }}
+                    disabled={locked}
                     onPress={() => updateSelection({ ...preset.selection })}
                     style={({ pressed }) => [
                       styles.choiceCard,
@@ -292,8 +339,10 @@ export default function CustomizeAvatarScreen() {
                           ? theme.borderStrong
                           : theme.border,
                       },
+                      locked && styles.lockedChoiceCard,
                       pressed && styles.pressed,
-                    ]}>
+                    ]}
+                  >
                     <AvatarPreview selection={preset.selection} size={150} />
                     <View style={styles.choiceCopy}>
                       <ThemedText type="smallBold">{preset.name}</ThemedText>
@@ -302,8 +351,13 @@ export default function CustomizeAvatarScreen() {
                       </ThemedText>
                       <ThemedText
                         type="smallBold"
-                        style={selected ? { color: theme.link } : undefined}>
-                        {selected ? 'Equipped' : 'Equip Outfit'}
+                        style={selected ? { color: theme.link } : undefined}
+                      >
+                        {locked
+                          ? `Own ${missingItemCount} more ${missingItemCount === 1 ? 'piece' : 'pieces'} to equip`
+                          : selected
+                            ? 'Equipped'
+                            : 'Equip Complete Look'}
                       </ThemedText>
                     </View>
                   </Pressable>
@@ -318,11 +372,16 @@ export default function CustomizeAvatarScreen() {
                   (category) => category.id === activeCategory,
                 )?.label ?? 'an item'
               }`}
-              style={styles.choiceGrid}>
+              style={styles.choiceGrid}
+            >
               {visibleItems.map((item) => {
-                const locked =
+                const missionLocked =
                   item.unlockMissionKey !== undefined &&
                   !unlockedAvatarItemIds.has(item.id);
+                const price = item.price ?? 0;
+                const owned =
+                  price === 0 || purchasedAvatarItemIds.has(item.id);
+                const isPurchasing = purchasingItemId === item.id;
                 const selected =
                   getAvatarSlotValue(activeSelection, activeCategory) ===
                   item.id;
@@ -336,10 +395,16 @@ export default function CustomizeAvatarScreen() {
                   <Pressable
                     key={item.id}
                     accessibilityLabel={`${item.name}. ${item.description}`}
-                    accessibilityRole="radio"
-                    accessibilityState={{ disabled: locked, selected }}
-                    disabled={locked}
-                    onPress={() => chooseItem(activeCategory, item.id)}
+                    accessibilityRole={owned ? 'radio' : 'button'}
+                    accessibilityState={{
+                      busy: isPurchasing,
+                      disabled: missionLocked || isPurchasing,
+                      selected,
+                    }}
+                    disabled={missionLocked || isPurchasing}
+                    onPress={() =>
+                      void chooseItem(activeCategory, item.id, item.name)
+                    }
                     style={({ pressed }) => [
                       styles.choiceCard,
                       {
@@ -350,28 +415,37 @@ export default function CustomizeAvatarScreen() {
                           ? theme.borderStrong
                           : theme.border,
                       },
-                      locked && styles.lockedChoiceCard,
+                      missionLocked && styles.lockedChoiceCard,
                       pressed && styles.pressed,
-                    ]}>
+                    ]}
+                  >
                     <AvatarPreview selection={previewSelection} size={150} />
                     <View style={styles.choiceCopy}>
                       <ThemedText type="smallBold">{item.name}</ThemedText>
                       <ThemedText type="small" themeColor="textSecondary">
                         {item.description}
                       </ThemedText>
+                      {price > 0 ? (
+                        <ThemedText type="smallBold" style={styles.itemPrice}>
+                          {owned ? 'Owned' : `${price} Lorcoins`}
+                        </ThemedText>
+                      ) : null}
                       <ThemedText
                         type="smallBold"
-                        style={selected ? { color: theme.link } : undefined}>
-                        {locked
+                        style={selected ? { color: theme.link } : undefined}
+                      >
+                        {missionLocked
                           ? 'Locked Mission Reward'
-                          : selected
-                            ? 'Equipped'
-                            : 'Choose Item'}
+                          : isPurchasing
+                            ? 'Buying...'
+                            : !owned
+                              ? `Buy & Equip · ${price} Lorcoins`
+                              : selected
+                                ? 'Equipped'
+                                : 'Choose Item'}
                       </ThemedText>
-                      {locked && item.unlockMessage ? (
-                        <ThemedText
-                          type="small"
-                          themeColor="textSecondary">
+                      {missionLocked && item.unlockMessage ? (
+                        <ThemedText type="small" themeColor="textSecondary">
                           {item.unlockMessage}
                         </ThemedText>
                       ) : null}
@@ -382,22 +456,21 @@ export default function CustomizeAvatarScreen() {
             </View>
           )}
 
-          <ThemedView
-            type="backgroundElement"
-            style={styles.comingSoonCard}>
+          <ThemedView type="backgroundElement" style={styles.comingSoonCard}>
             <ThemedText accessibilityRole="header" type="subtitle">
               More Wardrobe Categories Are Coming
             </ThemedText>
             <ThemedText themeColor="textSecondary">
-              Coat patterns, hats, backpacks, and handheld items will join
-              these starter pieces as aligned artwork is completed.
+              Coat patterns, backpacks, seasonal costumes, and more accessories
+              will arrive as aligned artwork is completed.
             </ThemedText>
           </ThemedView>
 
           {statusMessage ? (
             <ThemedText
               accessibilityLiveRegion="polite"
-              style={styles.successMessage}>
+              style={styles.successMessage}
+            >
               {statusMessage}
             </ThemedText>
           ) : null}
@@ -406,7 +479,8 @@ export default function CustomizeAvatarScreen() {
             <ThemedText
               accessibilityLiveRegion="assertive"
               accessibilityRole="alert"
-              style={styles.errorMessage}>
+              style={styles.errorMessage}
+            >
               {errorMessage}
             </ThemedText>
           ) : null}
@@ -421,7 +495,8 @@ export default function CustomizeAvatarScreen() {
                 styles.primaryButton,
                 saving && styles.disabled,
                 pressed && styles.pressed,
-              ]}>
+              ]}
+            >
               {saving ? (
                 <ActivityIndicator
                   accessibilityLabel="Saving avatar"
@@ -442,7 +517,8 @@ export default function CustomizeAvatarScreen() {
                 style={({ pressed }) => [
                   styles.secondaryButton,
                   pressed && styles.pressed,
-                ]}>
+                ]}
+              >
                 <ThemedText type="smallBold">Undo Changes</ThemedText>
               </Pressable>
             ) : null}
@@ -453,7 +529,8 @@ export default function CustomizeAvatarScreen() {
               style={({ pressed }) => [
                 styles.secondaryButton,
                 pressed && styles.pressed,
-              ]}>
+              ]}
+            >
               <ThemedText type="smallBold">Back to Passport</ThemedText>
             </Pressable>
           </View>
@@ -494,6 +571,18 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   heading: { gap: Spacing.two },
+  headingRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+    justifyContent: 'space-between',
+  },
+  walletChip: {
+    borderRadius: 999,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+  },
   messageCard: {
     borderRadius: Spacing.four,
     gap: Spacing.three,
@@ -506,6 +595,11 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
   },
   section: { gap: Spacing.three },
+  economyCard: {
+    borderRadius: Spacing.three,
+    gap: Spacing.one,
+    padding: Spacing.three,
+  },
   categoryList: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -539,6 +633,9 @@ const styles = StyleSheet.create({
   },
   lockedChoiceCard: {
     opacity: 0.62,
+  },
+  itemPrice: {
+    color: '#9A6500',
   },
   comingSoonCard: {
     borderRadius: Spacing.four,

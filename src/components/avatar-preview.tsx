@@ -299,21 +299,18 @@ export function AvatarPreview({
           ) : null}
           {activeSelection.headwearId === 'winter_knit_beanie' ? (
             <AvatarLayer
-              contentFit="fill"
               source={avatarImages.winterBeanie}
               style={styles.winterBeanieLayer}
             />
           ) : null}
           {activeSelection.headwearId === 'cowboy_sheriff_hat' ? (
             <AvatarLayer
-              contentFit="fill"
               source={avatarImages.cowboyHat}
               style={styles.cowboyHatLayer}
             />
           ) : null}
           {activeSelection.headwearId === 'princess_crown' ? (
             <AvatarLayer
-              contentFit="fill"
               source={avatarImages.princessCrown}
               style={styles.princessCrownLayer}
             />
@@ -396,10 +393,10 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   winterTopLayer: {
-    height: '70%',
-    left: '15%',
+    height: '58%',
+    left: '20%',
     top: '7%',
-    width: '70%',
+    width: '60%',
   },
   winterBottomLayer: {
     height: '58%',
@@ -408,28 +405,28 @@ const styles = StyleSheet.create({
     width: '58%',
   },
   winterShoesLayer: {
-    height: '44%',
-    left: '28%',
-    top: '61%',
-    width: '44%',
+    height: '34%',
+    left: '33%',
+    top: '68%',
+    width: '34%',
   },
   winterScarfLayer: {
-    height: '28%',
-    left: '36%',
-    top: '19%',
-    width: '28%',
+    height: '22%',
+    left: '39%',
+    top: '14%',
+    width: '22%',
   },
   winterBeanieLayer: {
-    height: '10%',
-    left: '36%',
-    top: 0,
-    width: '28%',
+    height: '17%',
+    left: '40%',
+    top: '-5%',
+    width: '20%',
   },
   cowboyTopLayer: {
-    height: '68%',
-    left: '15%',
+    height: '50%',
+    left: '25%',
     top: '8%',
-    width: '70%',
+    width: '50%',
   },
   cowboyPantsLayer: {
     height: '59%',
@@ -444,28 +441,28 @@ const styles = StyleSheet.create({
     width: '42%',
   },
   cowboyBootsLayer: {
-    height: '43%',
-    left: '28%',
-    top: '61%',
-    width: '44%',
+    height: '34%',
+    left: '33%',
+    top: '68%',
+    width: '34%',
   },
   cowboyBandanaLayer: {
-    height: '19%',
-    left: '38%',
-    top: '21%',
-    width: '24%',
+    height: '11%',
+    left: '43%',
+    top: '20%',
+    width: '14%',
   },
   cowboyHatLayer: {
-    height: '12%',
-    left: '31%',
-    top: 0,
-    width: '38%',
+    height: '20%',
+    left: '36%',
+    top: '-7%',
+    width: '28%',
   },
   princessTopLayer: {
-    height: '52%',
-    left: '19%',
-    top: '10%',
-    width: '62%',
+    height: '50%',
+    left: '22%',
+    top: '8%',
+    width: '56%',
   },
   princessSkirtLayer: {
     height: '65%',
@@ -474,10 +471,10 @@ const styles = StyleSheet.create({
     width: '72%',
   },
   princessCrownLayer: {
-    height: '11%',
-    left: '39%',
+    height: '12%',
+    left: '43%',
     top: 0,
-    width: '22%',
+    width: '14%',
   },
   princessWandLayer: {
     height: '52%',

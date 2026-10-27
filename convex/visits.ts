@@ -2,6 +2,7 @@ import { ConvexError, v } from 'convex/values';
 
 import { mutation, query } from './_generated/server';
 import { requireAdmin } from './lib/auth';
+import { CHECK_IN_LORCOIN_REWARD } from './lib/avatarEconomy';
 
 const CHECK_IN_RADIUS_METERS = 80;
 const EARTH_RADIUS_METERS = 6_371_000;
@@ -139,6 +140,7 @@ export const checkIn = mutation({
       distanceMeters: Math.round(distanceMeters),
       stampName: location.name,
       badgeTags: location.badges,
+      lorcoinsEarned: CHECK_IN_LORCOIN_REWARD,
     };
   },
 });
@@ -181,7 +183,14 @@ export const resetMyTestingProgress = mutation({
   handler: async (ctx) => {
     const identity = await requireAdmin(ctx);
 
-    const [visits, badgeProgress, badgeAwards, missionProgress] =
+    const [
+      visits,
+      badgeProgress,
+      badgeAwards,
+      missionProgress,
+      avatarItemPurchases,
+      userProfile,
+    ] =
       await Promise.all([
         ctx.db
           .query('visits')
@@ -207,6 +216,18 @@ export const resetMyTestingProgress = mutation({
             queryBuilder.eq('clerkUserId', identity.subject),
           )
           .collect(),
+        ctx.db
+          .query('avatarItemPurchases')
+          .withIndex('by_user', (queryBuilder) =>
+            queryBuilder.eq('clerkUserId', identity.subject),
+          )
+          .collect(),
+        ctx.db
+          .query('userProfiles')
+          .withIndex('by_user', (queryBuilder) =>
+            queryBuilder.eq('clerkUserId', identity.subject),
+          )
+          .unique(),
       ]);
 
     await Promise.all([
@@ -220,6 +241,24 @@ export const resetMyTestingProgress = mutation({
       ...missionProgress.map((progress) =>
         ctx.db.delete(progress._id),
       ),
+      ...avatarItemPurchases.map((purchase) =>
+        ctx.db.delete(purchase._id),
+      ),
+      ...(userProfile === null
+        ? []
+        : [
+            ctx.db.patch(userProfile._id, {
+              avatarPresetId: 'explorer',
+              avatarTopId: 'explorer_field',
+              avatarBottomId: 'explorer_cargo',
+              avatarShoesId: 'explorer_boots',
+              avatarNeckId: 'rust_neckerchief',
+              avatarFaceId: 'explorer_goggles',
+              avatarHeadwearId: 'none',
+              avatarHandheldId: 'none',
+              updatedAt: Date.now(),
+            }),
+          ]),
     ]);
 
     return {
@@ -227,6 +266,8 @@ export const resetMyTestingProgress = mutation({
       deletedProgressRecords: badgeProgress.length,
       deletedAwards: badgeAwards.length,
       deletedMissionProgressRecords: missionProgress.length,
+      deletedAvatarItemPurchases: avatarItemPurchases.length,
+      resetAvatarWardrobe: userProfile !== null,
     };
   },
 });

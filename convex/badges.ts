@@ -2,6 +2,7 @@ import { ConvexError, v } from 'convex/values';
 
 import { internalMutation, mutation, query } from './_generated/server';
 import type { Id } from './_generated/dataModel';
+import { BADGE_LORCOIN_REWARD } from './lib/avatarEconomy';
 import {
   getBadgeCongratulations,
 } from './lib/badge_congratulations';
@@ -965,6 +966,7 @@ export const getUnannouncedAwards = query({
           description: definition?.description ?? '',
           level,
           levelsEnabled,
+          lorcoinsEarned: BADGE_LORCOIN_REWARD,
           congratulationsMessages: getBadgeCongratulations(
             definition?.congratulationsMessages,
           ),

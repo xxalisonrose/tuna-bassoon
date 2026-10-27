@@ -82,6 +82,7 @@ export type AvatarItemOption = {
   id: string;
   name: string;
   description: string;
+  price?: number;
   unlockMissionKey?: string;
   unlockMessage?: string;
 };
@@ -206,7 +207,6 @@ export const avatarCategories: readonly {
   id: AvatarCategoryId;
   label: string;
 }[] = [
-  { id: 'outfits', label: 'Outfits' },
   { id: 'top', label: 'Tops' },
   { id: 'bottom', label: 'Bottoms' },
   { id: 'shoes', label: 'Shoes' },
@@ -214,7 +214,10 @@ export const avatarCategories: readonly {
   { id: 'face', label: 'Face' },
   { id: 'headwear', label: 'Headwear' },
   { id: 'handheld', label: 'Handheld' },
+  { id: 'outfits', label: 'Complete Looks' },
 ];
+
+export const avatarItemLorcoinPrice = 100;
 
 export const avatarItemOptions: Record<
   AvatarItemSlot,
@@ -242,16 +245,19 @@ export const avatarItemOptions: Record<
       id: 'winter_polka_sweater',
       name: 'Polka-Dot Sweater',
       description: 'A warm mustard sweater with cheerful orange dots.',
+      price: avatarItemLorcoinPrice,
     },
     {
       id: 'cowboy_sheriff_shirt',
       name: 'Sheriff Shirt & Vest',
       description: 'A blue western shirt with a fringed brown sheriff vest.',
+      price: avatarItemLorcoinPrice,
     },
     {
       id: 'princess_puff_bodice',
       name: 'Princess Bodice',
       description: 'A sparkling pink bodice with soft puff sleeves.',
+      price: avatarItemLorcoinPrice,
     },
   ],
   bottom: [
@@ -269,21 +275,25 @@ export const avatarItemOptions: Record<
       id: 'winter_charcoal_pants',
       name: 'Winter Pants',
       description: 'Relaxed charcoal pants with softly rolled cuffs.',
+      price: avatarItemLorcoinPrice,
     },
     {
       id: 'cowboy_western_pants',
       name: 'Western Pants',
       description: 'Long tan western pants with a star-buckle belt.',
+      price: avatarItemLorcoinPrice,
     },
     {
       id: 'cowboy_western_shorts',
       name: 'Western Shorts',
       description: 'Tan western shorts with a star-buckle belt.',
+      price: avatarItemLorcoinPrice,
     },
     {
       id: 'princess_ballgown_skirt',
       name: 'Princess Ball Gown',
       description: 'A full sparkling pink skirt with layered petals.',
+      price: avatarItemLorcoinPrice,
     },
   ],
   shoes: [
@@ -301,16 +311,19 @@ export const avatarItemOptions: Record<
       id: 'winter_snow_boots',
       name: 'Snow Boots',
       description: 'Fleece-lined boots with sturdy weather-ready soles.',
+      price: avatarItemLorcoinPrice,
     },
     {
       id: 'cowboy_brown_boots',
       name: 'Brown Cowboy Boots',
       description: 'Classic brown leather boots with western stitching.',
+      price: avatarItemLorcoinPrice,
     },
     {
       id: 'cowboy_red_boots',
       name: 'Red Sheriff Boots',
       description: 'Bright red cowboy boots with gold sheriff stars.',
+      price: avatarItemLorcoinPrice,
     },
   ],
   neck: [
@@ -328,11 +341,13 @@ export const avatarItemOptions: Record<
       id: 'winter_cream_scarf',
       name: 'Cream Knit Scarf',
       description: 'A chunky braided scarf for cold-weather exploring.',
+      price: avatarItemLorcoinPrice,
     },
     {
       id: 'cowboy_red_bandana',
       name: 'Red Bandana',
       description: 'A bright red paisley bandana tied for the trail.',
+      price: avatarItemLorcoinPrice,
     },
   ],
   face: [
@@ -357,16 +372,19 @@ export const avatarItemOptions: Record<
       id: 'winter_knit_beanie',
       name: 'Winter Knit Beanie',
       description: 'A teal cable-knit hat with a fluffy pom-pom.',
+      price: avatarItemLorcoinPrice,
     },
     {
       id: 'cowboy_sheriff_hat',
       name: 'Sheriff Hat',
       description: 'A brown cowboy hat finished with a gold sheriff star.',
+      price: avatarItemLorcoinPrice,
     },
     {
       id: 'princess_crown',
       name: 'Princess Crown',
       description: 'A bright gold crown set with sparkling pink jewels.',
+      price: avatarItemLorcoinPrice,
     },
   ],
   handheld: [
@@ -379,9 +397,22 @@ export const avatarItemOptions: Record<
       id: 'princess_star_wand',
       name: 'Star Wand',
       description: 'A magical pink wand topped with a shining star.',
+      price: avatarItemLorcoinPrice,
     },
   ],
 };
+
+export function getAvatarItemPrice(itemId: string) {
+  for (const options of Object.values(avatarItemOptions)) {
+    const item = options.find((option) => option.id === itemId);
+
+    if (item?.price !== undefined) {
+      return item.price;
+    }
+  }
+
+  return 0;
+}
 
 export function normalizeAvatarPresetId(
   value: string | undefined,

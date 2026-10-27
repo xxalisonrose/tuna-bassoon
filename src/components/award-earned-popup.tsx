@@ -24,6 +24,7 @@ export type AwardEarnedPopupAward = {
   description: string;
   level: number;
   levelsEnabled: boolean;
+  lorcoinsEarned: number;
   congratulationsMessages: string[];
   imageKey?: string;
   imageUrl?: string;
@@ -73,6 +74,7 @@ export function AwardEarnedPopup({
     award.name + '.',
     award.levelsEnabled ? `Level ${award.level}.` : '',
     congratulationsMessage,
+    `Earned ${award.lorcoinsEarned} Lorcoins.`,
   ]
     .filter(Boolean)
     .join(' ');
@@ -165,6 +167,9 @@ export function AwardEarnedPopup({
                 ]}>
                 {congratulationsMessage}
               </ThemedText>
+              <ThemedText type="smallBold" style={styles.lorcoinReward}>
+                +{award.lorcoinsEarned} Lorcoins
+              </ThemedText>
             </View>
 
             {error ? (
@@ -224,6 +229,7 @@ export function AwardEarnedBanner({
     heading,
     award.name,
     congratulationsMessage,
+    `Earned ${award.lorcoinsEarned} Lorcoins`,
     error,
   ]
     .filter(Boolean)
@@ -262,6 +268,9 @@ export function AwardEarnedBanner({
           <ThemedText type="subtitle">{award.name}</ThemedText>
           <ThemedText type="small">
             {congratulationsMessage}
+          </ThemedText>
+          <ThemedText type="smallBold" style={styles.lorcoinReward}>
+            +{award.lorcoinsEarned} Lorcoins
           </ThemedText>
           {error ? (
             <Text
@@ -386,6 +395,9 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     marginTop: Spacing.two,
     textAlign: 'center',
+  },
+  lorcoinReward: {
+    color: '#9A6500',
   },
   error: {
     color: '#B42318',

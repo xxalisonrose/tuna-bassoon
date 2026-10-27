@@ -2,6 +2,10 @@ import { ConvexError, v } from 'convex/values';
 
 import { mutation, query } from './_generated/server';
 import { isAdminSubject } from './lib/auth';
+import {
+  getStoredAvatarItemIds,
+  isPurchasableAvatarItemId,
+} from './lib/avatarEconomy';
 import { getCommunityContributorStatus } from './lib/communityContributor';
 import {
   USERNAME_CHANGE_COOLDOWN_DAYS,
@@ -491,18 +495,35 @@ export const getMyAvatarProfile = query({
       throw new ConvexError('Authentication required.');
     }
 
-    const profile = await ctx.db
-      .query('userProfiles')
-      .withIndex('by_user', (queryBuilder) =>
-        queryBuilder.eq('clerkUserId', identity.subject),
-      )
-      .unique();
+    const [profile, purchases] = await Promise.all([
+      ctx.db
+        .query('userProfiles')
+        .withIndex('by_user', (queryBuilder) =>
+          queryBuilder.eq('clerkUserId', identity.subject),
+        )
+        .unique(),
+      ctx.db
+        .query('avatarItemPurchases')
+        .withIndex('by_user', (queryBuilder) =>
+          queryBuilder.eq('clerkUserId', identity.subject),
+        )
+        .collect(),
+    ]);
     const selection = getStoredSelection(profile);
+    const legacyOwnedItemIds = Object.values(selection).filter(
+      isPurchasableAvatarItemId,
+    );
 
     return {
       avatarPresetId: getMatchingPresetId(selection),
       selection,
       unlockedAvatarItemIds: profile?.unlockedAvatarItemIds ?? [],
+      purchasedAvatarItemIds: Array.from(
+        new Set([
+          ...purchases.map((purchase) => purchase.itemId),
+          ...legacyOwnedItemIds,
+        ]),
+      ),
       hasSavedAvatar: profile !== null,
     };
   },
@@ -521,12 +542,20 @@ export const saveMyAvatarProfile = mutation({
       throw new ConvexError('Authentication required.');
     }
 
-    const existingProfile = await ctx.db
-      .query('userProfiles')
-      .withIndex('by_user', (queryBuilder) =>
-        queryBuilder.eq('clerkUserId', identity.subject),
-      )
-      .unique();
+    const [existingProfile, purchases] = await Promise.all([
+      ctx.db
+        .query('userProfiles')
+        .withIndex('by_user', (queryBuilder) =>
+          queryBuilder.eq('clerkUserId', identity.subject),
+        )
+        .unique(),
+      ctx.db
+        .query('avatarItemPurchases')
+        .withIndex('by_user', (queryBuilder) =>
+          queryBuilder.eq('clerkUserId', identity.subject),
+        )
+        .collect(),
+    ]);
     const selection: AvatarSelection = args.selection
       ? {
           ...args.selection,
@@ -544,8 +573,44 @@ export const saveMyAvatarProfile = mutation({
       );
     }
 
-    const avatarPresetId = getMatchingPresetId(selection);
+    const purchasedItemIds = new Set(
+      purchases.map((purchase) => purchase.itemId),
+    );
     const now = Date.now();
+
+    if (existingProfile !== null) {
+      for (const itemId of getStoredAvatarItemIds(existingProfile)) {
+        if (
+          !isPurchasableAvatarItemId(itemId) ||
+          purchasedItemIds.has(itemId)
+        ) {
+          continue;
+        }
+
+        await ctx.db.insert('avatarItemPurchases', {
+          clerkUserId: identity.subject,
+          itemId,
+          price: 0,
+          acquisition: 'legacy',
+          purchasedAt: now,
+        });
+        purchasedItemIds.add(itemId);
+      }
+    }
+
+    const unownedItemId = Object.values(selection).find(
+      (itemId) =>
+        isPurchasableAvatarItemId(itemId) &&
+        !purchasedItemIds.has(itemId),
+    );
+
+    if (unownedItemId !== undefined) {
+      throw new ConvexError(
+        'Buy this wardrobe item with Lorcoins before equipping it.',
+      );
+    }
+
+    const avatarPresetId = getMatchingPresetId(selection);
     const avatarFields = {
       avatarPresetId,
       avatarTopId: selection.topId,

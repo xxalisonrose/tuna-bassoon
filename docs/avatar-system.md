@@ -52,19 +52,35 @@ and becomes `custom` for mixed looks.
 
 ## Customization screen
 
-`/collection/avatar` is a screen in the Passport tab's nested stack. It provides:
+`/collection/avatar` is a screen in the Passport tab's nested stack. It opens
+on individual Tops rather than complete outfits and provides:
 
 - a live layered preview
-- Outfits, Tops, Bottoms, Shoes, Neck, Face, Headwear, and Handheld categories
+- Tops, Bottoms, Shoes, Neck, Face, Headwear, and Handheld categories, followed
+  by Complete Looks as the final category
 - accessible single-selection item cards
 - quick application of Traditional Explorer, Trail Basics, Cozy Winter,
-  Classic Cowboy, Rodeo Cowboy, or Pink Princess
+  Classic Cowboy, Rodeo Cowboy, or Pink Princess after all included paid pieces
+  are owned
+- a Lorcoin balance and purchase action on each paid individual item
 - a visible unsaved-state label and Undo Changes action
 - persistent saving to Convex
 - error handling and a return action
 
 Coat patterns and backpacks remain planned categories. Their stable IDs and
 aligned artwork can be added without changing the existing saved slot names.
+
+## Lorcoins and item ownership
+
+The starter and Explorer items remain free. New Winter, Cowboy, and Princess
+pieces cost 100 Lorcoins each. First-time location check-ins earn 5 Lorcoins,
+and each badge award or badge level earns 50. Balances are derived from saved
+visits, badge awards, and wardrobe purchases, which makes rewards idempotent
+and credits earlier beta progress automatically.
+
+Paid items must be owned before the server accepts them in a saved avatar.
+Items already saved before the economy launch are grandfathered at no cost.
+See `docs/lorcoin-economy.md` for the complete beta rules and tuning notes.
 
 ## Placeholder artwork
 

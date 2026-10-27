@@ -164,6 +164,16 @@ export default defineSchema({
     .index('by_user', ['clerkUserId'])
     .index('by_user_and_location', ['clerkUserId', 'locationId']),
 
+  avatarItemPurchases: defineTable({
+    clerkUserId: v.string(),
+    itemId: v.string(),
+    price: v.number(),
+    acquisition: v.union(v.literal('purchase'), v.literal('legacy')),
+    purchasedAt: v.number(),
+  })
+    .index('by_user', ['clerkUserId'])
+    .index('by_user_and_item', ['clerkUserId', 'itemId']),
+
   locationWishlist: defineTable({
     clerkUserId: v.string(),
     locationId: v.id('locations'),

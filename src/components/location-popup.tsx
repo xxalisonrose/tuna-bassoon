@@ -140,7 +140,8 @@ export function LocationPopup({
       showCheckInMessage({
         text:
           `Check-in successful! You collected the ` +
-          `${result.stampName} stamp.`,
+          `${result.stampName} stamp and earned ` +
+          `${result.lorcoinsEarned} Lorcoins.`,
         type: 'success',
       });
 
