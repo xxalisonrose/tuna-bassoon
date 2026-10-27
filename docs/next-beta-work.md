@@ -87,4 +87,4 @@ Acceptance checks:
 4. [x] Run final lint, type checking, and one physical Android
    smoke test.
 5. [ ] Commit and push the accumulated fixes, build a new Android App Bundle, and
-   publish it to the existing Google Play beta track.
+   publish it to the existing Google Play internal testing track.

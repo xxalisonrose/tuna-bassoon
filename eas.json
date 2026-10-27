@@ -22,7 +22,7 @@
   "submit": {
     "beta": {
       "android": {
-        "track": "beta",
+        "track": "internal",
         "releaseStatus": "completed"
       }
     },

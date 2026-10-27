@@ -13,15 +13,16 @@ Create the next Android App Bundle with:
 eas build --platform android --profile beta
 ```
 
-Build and publish it directly to the existing Google Play beta track with:
+Build and publish it directly to the existing Google Play internal testing
+track with:
 
 ```sh
 eas build --platform android --profile beta --auto-submit-with-profile beta
 ```
 
-The `beta` submission profile completes the release on the beta track after the
-App Bundle passes Google Play processing. Use the production submission profile
-only for a deliberate production release.
+The `beta` submission profile completes the release on the internal testing
+track after the App Bundle passes Google Play processing. Use the production
+submission profile only for a deliberate production release.
 
 The beta profile uses the production EAS environment, so its Clerk and Convex
 variables must remain configured there. For local iOS and Android testing, run
