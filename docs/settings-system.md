@@ -2,7 +2,19 @@
 
 ## Purpose
 
-Settings contains account, permission, accessibility, and technical information. Passport remains the user's exploration record: avatar, visits, badges, and levels.
+Settings contains account, permission, accessibility, FAQ, and technical information. Passport remains the user's exploration record: avatar, visits, badges, and levels.
+
+## Frequently Asked Questions
+
+Settings includes an expandable FAQ for check-ins, Want to Visit, badges and
+levels, the Welcome to Lorcal mission, location permission, location-data use,
+community submissions, and account privacy. Beta builds add one more answer
+explaining the private Beta Trail and Beta Pathfinder badge; normal production
+builds do not show that beta-only question.
+
+Each question is a labeled button with an expanded accessibility state. Answers
+appear directly beneath their question so the same interaction works with touch,
+keyboard, and screen readers on native and web.
 
 The first release intentionally avoids switches that do not control a working feature.
 
@@ -70,5 +82,8 @@ These settings should appear after their underlying systems exist and have been 
 6. The build panel reports the same source revision as the Content Portal.
 7. Passport contains exploration content and no longer duplicates Sign Out.
 8. Re-selecting the active Passport or Settings tab on iOS scrolls its page back to the top.
-9. Username changes enforce uniqueness, safety rules, and the seven-day
-   cooldown on the server.
+9. FAQ questions expand and collapse independently, expose their expanded state
+   to assistive technology, and show the private Beta Trail explanation only in
+   beta builds.
+10. Username changes enforce uniqueness, safety rules, and the seven-day
+    cooldown on the server.

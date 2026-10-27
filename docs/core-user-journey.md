@@ -12,7 +12,7 @@ Block 5 of the capstone roadmap establishes one uninterrupted visitor path:
 - A new sign-in, a new account, and a restored native session open directly on the Map.
 - Web links to an authenticated portal page remain usable for an already signed-in editor.
 - The signed-in navigation contains Map, Passport, and Settings; the former Home tab is removed.
-- Settings owns account information, location permission controls, build details, and Sign Out.
+- Settings owns account information, location permission controls, the FAQ, build details, and Sign Out.
 - Sign Out returns to the isolated authentication screen.
 
 ## Explorer and map
@@ -51,7 +51,7 @@ Test the complete path on the iOS simulator, then repeat the essential path on a
 8. Confirm the location pin remains visible as visited.
 9. Confirm progress or a celebration appears correctly.
 10. Open Passport and confirm the avatar, visit, badge, and level results.
-11. Open Settings and confirm account, location, accessibility, and build information are available.
+11. Open Settings and confirm account, location, accessibility, FAQ, and build information are available.
 12. Sign out from Settings and confirm the login-only screen returns.
 
 Block 5 is complete after this path passes without a manual database repair on both the primary iOS test environment and Android.

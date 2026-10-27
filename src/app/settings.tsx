@@ -32,6 +32,7 @@ import {
   Spacing,
 } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { isBetaBuild } from '@/lib/build-profile';
 import { api } from '../../convex/_generated/api';
 import SubmitLocationScreen from './submit-location';
 
@@ -61,6 +62,68 @@ const textSizeSettingsPath = Platform.select({
     'Change text size in your operating system or browser settings.',
 });
 
+const standardFaqItems = [
+  {
+    key: 'check-in',
+    question: 'How do check-ins work?',
+    answer:
+      'Open a map marker and choose Check In while you are within 80 meters. Lorcal uses your current position for the distance check and saves the completed visit in your Passport.',
+  },
+  {
+    key: 'wishlist',
+    question: 'What is Want to Visit?',
+    answer:
+      'Want to Visit is your personal list of places to explore later. Use the heart on a location card or list row to add or remove it. Checking in does not remove a saved location.',
+  },
+  {
+    key: 'badges',
+    question: 'How do badges and levels work?',
+    answer:
+      'Eligible check-ins add progress to badges in your Passport. Some badges recognize one place or event, while repeatable badges can earn additional levels as you continue exploring.',
+  },
+  {
+    key: 'mission',
+    question: 'How do I complete the Welcome to Lorcal mission?',
+    answer:
+      'Check in at five different places, earn any non-Mission badge, and save an avatar customization. Completing all three steps awards the New Explorer badge and shirt.',
+  },
+  {
+    key: 'location-access',
+    question: 'Can I use Lorcal without location access?',
+    answer:
+      'You can still browse the map, search the Locations list, read stories, and plan with Want to Visit. Check-ins need your current position. You can review permission at any time in the Location Access section above.',
+  },
+  {
+    key: 'location-data',
+    question: 'Does Lorcal continuously track my movement?',
+    answer:
+      'No. Your live position is used to place your avatar and check your distance when you try to check in. Lorcal saves successful visits, not a continuous route of your movement.',
+  },
+  {
+    key: 'submissions',
+    question: 'How can I suggest a location?',
+    answer:
+      'Exploring can unlock Community Contributor access. Settings shows your progress. After access is unlocked, you can submit a location for administrator review before anything appears publicly.',
+  },
+  {
+    key: 'privacy',
+    question: 'What account information is public?',
+    answer:
+      'Your username may be shown publicly. Your email, Want to Visit list, and private account activity are not displayed as public map content.',
+  },
+] as const;
+
+const betaFaqItem = {
+  key: 'beta-trail',
+  question: 'Why do I see private Beta Trail locations?',
+  answer:
+    'Beta builds create five temporary tutorial stops for your account so you can test check-ins and earn Beta Pathfinder from anywhere. Other explorers cannot see your stops, and normal production builds do not create or display them.',
+} as const;
+
+const faqItems = isBetaBuild
+  ? [...standardFaqItems, betaFaqItem]
+  : standardFaqItems;
+
 export default function SettingsScreen() {
   const theme = useTheme();
   const router = useRouter();
@@ -86,6 +149,23 @@ export default function SettingsScreen() {
     useState(false);
   const [usernameEditorVisible, setUsernameEditorVisible] =
     useState(false);
+  const [expandedFaqKeys, setExpandedFaqKeys] = useState<Set<string>>(
+    () => new Set(),
+  );
+
+  const toggleFaqItem = (key: string) => {
+    setExpandedFaqKeys((currentKeys) => {
+      const nextKeys = new Set(currentKeys);
+
+      if (nextKeys.has(key)) {
+        nextKeys.delete(key);
+      } else {
+        nextKeys.add(key);
+      }
+
+      return nextKeys;
+    });
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -596,6 +676,72 @@ export default function SettingsScreen() {
             </View>
           </ThemedView>
 
+          <ThemedView
+            type="backgroundElement"
+            style={[styles.card, { borderColor: theme.border }]}>
+            <View style={styles.cardHeadingText}>
+              <ThemedText
+                accessibilityRole="header"
+                type="subtitle">
+                Frequently Asked Questions
+              </ThemedText>
+              <ThemedText themeColor="textSecondary">
+                Quick answers about exploring, check-ins, rewards, and your
+                account.
+              </ThemedText>
+            </View>
+
+            <View style={styles.faqList}>
+              {faqItems.map((item) => {
+                const expanded = expandedFaqKeys.has(item.key);
+
+                return (
+                  <View
+                    key={item.key}
+                    style={[
+                      styles.faqItem,
+                      { borderColor: theme.border },
+                    ]}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={item.question}
+                      accessibilityHint={
+                        expanded
+                          ? 'Collapses this answer'
+                          : 'Expands this answer'
+                      }
+                      accessibilityState={{ expanded }}
+                      onPress={() => toggleFaqItem(item.key)}
+                      style={({ pressed }) => [
+                        styles.faqQuestion,
+                        pressed && styles.pressed,
+                      ]}>
+                      <ThemedText
+                        type="smallBold"
+                        style={styles.faqQuestionText}>
+                        {item.question}
+                      </ThemedText>
+                      <ThemedText
+                        accessible={false}
+                        style={styles.faqIndicator}>
+                        {expanded ? '−' : '+'}
+                      </ThemedText>
+                    </Pressable>
+
+                    {expanded ? (
+                      <ThemedText
+                        accessibilityLiveRegion="polite"
+                        themeColor="textSecondary"
+                        style={styles.faqAnswer}>
+                        {item.answer}
+                      </ThemedText>
+                    ) : null}
+                  </View>
+                );
+              })}
+            </View>
+          </ThemedView>
+
           <BuildInfoPanel />
         </DraggableScrollView>
 
@@ -685,6 +831,38 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     gap: Spacing.one,
     paddingLeft: Spacing.three,
+  },
+  faqList: {
+    gap: Spacing.two,
+  },
+  faqItem: {
+    borderRadius: Spacing.two,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  faqQuestion: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: Spacing.three,
+    justifyContent: 'space-between',
+    minHeight: 52,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+  },
+  faqQuestionText: {
+    flex: 1,
+  },
+  faqIndicator: {
+    fontSize: 24,
+    fontWeight: '500',
+    lineHeight: 26,
+  },
+  faqAnswer: {
+    borderTopColor: Palette.border,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    lineHeight: 22,
+    padding: Spacing.three,
+    paddingTop: Spacing.two,
   },
   actionRow: {
     flexDirection: 'row',

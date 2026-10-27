@@ -13,6 +13,16 @@ Create the next Android App Bundle with:
 eas build --platform android --profile beta
 ```
 
+Build and publish it directly to the existing Google Play beta track with:
+
+```sh
+eas build --platform android --profile beta --auto-submit-with-profile beta
+```
+
+The `beta` submission profile completes the release on the beta track after the
+App Bundle passes Google Play processing. Use the production submission profile
+only for a deliberate production release.
+
 The beta profile uses the production EAS environment, so its Clerk and Convex
 variables must remain configured there. For local iOS and Android testing, run
 `npm run start:beta` and then press `i` or `a`. A normal `npm start` session is
@@ -54,5 +64,5 @@ Before uploading the replacement App Bundle:
    tutorial badge step complete.
 8. Save an avatar customization and confirm the tutorial completes.
 9. Reopen the app and confirm no duplicate starter pins were created.
-10. Repeat the core map overlay checks on a physical Android device before
+10. [x] Repeat the core map overlay checks on a physical Android device before
     promoting the build in Google Play Console.

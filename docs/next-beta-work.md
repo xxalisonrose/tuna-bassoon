@@ -1,8 +1,8 @@
 # Next Beta Work
 
 These notes capture the product pass prepared for the next Google Play beta.
-The three feature slices below are implemented and awaiting the final physical
-Android smoke test before release.
+The three feature slices below are implemented, and the Android emulator and
+physical-device smoke tests are complete.
 
 ## 1. Start the map closer
 
@@ -16,7 +16,8 @@ Acceptance checks:
 2. [x] Nearby markers, the player avatar, and surrounding streets remain readable.
 3. [x] Recenter returns to the intended close view without changing a tester's zoom
    during ordinary simulated movement.
-4. [ ] Verify the framing on Android beta hardware and the iOS simulator.
+4. [x] Verify the framing on Android beta hardware.
+5. [ ] Verify the framing on the iOS simulator before the next iOS release.
 
 ## 2. Location wishlist
 
@@ -83,7 +84,7 @@ Acceptance checks:
 2. [x] Implement the first wishlist slice and verify account persistence.
 3. [x] Add beta-channel starter content and test the map and wishlist on an
    Android emulator without live GPS.
-4. [ ] Run final lint, type checking, and one physical Android
+4. [x] Run final lint, type checking, and one physical Android
    smoke test.
 5. [ ] Commit and push the accumulated fixes, build a new Android App Bundle, and
    publish it to the existing Google Play beta track.

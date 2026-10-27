@@ -20,6 +20,12 @@
     }
   },
   "submit": {
+    "beta": {
+      "android": {
+        "track": "beta",
+        "releaseStatus": "completed"
+      }
+    },
     "production": {}
   }
 }
