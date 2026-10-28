@@ -39,6 +39,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BetaFeedbackModal } from '@/components/beta-feedback-modal';
 import { LocationPopup } from '@/components/location-popup';
 import {
   AdminLocationSimulator,
@@ -279,6 +280,9 @@ export default function MapScreen() {
   const [locationListVisible, setLocationListVisible] =
     useState(false);
 
+  const [betaFeedbackVisible, setBetaFeedbackVisible] =
+    useState(false);
+
   const [wishlistOnly, setWishlistOnly] = useState(false);
 
   const [locationSearch, setLocationSearch] = useState('');
@@ -359,6 +363,8 @@ export default function MapScreen() {
   );
 
   const isAdmin = currentUser?.isAdmin === true;
+  const canSubmitBetaFeedback =
+    isAuthenticated && (isBetaBuild || isAdmin);
   const simulationIsActive =
     isAdmin && simulatedLocationEnabled;
   const betaFallbackCoordinates = useMemo(() => {
@@ -493,7 +499,7 @@ export default function MapScreen() {
     places.length === 0;
 
   const modalContentVisible =
-    selectedPlace !== null || locationListVisible;
+    selectedPlace !== null || locationListVisible || betaFeedbackVisible;
 
   useFocusEffect(
     useCallback(() => {
@@ -1493,6 +1499,22 @@ export default function MapScreen() {
           />
         ) : null}
 
+        {canSubmitBetaFeedback && !modalContentVisible ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Send beta feedback"
+            accessibilityHint="Opens a private feedback form for the Lorcal team"
+            onPress={() => setBetaFeedbackVisible(true)}
+            style={({ pressed }) => [
+              styles.betaFeedbackButton,
+              { bottom: BottomTabInset + 28 },
+              pressed && styles.betaFeedbackButtonPressed,
+            ]}>
+            <Text style={styles.betaFeedbackEyebrow}>BETA</Text>
+            <Text style={styles.betaFeedbackButtonText}>Feedback</Text>
+          </Pressable>
+        ) : null}
+
         {!locationsAreLoading &&
           places.length > 0 &&
           !modalContentVisible ? (
@@ -1870,6 +1892,11 @@ export default function MapScreen() {
           onClose={closeSelectedPlace}
         />
       )}
+
+      <BetaFeedbackModal
+        onClose={() => setBetaFeedbackVisible(false)}
+        visible={betaFeedbackVisible}
+      />
     </View>
   );
 }
@@ -1978,6 +2005,39 @@ const styles = StyleSheet.create({
   mapControlButtonPressed: {
     opacity: 0.75,
     transform: [{ scale: 0.96 }],
+  },
+  betaFeedbackButton: {
+    position: 'absolute',
+    left: 16,
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 7,
+    minHeight: 48,
+    paddingHorizontal: 15,
+    backgroundColor: '#FFF8E7',
+    borderColor: '#855B38',
+    borderRadius: 24,
+    borderWidth: 2,
+    elevation: 5,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  betaFeedbackButtonPressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.97 }],
+  },
+  betaFeedbackEyebrow: {
+    color: '#855B38',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  betaFeedbackButtonText: {
+    color: '#342B20',
+    fontSize: 14,
+    fontWeight: '800',
   },
   locationListIcon: {
     gap: 4,

@@ -164,6 +164,21 @@ export default defineSchema({
     .index('by_user', ['clerkUserId'])
     .index('by_user_and_location', ['clerkUserId', 'locationId']),
 
+  betaFeedback: defineTable({
+    clerkUserId: v.string(),
+    message: v.string(),
+    sourceRoute: v.literal('map'),
+    sourcePlatform: v.string(),
+    buildProfile: v.string(),
+    status: v.union(v.literal('new'), v.literal('reviewed')),
+    submittedAt: v.number(),
+    reviewedAt: v.optional(v.number()),
+    reviewedByClerkUserId: v.optional(v.string()),
+  })
+    .index('by_status_and_submitted_at', ['status', 'submittedAt'])
+    .index('by_submitted_at', ['submittedAt'])
+    .index('by_user_and_submitted_at', ['clerkUserId', 'submittedAt']),
+
   avatarItemPurchases: defineTable({
     clerkUserId: v.string(),
     itemId: v.string(),

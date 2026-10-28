@@ -19,9 +19,22 @@ The portal is available at `/admin` in the Expo web app. Clerk handles sign-in, 
 
 ### Portal sections
 
-The portal has separate **Locations**, **Badges**, **Submissions**, and **Users** sections. Locations and Badges stay focused on managing published content, every import and private review workflow lives under Submissions, and user-role decisions live under Users.
+The portal has separate **Locations**, **Badges**, **Submissions**, **Feedback**, and **Users** sections. Locations and Badges stay focused on managing published content, every import and private review workflow lives under Submissions, beta tester notes live under Feedback, and user-role decisions live under Users.
 
 The location and Gemini workflows continue to work after adding badge management.
+
+### Beta feedback
+
+Signed-in private beta testers can send a note directly from the map. The note
+is stored privately with the tester's existing account identity, submission
+time, platform, build profile, and source screen. The form limits notes to
+2,000 characters and rate-limits repeated submissions without exposing an
+administrator function to normal users.
+
+The **Feedback** portal tab displays a high-contrast count whenever new notes
+are waiting. Administrators can filter New, Reviewed, or All feedback, view the
+tester's public username and private account email when available, mark a note
+reviewed, or reopen it. Feedback is never published as location content.
 
 ### Word import and private review queue
 

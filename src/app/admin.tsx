@@ -21,6 +21,7 @@ import {
   BadgeTagPicker,
   normalizeBadgeTagValue,
 } from '@/components/admin/badge-tag-picker';
+import { BetaFeedbackManager } from '@/components/admin/beta-feedback-manager';
 import { BuildInfoPanel } from '@/components/admin/build-info-panel';
 import { IngestReviewPanel } from '@/components/admin/ingest-review-panel';
 import {
@@ -55,7 +56,12 @@ const GENERATION_TIMEOUT_MS = 120_000;
 const MAX_LOCATION_BADGE_TAGS = 25;
 
 type FormMode = 'create' | 'edit';
-type PortalSection = 'locations' | 'badges' | 'submissions' | 'users';
+type PortalSection =
+  | 'locations'
+  | 'badges'
+  | 'submissions'
+  | 'feedback'
+  | 'users';
 type LocationStatusFilter = 'all' | 'active' | 'retired';
 type ViewMode = 'list' | 'grid';
 
@@ -158,6 +164,11 @@ export default function AdminPortalScreen() {
 
   const communitySubmissionActivity = useQuery(
     api.adminIngest.getCommunitySubmissionActivity,
+    currentUser?.isAdmin ? {} : 'skip',
+  );
+
+  const betaFeedbackActivity = useQuery(
+    api.betaFeedback.getActivityForAdmin,
     currentUser?.isAdmin ? {} : 'skip',
   );
 
@@ -1040,7 +1051,13 @@ export default function AdminPortalScreen() {
           accessibilityLabel="Content portal sections"
           type="backgroundElement"
           style={[styles.sectionTabs, { borderColor: theme.border }]}>
-          {(['locations', 'badges', 'submissions', 'users'] as PortalSection[]).map((section) => (
+          {([
+            'locations',
+            'badges',
+            'submissions',
+            'feedback',
+            'users',
+          ] as PortalSection[]).map((section) => (
             <Pressable
               key={section}
               accessibilityRole="tab"
@@ -1051,6 +1068,10 @@ export default function AdminPortalScreen() {
                     ? 'Badges'
                     : section === 'users'
                       ? 'Users and Access'
+                      : section === 'feedback'
+                        ? betaFeedbackActivity?.newCount
+                          ? `Beta Feedback, ${betaFeedbackActivity.newCount} new`
+                          : 'Beta Feedback'
                     : communitySubmissionActivity?.waitingCount
                       ? `Submissions, ${communitySubmissionActivity.waitingCount} awaiting review`
                       : 'Submissions'
@@ -1071,6 +1092,8 @@ export default function AdminPortalScreen() {
                       ? 'Badges'
                       : section === 'users'
                         ? 'Users'
+                        : section === 'feedback'
+                          ? 'Feedback'
                         : 'Submissions'}
                 </ThemedText>
                 {section === 'submissions' &&
@@ -1083,6 +1106,18 @@ export default function AdminPortalScreen() {
                       type="smallBold"
                       style={styles.submissionActivityBadgeText}>
                       {communitySubmissionActivity.waitingCount}
+                    </ThemedText>
+                  </View>
+                ) : null}
+                {section === 'feedback' && betaFeedbackActivity?.newCount ? (
+                  <View
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                    style={styles.submissionActivityBadge}>
+                    <ThemedText
+                      type="smallBold"
+                      style={styles.submissionActivityBadgeText}>
+                      {betaFeedbackActivity.newCount}
                     </ThemedText>
                   </View>
                 ) : null}
@@ -2302,6 +2337,10 @@ export default function AdminPortalScreen() {
 
         <IngestReviewPanel
           visible={portalSection === 'submissions'}
+        />
+
+        <BetaFeedbackManager
+          visible={portalSection === 'feedback'}
         />
 
         <UserAccessManager

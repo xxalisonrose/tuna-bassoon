@@ -31,6 +31,7 @@ import {
   View,
 } from 'react-native';
 
+import { BetaFeedbackModal } from '@/components/beta-feedback-modal';
 import { LocationPopup } from '@/components/location-popup';
 import {
   AdminLocationSimulator,
@@ -366,6 +367,7 @@ export default function MapWebScreen() {
   const [mapError, setMapError] = useState<string | null>(null);
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [locationListVisible, setLocationListVisible] = useState(false);
+  const [betaFeedbackVisible, setBetaFeedbackVisible] = useState(false);
   const [locationSearch, setLocationSearch] = useState('');
   const [wishlistOnly, setWishlistOnly] = useState(false);
   const [selectedState, setSelectedState] = useState('');
@@ -390,6 +392,8 @@ export default function MapWebScreen() {
     useState(false);
 
   const isAdmin = currentUser?.isAdmin === true;
+  const canSubmitBetaFeedback =
+    isAuthenticated && (isBetaBuild || isAdmin);
   const simulationIsActive = isAdmin && simulatedLocationEnabled;
   const betaFallbackCoordinates = useMemo(() => {
     const baseCamp = locations?.find(
@@ -1012,6 +1016,24 @@ export default function MapWebScreen() {
         </Pressable>
       </View>
 
+      {canSubmitBetaFeedback &&
+      !locationListVisible &&
+      !selectedPlace &&
+      !betaFeedbackVisible ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Send beta feedback"
+          accessibilityHint="Opens a private feedback form for the Lorcal team"
+          onPress={() => setBetaFeedbackVisible(true)}
+          style={({ pressed }) => [
+            styles.betaFeedbackButton,
+            pressed && styles.pressed,
+          ]}>
+          <Text style={styles.betaFeedbackEyebrow}>BETA</Text>
+          <Text style={styles.betaFeedbackButtonText}>Feedback</Text>
+        </Pressable>
+      ) : null}
+
       {isAdmin && (
         <AdminLocationSimulator
           awardingBadge={awardingTestBadge}
@@ -1251,6 +1273,11 @@ export default function MapWebScreen() {
           wishlistBusy={wishlistChangingId === selectedPlace.id}
         />
       )}
+
+      <BetaFeedbackModal
+        onClose={() => setBetaFeedbackVisible(false)}
+        visible={betaFeedbackVisible}
+      />
     </View>
   );
 }
@@ -1339,6 +1366,36 @@ const styles = StyleSheet.create({
     fontSize: 25,
     fontWeight: '800',
     lineHeight: 28,
+  },
+  betaFeedbackButton: {
+    position: 'absolute',
+    bottom: 24,
+    left: 20,
+    zIndex: 10,
+    minHeight: 48,
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    backgroundColor: 'rgba(255, 253, 242, 0.97)',
+    borderColor: Palette.bronzeDeep,
+    borderWidth: 2,
+    borderRadius: 24,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  betaFeedbackEyebrow: {
+    color: Palette.bronzeDeep,
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  betaFeedbackButtonText: {
+    color: Palette.ink,
+    fontSize: 14,
+    fontWeight: '800',
   },
   pressed: {
     opacity: 0.7,

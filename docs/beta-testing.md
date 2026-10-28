@@ -68,6 +68,19 @@ their own set. Private starter locations are excluded from the admin Locations
 editor, document imports, community review, and non-beta map queries. A normal
 production build neither creates nor displays them.
 
+## In-app feedback
+
+Signed-in testers see a **Beta Feedback** button on the map in `beta` and
+`beta-apk` builds. Administrators also see it during local development so the
+workflow can be checked before a build is distributed. The form accepts a
+private note of up to 2,000 characters and includes the tester's existing
+account identity, platform, build profile, and the map as the source screen.
+
+New notes appear in the administrator portal's **Feedback** section. The tab
+shows the number of unread notes, and an administrator can mark each note
+reviewed or reopen it. Feedback is not published in the app and is visible only
+to administrators.
+
 ## Release smoke test
 
 Before uploading the replacement App Bundle:
@@ -85,5 +98,8 @@ Before uploading the replacement App Bundle:
    tutorial badge step complete.
 8. Save an avatar customization and confirm the tutorial completes.
 9. Reopen the app and confirm no duplicate starter pins were created.
-10. [x] Repeat the core map overlay checks on a physical Android device before
-    promoting the build in Google Play Console.
+10. Send a note through **Beta Feedback**, confirm the success message, and
+    verify the note appears as New in the administrator portal.
+11. Mark the note reviewed and confirm the Feedback tab count updates.
+12. [x] Repeat the core map overlay checks on a physical Android device before
+        promoting the build in Google Play Console.
