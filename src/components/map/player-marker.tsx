@@ -36,6 +36,11 @@ export function PlayerMarker({
         <View
           accessible={false}
           pointerEvents="none"
+          style={styles.playerPlatformDepth}
+        />
+        <View
+          accessible={false}
+          pointerEvents="none"
           style={styles.playerPlatformTop}
         >
           <View
@@ -70,7 +75,7 @@ export function PlayerMarker({
 const styles = StyleSheet.create({
   playerMarker: {
     width: 116,
-    height: 148,
+    height: 126,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -90,37 +95,47 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     width: 116,
-    height: 116,
+    height: 64,
     alignItems: 'center',
   },
   playerPlatformShadow: {
     position: 'absolute',
     bottom: 0,
-    width: 108,
-    height: 108,
+    width: 106,
+    height: 38,
     backgroundColor: 'rgba(23, 32, 25, 0.12)',
-    borderRadius: 54,
+    borderRadius: 53,
   },
   playerPlatformGlow: {
     position: 'absolute',
     bottom: 0,
     width: 116,
-    height: 116,
+    height: 64,
     backgroundColor: 'rgba(229, 255, 206, 0.1)',
     borderColor: 'rgba(250, 255, 238, 0.58)',
     borderRadius: 58,
     borderWidth: 2,
   },
+  playerPlatformDepth: {
+    position: 'absolute',
+    bottom: 1,
+    width: 110,
+    height: 56,
+    backgroundColor: 'rgba(72, 122, 67, 0.34)',
+    borderColor: 'rgba(220, 255, 199, 0.64)',
+    borderRadius: 55,
+    borderWidth: 2,
+  },
   playerPlatformTop: {
     position: 'absolute',
-    bottom: 4,
-    width: 108,
-    height: 108,
+    bottom: 6,
+    width: 110,
+    height: 56,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(204, 245, 183, 0.22)',
     borderColor: 'rgba(248, 255, 233, 0.88)',
-    borderRadius: 54,
+    borderRadius: 55,
     borderWidth: 3,
     shadowColor: '#DFFFC3',
     shadowOffset: { width: 0, height: 0 },
@@ -129,7 +144,7 @@ const styles = StyleSheet.create({
   },
   playerPlatformOuterRing: {
     width: 86,
-    height: 86,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(224, 255, 202, 0.1)',
@@ -139,7 +154,7 @@ const styles = StyleSheet.create({
   },
   playerPlatformInnerRing: {
     width: 60,
-    height: 60,
+    height: 26,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(158, 229, 143, 0.2)',
@@ -149,7 +164,7 @@ const styles = StyleSheet.create({
   },
   playerPlatformCore: {
     width: 30,
-    height: 30,
+    height: 13,
     backgroundColor: 'rgba(255, 255, 235, 0.36)',
     borderRadius: 15,
   },
