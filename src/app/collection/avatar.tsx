@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -13,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AvatarPreview } from '@/components/avatar-preview';
+import { LorcoinIcon } from '@/components/lorcoin-icon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
@@ -58,6 +60,13 @@ function selectionsMatch(first: AvatarSelection, second: AvatarSelection) {
   );
 }
 
+type WardrobePreview = {
+  slot: AvatarItemSlot;
+  itemId: string;
+  itemName: string;
+  price: number;
+};
+
 export default function CustomizeAvatarScreen() {
   const router = useRouter();
   const theme = useTheme();
@@ -79,6 +88,9 @@ export default function CustomizeAvatarScreen() {
   );
   const [activeCategory, setActiveCategory] = useState<AvatarCategoryId>('top');
   const [saving, setSaving] = useState(false);
+  const [previewPurchase, setPreviewPurchase] =
+    useState<WardrobePreview | null>(null);
+  const [confirmingPurchase, setConfirmingPurchase] = useState(false);
   const [purchasingItemId, setPurchasingItemId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -87,9 +99,19 @@ export default function CustomizeAvatarScreen() {
     avatarProfile?.selection,
     avatarProfile?.avatarPresetId,
   );
-  const activeSelection = draftSelection ?? savedSelection;
+  const editableSelection = draftSelection ?? savedSelection;
+  const activeSelection = previewPurchase
+    ? applyAvatarItem(
+        editableSelection,
+        previewPurchase.slot,
+        previewPurchase.itemId,
+      )
+    : editableSelection;
   const matchingPresetId = getMatchingAvatarPresetId(activeSelection);
-  const hasUnsavedChanges = !selectionsMatch(activeSelection, savedSelection);
+  const hasUnsavedChanges = !selectionsMatch(
+    editableSelection,
+    savedSelection,
+  );
   const previewSize = Math.min(Math.max(width - 64, 240), 430);
   const unlockedAvatarItemIds = new Set(
     avatarProfile?.unlockedAvatarItemIds ?? [],
@@ -104,11 +126,13 @@ export default function CustomizeAvatarScreen() {
 
   const updateSelection = (selection: AvatarSelection) => {
     setDraftSelection(selection);
+    setPreviewPurchase(null);
+    setConfirmingPurchase(false);
     setStatusMessage(null);
     setErrorMessage(null);
   };
 
-  const chooseItem = async (
+  const previewOrChooseItem = (
     slot: AvatarItemSlot,
     itemId: string,
     itemName: string,
@@ -116,25 +140,66 @@ export default function CustomizeAvatarScreen() {
     const price = getAvatarItemPrice(itemId);
     const owned = price === 0 || purchasedAvatarItemIds.has(itemId);
 
+    setStatusMessage(null);
     setErrorMessage(null);
 
-    if (!owned) {
-      setPurchasingItemId(itemId);
-
-      try {
-        await purchaseAvatarItem({ itemId });
-      } catch (error) {
-        setErrorMessage(getErrorMessage(error));
-        return;
-      } finally {
-        setPurchasingItemId(null);
-      }
+    if (owned) {
+      updateSelection(applyAvatarItem(editableSelection, slot, itemId));
+      return;
     }
 
-    updateSelection(applyAvatarItem(activeSelection, slot, itemId));
+    setPreviewPurchase({ itemId, itemName, price, slot });
+    setConfirmingPurchase(false);
+  };
 
-    if (!owned) {
-      setStatusMessage(`${itemName} purchased and equipped.`);
+  const openPurchaseConfirmation = () => {
+    if (previewPurchase === null || wallet === undefined || wallet === null) {
+      return;
+    }
+
+    if (wallet.balance < previewPurchase.price) {
+      setErrorMessage(
+        `You need ${previewPurchase.price - wallet.balance} more Lorcoins to buy ${previewPurchase.itemName}.`,
+      );
+      return;
+    }
+
+    setErrorMessage(null);
+    setConfirmingPurchase(true);
+  };
+
+  const confirmPurchase = async () => {
+    if (previewPurchase === null) {
+      return;
+    }
+
+    const purchase = previewPurchase;
+    setPurchasingItemId(purchase.itemId);
+    setStatusMessage(null);
+    setErrorMessage(null);
+
+    try {
+      const result = await purchaseAvatarItem({ itemId: purchase.itemId });
+
+      if (result.status === 'insufficient_funds') {
+        setConfirmingPurchase(false);
+        setErrorMessage(
+          `You need ${result.needed} more Lorcoins to buy ${purchase.itemName}.`,
+        );
+        return;
+      }
+
+      setDraftSelection(
+        applyAvatarItem(editableSelection, purchase.slot, purchase.itemId),
+      );
+      setPreviewPurchase(null);
+      setConfirmingPurchase(false);
+      setStatusMessage(`${purchase.itemName} purchased and equipped.`);
+    } catch (error) {
+      setConfirmingPurchase(false);
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setPurchasingItemId(null);
     }
   };
 
@@ -145,7 +210,7 @@ export default function CustomizeAvatarScreen() {
 
     try {
       const result = await saveMyAvatarProfile({
-        selection: activeSelection,
+        selection: editableSelection,
       });
       setDraftSelection(result.selection);
       setStatusMessage('Avatar saved. Your Passport has been updated.');
@@ -233,10 +298,9 @@ export default function CustomizeAvatarScreen() {
                 type="backgroundElement"
                 style={styles.walletChip}
               >
+                <LorcoinIcon size={22} />
                 <ThemedText type="smallBold">
-                  {wallet === undefined
-                    ? 'Lorcoins…'
-                    : `${wallet?.balance ?? 0} Lorcoins`}
+                  {wallet === undefined ? '…' : wallet?.balance ?? 0} Lorcoins
                 </ThemedText>
               </ThemedView>
             </View>
@@ -255,9 +319,98 @@ export default function CustomizeAvatarScreen() {
                     ?.name}
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              {hasUnsavedChanges ? 'Unsaved Changes' : 'Saved Look'}
+              {previewPurchase
+                ? `Previewing ${previewPurchase.itemName}`
+                : hasUnsavedChanges
+                  ? 'Unsaved Changes'
+                  : 'Saved Look'}
             </ThemedText>
           </ThemedView>
+
+          {previewPurchase ? (
+            <ThemedView
+              type="backgroundElement"
+              style={styles.purchasePreviewCard}
+            >
+              <ThemedText accessibilityRole="header" type="subtitle">
+                Previewing {previewPurchase.itemName}
+              </ThemedText>
+              <ThemedText themeColor="textSecondary">
+                This item is only on your preview. Your Lorcoins will not be
+                spent until you choose Buy and confirm the purchase.
+              </ThemedText>
+              <View style={styles.purchaseDetailsRow}>
+                <View style={styles.coinAmountRow}>
+                  <LorcoinIcon />
+                  <ThemedText type="smallBold">
+                    {previewPurchase.price} Lorcoins
+                  </ThemedText>
+                </View>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Balance: {wallet?.balance ?? 0}
+                </ThemedText>
+              </View>
+              {wallet !== undefined &&
+              wallet !== null &&
+              wallet.balance < previewPurchase.price ? (
+                <ThemedText
+                  accessibilityLiveRegion="polite"
+                  style={styles.errorMessage}
+                >
+                  You need {previewPurchase.price - wallet.balance} more
+                  Lorcoins to buy this item.
+                </ThemedText>
+              ) : null}
+              <View style={styles.purchaseActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{
+                    disabled:
+                      wallet === undefined ||
+                      wallet === null ||
+                      wallet.balance < previewPurchase.price,
+                  }}
+                  disabled={
+                    wallet === undefined ||
+                    wallet === null ||
+                    wallet.balance < previewPurchase.price
+                  }
+                  onPress={openPurchaseConfirmation}
+                  style={({ pressed }) => [
+                    styles.primaryButton,
+                    (wallet === undefined ||
+                      wallet === null ||
+                      wallet.balance < previewPurchase.price) &&
+                      styles.disabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <View style={styles.coinButtonCopy}>
+                    <LorcoinIcon size={20} />
+                    <ThemedText
+                      style={styles.primaryButtonText}
+                      type="smallBold"
+                    >
+                      Buy for {previewPurchase.price}
+                    </ThemedText>
+                  </View>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setPreviewPurchase(null);
+                    setErrorMessage(null);
+                  }}
+                  style={({ pressed }) => [
+                    styles.secondaryButton,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <ThemedText type="smallBold">Cancel Preview</ThemedText>
+                </Pressable>
+              </View>
+            </ThemedView>
+          ) : null}
 
           <View style={styles.section}>
             <ThemedText accessibilityRole="header" type="subtitle">
@@ -276,7 +429,12 @@ export default function CustomizeAvatarScreen() {
                     key={category.id}
                     accessibilityRole="tab"
                     accessibilityState={{ selected }}
-                    onPress={() => setActiveCategory(category.id)}
+                    onPress={() => {
+                      setActiveCategory(category.id);
+                      setPreviewPurchase(null);
+                      setConfirmingPurchase(false);
+                      setErrorMessage(null);
+                    }}
                     style={({ pressed }) => [
                       styles.categoryButton,
                       {
@@ -395,7 +553,7 @@ export default function CustomizeAvatarScreen() {
                   <Pressable
                     key={item.id}
                     accessibilityLabel={`${item.name}. ${item.description}`}
-                    accessibilityRole={owned ? 'radio' : 'button'}
+                    accessibilityRole="radio"
                     accessibilityState={{
                       busy: isPurchasing,
                       disabled: missionLocked || isPurchasing,
@@ -403,7 +561,7 @@ export default function CustomizeAvatarScreen() {
                     }}
                     disabled={missionLocked || isPurchasing}
                     onPress={() =>
-                      void chooseItem(activeCategory, item.id, item.name)
+                      previewOrChooseItem(activeCategory, item.id, item.name)
                     }
                     style={({ pressed }) => [
                       styles.choiceCard,
@@ -426,9 +584,15 @@ export default function CustomizeAvatarScreen() {
                         {item.description}
                       </ThemedText>
                       {price > 0 ? (
-                        <ThemedText type="smallBold" style={styles.itemPrice}>
-                          {owned ? 'Owned' : `${price} Lorcoins`}
-                        </ThemedText>
+                        <View style={styles.coinAmountRow}>
+                          <LorcoinIcon size={18} />
+                          <ThemedText
+                            type="smallBold"
+                            style={styles.itemPrice}
+                          >
+                            {owned ? 'Owned' : `${price} Lorcoins`}
+                          </ThemedText>
+                        </View>
                       ) : null}
                       <ThemedText
                         type="smallBold"
@@ -439,7 +603,9 @@ export default function CustomizeAvatarScreen() {
                           : isPurchasing
                             ? 'Buying...'
                             : !owned
-                              ? `Buy & Equip · ${price} Lorcoins`
+                              ? selected
+                                ? 'Previewing — Buy Above'
+                                : 'Preview Item'
                               : selected
                                 ? 'Equipped'
                                 : 'Choose Item'}
@@ -488,12 +654,14 @@ export default function CustomizeAvatarScreen() {
           <View style={styles.actions}>
             <Pressable
               accessibilityRole="button"
-              accessibilityState={{ disabled: saving }}
-              disabled={saving}
+              accessibilityState={{
+                disabled: saving || previewPurchase !== null,
+              }}
+              disabled={saving || previewPurchase !== null}
               onPress={saveAvatar}
               style={({ pressed }) => [
                 styles.primaryButton,
-                saving && styles.disabled,
+                (saving || previewPurchase !== null) && styles.disabled,
                 pressed && styles.pressed,
               ]}
             >
@@ -505,7 +673,7 @@ export default function CustomizeAvatarScreen() {
                 />
               ) : (
                 <ThemedText style={styles.primaryButtonText} type="smallBold">
-                  Save Avatar
+                  {previewPurchase ? 'Finish Preview First' : 'Save Avatar'}
                 </ThemedText>
               )}
             </Pressable>
@@ -536,6 +704,93 @@ export default function CustomizeAvatarScreen() {
           </View>
         </ScrollView>
       </SafeAreaView>
+
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setConfirmingPurchase(false)}
+        transparent
+        visible={confirmingPurchase && previewPurchase !== null}
+      >
+        <SafeAreaView style={styles.confirmationLayer}>
+          {previewPurchase ? (
+            <ThemedView
+              accessibilityLabel={`Confirm purchase of ${previewPurchase.itemName} for ${previewPurchase.price} Lorcoins.`}
+              accessibilityViewIsModal
+              type="backgroundElement"
+              style={styles.confirmationCard}
+            >
+              <ThemedText accessibilityRole="header" type="subtitle">
+                Buy {previewPurchase.itemName}?
+              </ThemedText>
+              <ThemedText themeColor="textSecondary">
+                This will permanently add the item to your wardrobe and equip
+                it in your current look.
+              </ThemedText>
+              <View style={styles.confirmationBalance}>
+                <View style={styles.coinAmountRow}>
+                  <LorcoinIcon size={28} />
+                  <ThemedText type="smallBold">
+                    Cost: {previewPurchase.price} Lorcoins
+                  </ThemedText>
+                </View>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Your balance after purchase:{' '}
+                  {Math.max(
+                    0,
+                    (wallet?.balance ?? 0) - previewPurchase.price,
+                  )}
+                </ThemedText>
+              </View>
+              <View style={styles.purchaseActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{
+                    busy: purchasingItemId === previewPurchase.itemId,
+                    disabled: purchasingItemId !== null,
+                  }}
+                  disabled={purchasingItemId !== null}
+                  onPress={() => void confirmPurchase()}
+                  style={({ pressed }) => [
+                    styles.primaryButton,
+                    purchasingItemId !== null && styles.disabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  {purchasingItemId === previewPurchase.itemId ? (
+                    <ActivityIndicator
+                      accessibilityLabel="Buying wardrobe item"
+                      color={Palette.ink}
+                      size="small"
+                    />
+                  ) : (
+                    <View style={styles.coinButtonCopy}>
+                      <LorcoinIcon size={20} />
+                      <ThemedText
+                        style={styles.primaryButtonText}
+                        type="smallBold"
+                      >
+                        Yes, Spend {previewPurchase.price}
+                      </ThemedText>
+                    </View>
+                  )}
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={purchasingItemId !== null}
+                  onPress={() => setConfirmingPurchase(false)}
+                  style={({ pressed }) => [
+                    styles.secondaryButton,
+                    purchasingItemId !== null && styles.disabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <ThemedText type="smallBold">No, Keep Previewing</ThemedText>
+                </Pressable>
+              </View>
+            </ThemedView>
+          ) : null}
+        </SafeAreaView>
+      </Modal>
     </ThemedView>
   );
 }
@@ -579,7 +834,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   walletChip: {
+    alignItems: 'center',
     borderRadius: 999,
+    flexDirection: 'row',
+    gap: Spacing.two,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
   },
@@ -593,6 +851,33 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.four,
     gap: Spacing.two,
     padding: Spacing.three,
+  },
+  purchasePreviewCard: {
+    borderRadius: Spacing.four,
+    gap: Spacing.three,
+    padding: Spacing.four,
+  },
+  purchaseDetailsRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.three,
+    justifyContent: 'space-between',
+  },
+  coinAmountRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  coinButtonCopy: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  purchaseActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
   },
   section: { gap: Spacing.three },
   economyCard: {
@@ -636,6 +921,23 @@ const styles = StyleSheet.create({
   },
   itemPrice: {
     color: '#9A6500',
+  },
+  confirmationLayer: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.56)',
+    flex: 1,
+    justifyContent: 'center',
+    padding: Spacing.four,
+  },
+  confirmationCard: {
+    borderRadius: Spacing.four,
+    gap: Spacing.three,
+    maxWidth: 520,
+    padding: Spacing.four,
+    width: '100%',
+  },
+  confirmationBalance: {
+    gap: Spacing.two,
   },
   comingSoonCard: {
     borderRadius: Spacing.four,

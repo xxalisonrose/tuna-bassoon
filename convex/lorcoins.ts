@@ -139,9 +139,12 @@ export const purchaseAvatarItem = mutation({
 
     if (snapshot.balance < AVATAR_ITEM_LORCOIN_PRICE) {
       const needed = AVATAR_ITEM_LORCOIN_PRICE - snapshot.balance;
-      throw new ConvexError(
-        `You need ${needed} more Lorcoins to buy this item.`,
-      );
+
+      return {
+        status: 'insufficient_funds' as const,
+        balance: snapshot.balance,
+        needed,
+      };
     }
 
     await ctx.db.insert('avatarItemPurchases', {

@@ -172,6 +172,10 @@ export function AvatarPreview({
 }) {
   const activeSelection = normalizeAvatarSelection(selection, presetId);
   const matchingPresetId = getMatchingAvatarPresetId(activeSelection);
+  const wearsFullBoots =
+    activeSelection.shoesId === 'winter_snow_boots' ||
+    activeSelection.shoesId === 'cowboy_brown_boots' ||
+    activeSelection.shoesId === 'cowboy_red_boots';
 
   return (
     <ThemedView
@@ -195,6 +199,14 @@ export function AvatarPreview({
       ) : (
         <>
           <AvatarLayer source={avatarImages.base} style={styles.fullLayer} />
+          {wearsFullBoots ? (
+            <ThemedView
+              accessible={false}
+              importantForAccessibility="no-hide-descendants"
+              type="surfaceWarm"
+              style={styles.fullBootMask}
+            />
+          ) : null}
           {activeSelection.bottomId === 'explorer_cargo' ? (
             <AvatarLayer
               source={avatarImages.explorerBottom}
@@ -343,6 +355,13 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     width: '100%',
+  },
+  fullBootMask: {
+    height: '20%',
+    left: '28%',
+    position: 'absolute',
+    top: '80%',
+    width: '44%',
   },
   topLayer: {
     height: '87%',

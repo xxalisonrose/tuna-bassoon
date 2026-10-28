@@ -62,7 +62,8 @@ on individual Tops rather than complete outfits and provides:
 - quick application of Traditional Explorer, Trail Basics, Cozy Winter,
   Classic Cowboy, Rodeo Cowboy, or Pink Princess after all included paid pieces
   are owned
-- a Lorcoin balance and purchase action on each paid individual item
+- a cow-coin balance, item preview, and confirmed purchase flow for each paid
+  individual item
 - a visible unsaved-state label and Undo Changes action
 - persistent saving to Convex
 - error handling and a return action

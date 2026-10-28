@@ -23,6 +23,11 @@ paid piece included in that look. This keeps individual customization at the
 center of the wardrobe while preserving complete costumes as a convenience
 and future special reward format.
 
+Selecting an unowned item previews it without spending anything. The player
+must then choose Buy and accept a separate confirmation before the purchase is
+recorded. When the balance is too low, the wardrobe shows how many more
+Lorcoins are needed and does not send a purchase request.
+
 ## Balance rules
 
 The current balance is:
