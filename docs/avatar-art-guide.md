@@ -183,17 +183,25 @@ same placement registry as every player-facing avatar preview, so its values
 describe the actual runtime result instead of a separate mockup.
 
 1. Open **Content Portal → Avatar** and choose a slot and item.
-2. Leave the grid visible for the first pass. Drag anywhere on the large
-   preview to position the selected layer.
-3. Use the Horizontal, Vertical, Width, Height, and Rotation controls for
-   one-percent and one-degree adjustments.
-4. Inspect the 92-pixel map-size preview before accepting a fit. Fine details
+2. Leave the grid visible for the first pass. Drag inside the outlined box to
+   move the selected layer over the cow.
+3. Drag a corner handle to resize the item proportionally. **Keep corner
+   proportions** is enabled by default so the artwork does not become
+   stretched. Drag a side handle only when one-axis stretching is intentional.
+4. Use the Horizontal, Vertical, Width, Height, and Rotation buttons for
+   one-percent and one-degree fine adjustments.
+5. Switch between items and categories as needed. Every changed item stays in
+   the current working batch and receives an adjusted-item dot. The batch is
+   local to the open page, so export it before navigating away or refreshing.
+6. Inspect the 92-pixel map-size preview before accepting a fit. Fine details
    that disappear there should be strengthened in the artwork rather than
    solved with more scaling.
-5. Share the fitting screenshot or selectable fit-values line for review.
-   The lab intentionally does not alter saved avatars or publish temporary
-   values by itself.
-6. Commit approved values in `src/lib/avatar-fit.ts`, then recheck the custom
+7. Select **Export Batch ZIP** when the fitting pass is complete. The archive
+   contains the changed values, the complete merged fit registry, composed PNG
+   and SVG previews, and the exact source layers used in the preview. Send the
+   complete ZIP for implementation instead of collecting individual
+   screenshots and value lines.
+8. Commit approved values in `src/lib/avatar-fit.ts`, then recheck the custom
    wardrobe preview, complete looks, Passport preview, and map marker.
 
 The fitting registry is a prototype bridge for the AI-assisted source sheets.

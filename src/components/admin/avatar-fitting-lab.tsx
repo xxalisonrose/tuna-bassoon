@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
+  Platform,
   Pressable,
   StyleSheet,
   View,
@@ -30,6 +31,7 @@ import {
   type AvatarFit,
   type AvatarFitOverrides,
 } from '@/lib/avatar-fit';
+import { exportAvatarFitBatch } from '@/lib/avatar-fit-export';
 
 type FitItem = AvatarItemOption & {
   slot: AvatarItemSlot;
@@ -39,6 +41,24 @@ type AdjustableFitKey = keyof Pick<
   AvatarFit,
   'left' | 'top' | 'width' | 'height' | 'rotation'
 >;
+
+type FitHandle =
+  | 'move'
+  | 'north'
+  | 'northEast'
+  | 'east'
+  | 'southEast'
+  | 'south'
+  | 'southWest'
+  | 'west'
+  | 'northWest';
+
+type FitInteraction = {
+  handle: FitHandle;
+  pageX: number;
+  pageY: number;
+  startFit: AvatarFit;
+};
 
 const fitItems: FitItem[] = Object.entries(avatarItemOptions).flatMap(
   ([slot, items]) =>
@@ -106,6 +126,208 @@ function FitControl({
   );
 }
 
+function resizeAvatarFit({
+  deltaX,
+  deltaY,
+  interaction,
+  lockProportions,
+}: {
+  deltaX: number;
+  deltaY: number;
+  interaction: FitInteraction;
+  lockProportions: boolean;
+}) {
+  const { handle, startFit } = interaction;
+  const normalizedHandle = handle.toLowerCase();
+  const movesNorth = normalizedHandle.includes('north');
+  const movesSouth = normalizedHandle.includes('south');
+  const movesWest = normalizedHandle.includes('west');
+  const movesEast = normalizedHandle.includes('east');
+  const isCorner = (movesNorth || movesSouth) && (movesWest || movesEast);
+
+  if (handle === 'move') {
+    return {
+      ...startFit,
+      left: roundFitValue(clamp(startFit.left + deltaX, -100, 150)),
+      top: roundFitValue(clamp(startFit.top + deltaY, -100, 150)),
+    };
+  }
+
+  let width = startFit.width;
+  let height = startFit.height;
+
+  if (movesEast) {
+    width = startFit.width + deltaX;
+  } else if (movesWest) {
+    width = startFit.width - deltaX;
+  }
+
+  if (movesSouth) {
+    height = startFit.height + deltaY;
+  } else if (movesNorth) {
+    height = startFit.height - deltaY;
+  }
+
+  if (isCorner && lockProportions) {
+    const widthScale = width / startFit.width;
+    const heightScale = height / startFit.height;
+    const scale =
+      Math.abs(widthScale - 1) >= Math.abs(heightScale - 1)
+        ? widthScale
+        : heightScale;
+    const minimumScale = Math.max(4 / startFit.width, 4 / startFit.height);
+    const maximumScale = Math.min(150 / startFit.width, 150 / startFit.height);
+    const safeScale = clamp(scale, minimumScale, maximumScale);
+    width = startFit.width * safeScale;
+    height = startFit.height * safeScale;
+  } else {
+    width = clamp(width, 4, 150);
+    height = clamp(height, 4, 150);
+  }
+
+  return {
+    ...startFit,
+    height: roundFitValue(height),
+    left: roundFitValue(
+      movesWest ? startFit.left + startFit.width - width : startFit.left,
+    ),
+    top: roundFitValue(
+      movesNorth ? startFit.top + startFit.height - height : startFit.top,
+    ),
+    width: roundFitValue(width),
+  };
+}
+
+const resizeHandles: readonly Exclude<FitHandle, 'move'>[] = [
+  'north',
+  'northEast',
+  'east',
+  'southEast',
+  'south',
+  'southWest',
+  'west',
+  'northWest',
+];
+
+function getResizeHandleStyle(handle: Exclude<FitHandle, 'move'>) {
+  switch (handle) {
+    case 'north':
+      return styles.handleNorth;
+    case 'northEast':
+      return styles.handleNorthEast;
+    case 'east':
+      return styles.handleEast;
+    case 'southEast':
+      return styles.handleSouthEast;
+    case 'south':
+      return styles.handleSouth;
+    case 'southWest':
+      return styles.handleSouthWest;
+    case 'west':
+      return styles.handleWest;
+    case 'northWest':
+      return styles.handleNorthWest;
+  }
+}
+
+function AvatarFitTransformBox({
+  fit,
+  itemName,
+  lockProportions,
+  onFitChange,
+  previewSize,
+}: {
+  fit: AvatarFit;
+  itemName: string;
+  lockProportions: boolean;
+  onFitChange: (fit: AvatarFit) => void;
+  previewSize: number;
+}) {
+  const interactionRef = useRef<FitInteraction | null>(null);
+
+  const beginInteraction = (
+    handle: FitHandle,
+    event: GestureResponderEvent,
+  ) => {
+    event.stopPropagation();
+    interactionRef.current = {
+      handle,
+      pageX: event.nativeEvent.pageX,
+      pageY: event.nativeEvent.pageY,
+      startFit: fit,
+    };
+  };
+
+  const updateInteraction = (event: GestureResponderEvent) => {
+    const interaction = interactionRef.current;
+
+    if (!interaction) {
+      return;
+    }
+
+    const deltaX =
+      ((event.nativeEvent.pageX - interaction.pageX) / previewSize) * 100;
+    const deltaY =
+      ((event.nativeEvent.pageY - interaction.pageY) / previewSize) * 100;
+
+    onFitChange(
+      resizeAvatarFit({
+        deltaX,
+        deltaY,
+        interaction,
+        lockProportions,
+      }),
+    );
+  };
+
+  const finishInteraction = () => {
+    interactionRef.current = null;
+  };
+
+  return (
+    <View
+      style={[
+        styles.transformBox,
+        {
+          height: `${fit.height}%`,
+          left: `${fit.left}%`,
+          top: `${fit.top}%`,
+          transform: [{ rotate: `${fit.rotation}deg` }],
+          width: `${fit.width}%`,
+        },
+      ]}
+    >
+      <View
+        accessibilityHint="Drag to move this clothing item over the avatar."
+        accessibilityLabel={`Move ${itemName}`}
+        accessible
+        onMoveShouldSetResponder={() => true}
+        onResponderGrant={(event) => beginInteraction('move', event)}
+        onResponderMove={updateInteraction}
+        onResponderRelease={finishInteraction}
+        onResponderTerminate={finishInteraction}
+        onStartShouldSetResponder={() => true}
+        style={styles.moveIndicator}
+      />
+      {resizeHandles.map((handle) => (
+        <View
+          key={handle}
+          accessibilityLabel={`Resize ${itemName} from ${handle}`}
+          accessibilityRole="adjustable"
+          accessible
+          onMoveShouldSetResponder={() => true}
+          onResponderGrant={(event) => beginInteraction(handle, event)}
+          onResponderMove={updateInteraction}
+          onResponderRelease={finishInteraction}
+          onResponderTerminate={finishInteraction}
+          onStartShouldSetResponder={() => true}
+          style={[styles.resizeHandle, getResizeHandleStyle(handle)]}
+        />
+      ))}
+    </View>
+  );
+}
+
 export function AvatarFittingLab() {
   const theme = useTheme();
   const { width: windowWidth } = useWindowDimensions();
@@ -116,10 +338,9 @@ export function AvatarFittingLab() {
   const [selectedItemId, setSelectedItemId] = useState(initialItem.id);
   const [fitOverrides, setFitOverrides] = useState<AvatarFitOverrides>({});
   const [showGrid, setShowGrid] = useState(true);
-  const [dragOffset, setDragOffset] = useState<{
-    left: number;
-    top: number;
-  } | null>(null);
+  const [lockProportions, setLockProportions] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
 
   const selectedItem =
     fitItems.find((item) => item.id === selectedItemId) ?? initialItem;
@@ -130,8 +351,10 @@ export function AvatarFittingLab() {
     selectedItem.slot,
     selectedItem.id,
   );
+  const changedItemIds = Object.keys(fitOverrides);
 
   const updateCurrentFit = (updater: (currentFit: AvatarFit) => AvatarFit) => {
+    setExportStatus(null);
     setFitOverrides((currentOverrides) => {
       const currentFit = getAvatarItemFit(selectedItem.id, currentOverrides);
 
@@ -158,35 +381,6 @@ export function AvatarFittingLab() {
     });
   };
 
-  const startDragging = (event: GestureResponderEvent) => {
-    if (!selectedFit) {
-      return;
-    }
-
-    const touchLeft = (event.nativeEvent.locationX / previewSize) * 100;
-    const touchTop = (event.nativeEvent.locationY / previewSize) * 100;
-
-    setDragOffset({
-      left: touchLeft - selectedFit.left,
-      top: touchTop - selectedFit.top,
-    });
-  };
-
-  const moveSelectedItem = (event: GestureResponderEvent) => {
-    if (!dragOffset) {
-      return;
-    }
-
-    const touchLeft = (event.nativeEvent.locationX / previewSize) * 100;
-    const touchTop = (event.nativeEvent.locationY / previewSize) * 100;
-
-    updateCurrentFit((currentFit) => ({
-      ...currentFit,
-      left: roundFitValue(clamp(touchLeft - dragOffset.left, -100, 150)),
-      top: roundFitValue(clamp(touchTop - dragOffset.top, -100, 150)),
-    }));
-  };
-
   const selectItem = (item: FitItem) => {
     setActiveSlot(item.slot);
     setSelectedItemId(item.id);
@@ -198,6 +392,39 @@ export function AvatarFittingLab() {
       delete nextOverrides[selectedItem.id];
       return nextOverrides;
     });
+    setExportStatus(null);
+  };
+
+  const updateSelectedFit = (fit: AvatarFit) => {
+    setFitOverrides((currentOverrides) => ({
+      ...currentOverrides,
+      [selectedItem.id]: fit,
+    }));
+    setExportStatus(null);
+  };
+
+  const exportBatch = async () => {
+    setIsExporting(true);
+    setExportStatus('Preparing export...');
+
+    try {
+      const result = await exportAvatarFitBatch({
+        changedItemIds,
+        fitOverrides,
+        onProgress: setExportStatus,
+      });
+      setExportStatus(
+        `Downloaded ${result.fileName} with ${result.itemCount} adjusted ${result.itemCount === 1 ? 'item' : 'items'}.`,
+      );
+    } catch (error) {
+      setExportStatus(
+        error instanceof Error
+          ? error.message
+          : 'The avatar fitting batch could not be exported.',
+      );
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (!selectedFit) {
@@ -217,8 +444,9 @@ export function AvatarFittingLab() {
             Avatar Fitting Lab
           </ThemedText>
           <ThemedText themeColor="textSecondary">
-            Choose an item, drag it over the cow, then use the fine controls.
-            The grid and outlined box make screenshots easy to compare.
+            Choose an item, drag its outlined box to move it, and drag the
+            square handles to resize it. Your edits stay in a batch while you
+            work through other items.
           </ThemedText>
         </View>
         <Pressable
@@ -311,9 +539,67 @@ export function AvatarFittingLab() {
             >
               {item.name}
             </ThemedText>
+            {fitOverrides[item.id] ? (
+              <View
+                accessibilityLabel="Adjusted in this batch"
+                style={styles.adjustedDot}
+              />
+            ) : null}
           </Pressable>
         ))}
       </View>
+
+      <ThemedView type="background" style={styles.batchBar}>
+        <View style={styles.batchCopy}>
+          <ThemedText type="smallBold">
+            Working batch: {changedItemIds.length} adjusted{' '}
+            {changedItemIds.length === 1 ? 'item' : 'items'}
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Switch categories freely. Nothing is lost until you reset the batch
+            or leave this page.
+          </ThemedText>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{
+            disabled:
+              changedItemIds.length === 0 ||
+              isExporting ||
+              Platform.OS !== 'web',
+          }}
+          disabled={
+            changedItemIds.length === 0 || isExporting || Platform.OS !== 'web'
+          }
+          onPress={() => void exportBatch()}
+          style={({ pressed }) => [
+            styles.primaryButton,
+            (changedItemIds.length === 0 ||
+              isExporting ||
+              Platform.OS !== 'web') &&
+              styles.disabledButton,
+            pressed && styles.pressed,
+          ]}
+        >
+          <ThemedText style={styles.buttonText}>
+            {isExporting
+              ? 'Building Export...'
+              : Platform.OS === 'web'
+                ? 'Export Batch ZIP'
+                : 'Export on Web'}
+          </ThemedText>
+        </Pressable>
+        {exportStatus ? (
+          <ThemedText
+            accessibilityLiveRegion="polite"
+            style={styles.exportStatus}
+            type="small"
+            themeColor="textSecondary"
+          >
+            {exportStatus}
+          </ThemedText>
+        ) : null}
+      </ThemedView>
 
       <View style={styles.workspace}>
         <View style={styles.previewColumn}>
@@ -325,27 +611,39 @@ export function AvatarFittingLab() {
           >
             <AvatarPreview
               fitOverrides={fitOverrides}
-              highlightedItemId={selectedItem.id}
               selection={previewSelection}
               showFitGuides={showGrid}
               size={previewSize}
             />
-            <View
-              accessibilityHint="Drag in any direction to move the selected item."
-              accessibilityLabel={`Move ${selectedItem.name}`}
-              accessible
-              onMoveShouldSetResponder={() => true}
-              onResponderGrant={startDragging}
-              onResponderMove={moveSelectedItem}
-              onResponderRelease={() => setDragOffset(null)}
-              onResponderTerminate={() => setDragOffset(null)}
-              onStartShouldSetResponder={() => true}
-              style={styles.dragSurface}
+            <AvatarFitTransformBox
+              key={selectedItem.id}
+              fit={selectedFit}
+              itemName={selectedItem.name}
+              lockProportions={lockProportions}
+              onFitChange={updateSelectedFit}
+              previewSize={previewSize}
             />
           </View>
           <ThemedText type="small" themeColor="textSecondary">
-            Drag anywhere on the preview to move {selectedItem.name}.
+            Drag inside the box to move. Drag its corners or edges to resize.
           </ThemedText>
+          <Pressable
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: lockProportions }}
+            onPress={() => setLockProportions((currentValue) => !currentValue)}
+            style={({ pressed }) => [
+              styles.proportionToggle,
+              lockProportions && styles.proportionToggleSelected,
+              pressed && styles.pressed,
+            ]}
+          >
+            <ThemedText
+              type="smallBold"
+              style={lockProportions ? styles.selectedButtonText : undefined}
+            >
+              {lockProportions ? '✓ ' : ''}Keep corner proportions
+            </ThemedText>
+          </Pressable>
         </View>
 
         <View style={styles.controlColumn}>
@@ -396,7 +694,10 @@ export function AvatarFittingLab() {
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              onPress={() => setFitOverrides({})}
+              onPress={() => {
+                setFitOverrides({});
+                setExportStatus(null);
+              }}
               style={({ pressed }) => [
                 styles.secondaryButton,
                 pressed && styles.pressed,
@@ -431,9 +732,9 @@ export function AvatarFittingLab() {
 
       <ThemedText themeColor="textSecondary" style={styles.note}>
         This lab previews fit values only; it does not spend Lorcoins or change
-        any tester&apos;s saved avatar. Share a screenshot or the fit-values
-        line when an item looks right, then the approved values can be committed
-        for everyone.
+        any tester&apos;s saved avatar. Exporting creates one ZIP with the batch
+        data, composed preview images, and original prototype layers needed to
+        apply the approved fits.
       </ThemedText>
     </ThemedView>
   );
@@ -485,8 +786,11 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
   },
   itemButton: {
+    alignItems: 'center',
     borderRadius: Spacing.two,
     borderWidth: 1,
+    flexDirection: 'row',
+    gap: Spacing.one,
     minHeight: 44,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
@@ -498,6 +802,29 @@ const styles = StyleSheet.create({
   selectedButtonText: {
     color: Palette.ink,
   },
+  adjustedDot: {
+    backgroundColor: Palette.lightBronze,
+    borderRadius: 5,
+    height: 10,
+    width: 10,
+  },
+  batchBar: {
+    alignItems: 'center',
+    borderRadius: Spacing.two,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.three,
+    justifyContent: 'space-between',
+    padding: Spacing.three,
+  },
+  batchCopy: {
+    flex: 1,
+    gap: Spacing.half,
+    minWidth: 240,
+  },
+  exportStatus: {
+    flexBasis: '100%',
+  },
   workspace: {
     alignItems: 'flex-start',
     flexDirection: 'row',
@@ -508,12 +835,77 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.two,
   },
-  dragSurface: {
+  transformBox: {
+    borderColor: Palette.cornsilk,
+    borderStyle: 'dashed',
+    borderWidth: 2,
+    position: 'absolute',
+  },
+  moveIndicator: {
+    backgroundColor: 'rgba(254, 250, 224, 0.16)',
     bottom: 0,
     left: 0,
     position: 'absolute',
     right: 0,
     top: 0,
+    zIndex: 1,
+  },
+  resizeHandle: {
+    backgroundColor: Palette.cornsilk,
+    borderColor: Palette.bronzeDeep,
+    borderRadius: 3,
+    borderWidth: 2,
+    height: 18,
+    position: 'absolute',
+    width: 18,
+    zIndex: 2,
+  },
+  handleNorth: {
+    left: '50%',
+    marginLeft: -9,
+    top: -10,
+  },
+  handleNorthEast: {
+    right: -10,
+    top: -10,
+  },
+  handleEast: {
+    marginTop: -9,
+    right: -10,
+    top: '50%',
+  },
+  handleSouthEast: {
+    bottom: -10,
+    right: -10,
+  },
+  handleSouth: {
+    bottom: -10,
+    left: '50%',
+    marginLeft: -9,
+  },
+  handleSouthWest: {
+    bottom: -10,
+    left: -10,
+  },
+  handleWest: {
+    left: -10,
+    marginTop: -9,
+    top: '50%',
+  },
+  handleNorthWest: {
+    left: -10,
+    top: -10,
+  },
+  proportionToggle: {
+    borderColor: Palette.borderStrong,
+    borderRadius: 999,
+    borderWidth: 1,
+    minHeight: 40,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+  },
+  proportionToggleSelected: {
+    backgroundColor: Palette.teaGreen,
   },
   controlColumn: {
     flex: 1,
@@ -564,6 +956,18 @@ const styles = StyleSheet.create({
     minHeight: 44,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
+  },
+  primaryButton: {
+    alignItems: 'center',
+    backgroundColor: Palette.lightBronze,
+    borderRadius: Spacing.two,
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.two,
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
   buttonText: {
     color: Palette.ink,

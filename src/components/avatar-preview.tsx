@@ -9,6 +9,7 @@ import {
 
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { avatarImages } from '@/lib/avatar-assets';
 import {
   getMatchingAvatarPresetId,
   normalizeAvatarSelection,
@@ -18,31 +19,6 @@ import {
   getAvatarItemFitStyle,
   type AvatarFitOverrides,
 } from '@/lib/avatar-fit';
-
-const avatarImages = {
-  base: require('../../assets/images/avatar/references/avatar-neutral-reference.png'),
-  explorerReference: require('../../assets/images/avatar/references/avatar-explorer-reference.png'),
-  explorerTop: require('../../assets/images/avatar/items/top/avatar-top-explorer-field.png'),
-  newExplorerTop: require('../../assets/images/avatar/items/top/avatar-top-new-explorer-tee.png'),
-  explorerBottom: require('../../assets/images/avatar/items/bottom/avatar-bottom-explorer-cargo.png'),
-  rustNeckerchief: require('../../assets/images/avatar/items/neck/avatar-neck-rust-neckerchief.png'),
-  winterTop: require('../../assets/images/avatar/items/top/avatar-top-winter-polka-sweater.png'),
-  winterBottom: require('../../assets/images/avatar/items/bottom/avatar-bottom-winter-charcoal-pants.png'),
-  winterShoes: require('../../assets/images/avatar/items/shoes/avatar-shoes-winter-snow-boots.png'),
-  winterScarf: require('../../assets/images/avatar/items/neck/avatar-neck-winter-cream-scarf.png'),
-  winterBeanie: require('../../assets/images/avatar/items/headwear/avatar-headwear-winter-knit-beanie.png'),
-  cowboyTop: require('../../assets/images/avatar/items/top/avatar-top-cowboy-sheriff-shirt.png'),
-  cowboyPants: require('../../assets/images/avatar/items/bottom/avatar-bottom-cowboy-western-pants.png'),
-  cowboyShorts: require('../../assets/images/avatar/items/bottom/avatar-bottom-cowboy-western-shorts.png'),
-  cowboyBrownBoots: require('../../assets/images/avatar/items/shoes/avatar-shoes-cowboy-brown-boots.png'),
-  cowboyRedBoots: require('../../assets/images/avatar/items/shoes/avatar-shoes-cowboy-red-boots.png'),
-  cowboyBandana: require('../../assets/images/avatar/items/neck/avatar-neck-cowboy-red-bandana.png'),
-  cowboyHat: require('../../assets/images/avatar/items/headwear/avatar-headwear-cowboy-sheriff-hat.png'),
-  princessTop: require('../../assets/images/avatar/items/top/avatar-top-princess-puff-bodice.png'),
-  princessSkirt: require('../../assets/images/avatar/items/bottom/avatar-bottom-princess-ballgown-skirt.png'),
-  princessCrown: require('../../assets/images/avatar/items/headwear/avatar-headwear-princess-crown.png'),
-  princessWand: require('../../assets/images/avatar/items/handheld/avatar-handheld-princess-star-wand.png'),
-} as const;
 
 function getAvatarDescription(selection: AvatarSelection) {
   const parts = [
@@ -138,6 +114,7 @@ function FittedAvatarLayer({
 }) {
   return (
     <AvatarLayer
+      contentFit="fill"
       source={source}
       style={getAvatarItemFitStyle(itemId, fitOverrides)}
     />

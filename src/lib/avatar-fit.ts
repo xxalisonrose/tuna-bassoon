@@ -10,23 +10,21 @@ export type AvatarFit = {
 
 export type AvatarFitOverrides = Partial<Record<string, Partial<AvatarFit>>>;
 
-const fullCanvasFit: AvatarFit = {
-  left: 0,
-  top: 0,
-  width: 100,
-  height: 100,
-  rotation: 0,
-};
-
 export const avatarItemFits: Readonly<Record<string, AvatarFit>> = {
   explorer_field: {
-    left: 7.5,
-    top: 3,
-    width: 87,
-    height: 87,
+    left: 3.6,
+    top: -0.6,
+    width: 93,
+    height: 98,
     rotation: 0,
   },
-  new_explorer_tee: fullCanvasFit,
+  new_explorer_tee: {
+    left: -2.5,
+    top: -2.9,
+    width: 105,
+    height: 108,
+    rotation: 0,
+  },
   explorer_cargo: {
     left: 19.5,
     top: 19,
@@ -42,10 +40,10 @@ export const avatarItemFits: Readonly<Record<string, AvatarFit>> = {
     rotation: 0,
   },
   winter_polka_sweater: {
-    left: 22,
-    top: 8,
-    width: 56,
-    height: 56,
+    left: 13.6,
+    top: -1.7,
+    width: 73,
+    height: 78,
     rotation: 0,
   },
   winter_charcoal_pants: {
@@ -77,9 +75,9 @@ export const avatarItemFits: Readonly<Record<string, AvatarFit>> = {
     rotation: 0,
   },
   cowboy_sheriff_shirt: {
-    left: 25,
-    top: 8,
-    width: 50,
+    left: 30.8,
+    top: 6.3,
+    width: 38,
     height: 50,
     rotation: 0,
   },
@@ -126,9 +124,9 @@ export const avatarItemFits: Readonly<Record<string, AvatarFit>> = {
     rotation: 0,
   },
   princess_puff_bodice: {
-    left: 25,
-    top: 10,
-    width: 50,
+    left: 29.8,
+    top: 11.3,
+    width: 40,
     height: 47,
     rotation: 0,
   },
