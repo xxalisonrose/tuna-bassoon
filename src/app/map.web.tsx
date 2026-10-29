@@ -7,6 +7,7 @@ import {
   setWorkerUrl,
   type GeoJSONSource,
   type MapLayerMouseEvent,
+  type StyleSpecification as WebStyleSpecification,
 } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {
@@ -48,11 +49,10 @@ import {
   placeMatchesGeography,
 } from '@/lib/location-geography';
 import { usesWomensHistoryPersonPin } from '@/lib/location-map-pin';
+import { LORCAL_MAP_STYLE } from '@/lib/lorcal-map-style';
 import { api } from '../../convex/_generated/api';
 
 const HARVARD_YARD: [number, number] = [-71.1167, 42.377];
-const STORYBOOK_MAP_STYLE =
-  'https://tiles.openfreemap.org/styles/liberty';
 const DEFAULT_ZOOM = 17.7;
 const DEFAULT_PITCH = 55;
 const PLAYER_MARKER_WIDTH = 116;
@@ -578,7 +578,7 @@ export default function MapWebScreen() {
 
     const map = new MapLibreMap({
       container: mapContainerRef.current,
-      style: STORYBOOK_MAP_STYLE,
+      style: LORCAL_MAP_STYLE as unknown as WebStyleSpecification,
       center: HARVARD_YARD,
       zoom: DEFAULT_ZOOM,
       pitch: DEFAULT_PITCH,

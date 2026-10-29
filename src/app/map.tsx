@@ -52,7 +52,6 @@ import {
 import { LocationPinLayer } from '@/components/map/location-pin-layer';
 import { MapZoomControl } from '@/components/map/map-zoom-control';
 import { PlayerMarker } from '@/components/map/player-marker';
-import { StorybookMapLayers } from '@/components/map/storybook-map-layers';
 import { BottomTabInset } from '@/constants/theme';
 import { useAppTabBar } from '@/contexts/app-tab-bar-context';
 import type { Place } from '@/data/places';
@@ -63,11 +62,10 @@ import {
   getPlaceLocality,
   placeMatchesGeography,
 } from '@/lib/location-geography';
+import { LORCAL_MAP_STYLE } from '@/lib/lorcal-map-style';
 import { api } from '../../convex/_generated/api';
 
 const HARVARD_YARD: [number, number] = [-71.1167, 42.377];
-const STORYBOOK_MAP_STYLE =
-  'https://tiles.openfreemap.org/styles/liberty';
 const LOOK_AROUND_PITCH = 55;
 const LOOK_AROUND_ZOOM = 17.7;
 const MINIMUM_MAP_ZOOM = 15;
@@ -1309,7 +1307,7 @@ export default function MapScreen() {
             ref={mapRef}
             accessible={false}
             androidView="texture"
-            attribution={false}
+            attribution
             compass={false}
             doubleTapHoldZoom={false}
             doubleTapZoom={false}
@@ -1319,7 +1317,7 @@ export default function MapScreen() {
               intensity: 0.58,
               position: [1.5, 210, 35],
             }}
-            mapStyle={STORYBOOK_MAP_STYLE}
+            mapStyle={LORCAL_MAP_STYLE}
             onRegionIsChanging={(event) => {
               const { zoom, bearing, pitch } =
                 event.nativeEvent;
@@ -1357,8 +1355,6 @@ export default function MapScreen() {
                 pitch: LOOK_AROUND_PITCH,
               }}
             />
-
-            <StorybookMapLayers />
 
             <LocationPinLayer
               onSelect={(place) =>

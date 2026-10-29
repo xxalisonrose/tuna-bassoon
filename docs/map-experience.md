@@ -2,7 +2,9 @@
 
 ## Current direction
 
-The map uses a warm, storybook-inspired presentation while preserving the location pins, location details, accessible location list, and check-in workflow. It opens at a 55-degree angle so parks, water, pedestrian areas, and the available OpenStreetMap building heights read as a small navigable world instead of a flat utility map.
+The map uses a Lorcal-owned storybook style on native and web while preserving the location pins, location details, accessible location list, and check-in workflow. The shared style keeps useful streets, walking paths, water, and local labels, but removes the generic points-of-interest, transit symbols, one-way arrows, road shields, and dotted technical markings that competed with Lorcal's discoveries. Walking paths are solid cream lines, the ground and parks use a warm natural palette, and water uses a muted blue-green. Required OpenFreeMap and OpenStreetMap attribution remains available through the map controls.
+
+The map opens at a 55-degree angle so the environment reads as a small navigable world instead of a flat utility map. Buildings use warm brick and sandstone colors with darker footprints, soft lighting, and vertical shading. Available OpenStreetMap building heights are preserved, with a modest fallback height for buildings whose source data does not include one. Lorcal location artwork remains the only icon family drawn directly on the map.
 
 The player marker renders the signed-in user's saved layered cow avatar at the active real or simulated GPS position. The avatar is intentionally larger than the location markers and stands on a circular explorer disk drawn as a thin, foreshortened oval, like a manhole cover viewed from the side. Each visible oval begins as a true circle and is compressed vertically, preserving a continuously curved elliptical edge without the straight sides of a capsule. A narrow offset front rim gives the disk just enough visible thickness, while a soft ground shadow, bright green-white halo, and concentric save-spot rings reinforce its 3D shape. The fills remain semi-translucent so streets and terrain stay visible through the disk, while the hooves overlap its luminous center. The marker rests near the lower third of the screen when the camera follows or recenters on it, leaving more of the world visible ahead. While an avatar profile is loading or has never been saved, the Traditional Explorer selection provides a stable fallback so the map never loses its player focal point.
 
@@ -94,7 +96,7 @@ The recenter control uses a direct eased camera move. In both Look Around and Ex
 
 ## Future visual passes
 
-The next map passes can add repeating grass and pavement patterns, richer building surfaces, seasonal color variants, and updated location markers. Those treatments should be tested on physical iOS and Android devices for legibility and frame rate before becoming the default.
+The next map passes can add subtle repeating grass and pavement patterns, richer building surfaces, and seasonal color variants. Those treatments should be tested on physical iOS and Android devices for legibility and frame rate before becoming the default.
 
 Future animation can build on the saved player marker while keeping the same live-location, Look Around, Explore, and recenter behavior.
 
