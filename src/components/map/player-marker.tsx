@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
   },
   playerPlatformShadow: {
     position: 'absolute',
-    bottom: -39,
+    bottom: -33,
     width: 96,
     height: 96,
     backgroundColor: 'rgba(23, 32, 25, 0.12)',
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
   },
   playerPlatformGlow: {
     position: 'absolute',
-    bottom: -35,
+    bottom: -29,
     width: 108,
     height: 108,
     backgroundColor: 'rgba(229, 255, 206, 0.1)',
@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
   },
   playerPlatformDepth: {
     position: 'absolute',
-    bottom: -35,
+    bottom: -29,
     width: 102,
     height: 102,
     backgroundColor: 'rgba(72, 122, 67, 0.34)',
@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
   },
   playerPlatformTop: {
     position: 'absolute',
-    bottom: -33,
+    bottom: -27,
     width: 102,
     height: 102,
     alignItems: 'center',

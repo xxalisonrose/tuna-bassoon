@@ -8,6 +8,13 @@ The map opens at a 55-degree angle so the environment reads as a small navigable
 
 The player marker renders the signed-in user's saved layered cow avatar at the active real or simulated GPS position. The avatar is intentionally larger than the location markers and stands on a circular explorer disk drawn as a thin, foreshortened oval, like a manhole cover viewed from the side. Each visible oval begins as a true circle and is compressed vertically, preserving a continuously curved elliptical edge without the straight sides of a capsule. A narrow offset front rim gives the disk just enough visible thickness, while a soft ground shadow, bright green-white halo, and concentric save-spot rings reinforce its 3D shape. The fills remain semi-translucent so streets and terrain stay visible through the disk, while the hooves overlap its luminous center. The marker rests near the lower third of the screen when the camera follows or recenters on it, leaving more of the world visible ahead. While an avatar profile is loading or has never been saved, the Traditional Explorer selection provides a stable fallback so the map never loses its player focal point.
 
+The cow's hoof midpoint is aligned with the disk's visual center rather than
+the rear edge. The complete player marker remains screen-aligned while the map
+rotates underneath it, keeping the foreshortened disk readable and preventing
+it from appearing to wobble or change perspective during Look Around turns.
+Future motion may animate the glow or inner rings independently without
+rotating the physical disk.
+
 The initial Look Around view now opens at zoom 17.7 so nearby streets, pins, and
 the player feel immediately relevant on a phone. Ordinary location updates keep
 the tester's chosen zoom, while an intentional recenter returns to this closer

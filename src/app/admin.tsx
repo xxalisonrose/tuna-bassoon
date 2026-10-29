@@ -21,6 +21,7 @@ import {
   BadgeTagPicker,
   normalizeBadgeTagValue,
 } from '@/components/admin/badge-tag-picker';
+import { AvatarFittingLab } from '@/components/admin/avatar-fitting-lab';
 import { BetaFeedbackManager } from '@/components/admin/beta-feedback-manager';
 import { BuildInfoPanel } from '@/components/admin/build-info-panel';
 import { IngestReviewPanel } from '@/components/admin/ingest-review-panel';
@@ -61,6 +62,7 @@ type PortalSection =
   | 'badges'
   | 'submissions'
   | 'feedback'
+  | 'avatar'
   | 'users';
 type LocationStatusFilter = 'all' | 'active' | 'retired';
 type ViewMode = 'list' | 'grid';
@@ -1039,8 +1041,8 @@ export default function AdminPortalScreen() {
           <ThemedText
             style={styles.subtitle}
             themeColor="textSecondary">
-            Create, review, and maintain the locations and badges used by
-            the Lorcal app.
+            Create, review, and maintain Lorcal locations, badges, feedback,
+            access, and avatar artwork.
           </ThemedText>
         </ThemedView>
 
@@ -1056,6 +1058,7 @@ export default function AdminPortalScreen() {
             'badges',
             'submissions',
             'feedback',
+            'avatar',
             'users',
           ] as PortalSection[]).map((section) => (
             <Pressable
@@ -1066,9 +1069,11 @@ export default function AdminPortalScreen() {
                   ? 'Locations'
                   : section === 'badges'
                     ? 'Badges'
-                    : section === 'users'
-                      ? 'Users and Access'
-                      : section === 'feedback'
+                    : section === 'avatar'
+                      ? 'Avatar Fitting Lab'
+                      : section === 'users'
+                        ? 'Users and Access'
+                        : section === 'feedback'
                         ? betaFeedbackActivity?.newCount
                           ? `Beta Feedback, ${betaFeedbackActivity.newCount} new`
                           : 'Beta Feedback'
@@ -1090,9 +1095,11 @@ export default function AdminPortalScreen() {
                     ? 'Locations'
                     : section === 'badges'
                       ? 'Badges'
-                      : section === 'users'
-                        ? 'Users'
-                        : section === 'feedback'
+                      : section === 'avatar'
+                        ? 'Avatar'
+                        : section === 'users'
+                          ? 'Users'
+                          : section === 'feedback'
                           ? 'Feedback'
                         : 'Submissions'}
                 </ThemedText>
@@ -2342,6 +2349,8 @@ export default function AdminPortalScreen() {
         <BetaFeedbackManager
           visible={portalSection === 'feedback'}
         />
+
+        {portalSection === 'avatar' ? <AvatarFittingLab /> : null}
 
         <UserAccessManager
           visible={portalSection === 'users'}

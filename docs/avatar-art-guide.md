@@ -174,3 +174,31 @@ The Pink Princess set adds:
 - `items/handheld/avatar-handheld-princess-star-wand.png`
 
 The Trail Tank and Trail Shorts remain baked into the neutral reference during this prototype. Final production artwork should split those garments from the body layer while preserving the current stable item IDs.
+
+## Admin fitting workflow
+
+The Content Portal includes an administrator-only **Avatar** workspace for
+calibrating prototype layers against the neutral cow. The fitting lab uses the
+same placement registry as every player-facing avatar preview, so its values
+describe the actual runtime result instead of a separate mockup.
+
+1. Open **Content Portal → Avatar** and choose a slot and item.
+2. Leave the grid visible for the first pass. Drag anywhere on the large
+   preview to position the selected layer.
+3. Use the Horizontal, Vertical, Width, Height, and Rotation controls for
+   one-percent and one-degree adjustments.
+4. Inspect the 92-pixel map-size preview before accepting a fit. Fine details
+   that disappear there should be strengthened in the artwork rather than
+   solved with more scaling.
+5. Share the fitting screenshot or selectable fit-values line for review.
+   The lab intentionally does not alter saved avatars or publish temporary
+   values by itself.
+6. Commit approved values in `src/lib/avatar-fit.ts`, then recheck the custom
+   wardrobe preview, complete looks, Passport preview, and map marker.
+
+The fitting registry is a prototype bridge for the AI-assisted source sheets.
+Final production layers should still use the complete canonical canvas and
+anchors above. A layer that cannot align without distorting the cow, exposing
+the base clothing, or covering the wrong body parts needs a redraw or a proper
+foreground/background split; placement controls cannot repair incompatible
+art geometry.

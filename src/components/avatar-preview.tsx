@@ -14,6 +14,10 @@ import {
   normalizeAvatarSelection,
   type AvatarSelection,
 } from '@/lib/avatar';
+import {
+  getAvatarItemFitStyle,
+  type AvatarFitOverrides,
+} from '@/lib/avatar-fit';
 
 const avatarImages = {
   base: require('../../assets/images/avatar/references/avatar-neutral-reference.png'),
@@ -123,6 +127,83 @@ function AvatarLayer({
   );
 }
 
+function FittedAvatarLayer({
+  fitOverrides,
+  itemId,
+  source,
+}: {
+  fitOverrides?: AvatarFitOverrides;
+  itemId: string;
+  source: number;
+}) {
+  return (
+    <AvatarLayer
+      source={source}
+      style={getAvatarItemFitStyle(itemId, fitOverrides)}
+    />
+  );
+}
+
+function AvatarFitGuides({
+  fitOverrides,
+  highlightedItemId,
+}: {
+  fitOverrides?: AvatarFitOverrides;
+  highlightedItemId?: string;
+}) {
+  return (
+    <View
+      accessible={false}
+      importantForAccessibility="no-hide-descendants"
+      pointerEvents="none"
+      style={styles.fitGuides}
+    >
+      {Array.from({ length: 9 }, (_, index) => (
+        <View
+          key={`vertical-${index}`}
+          style={[
+            styles.fitGuideLine,
+            styles.fitGuideVertical,
+            { left: `${(index + 1) * 10}%` },
+          ]}
+        />
+      ))}
+      {Array.from({ length: 9 }, (_, index) => (
+        <View
+          key={`horizontal-${index}`}
+          style={[
+            styles.fitGuideLine,
+            styles.fitGuideHorizontal,
+            { top: `${(index + 1) * 10}%` },
+          ]}
+        />
+      ))}
+      <View
+        style={[
+          styles.fitGuideCenter,
+          styles.fitGuideVertical,
+          styles.fitGuideCenterVertical,
+        ]}
+      />
+      <View
+        style={[
+          styles.fitGuideCenter,
+          styles.fitGuideHorizontal,
+          styles.fitGuideCenterHorizontal,
+        ]}
+      />
+      {highlightedItemId ? (
+        <View
+          style={[
+            styles.fitOutline,
+            getAvatarItemFitStyle(highlightedItemId, fitOverrides),
+          ]}
+        />
+      ) : null}
+    </View>
+  );
+}
+
 function FittedExplorerBoots() {
   return (
     <View
@@ -160,13 +241,19 @@ function FittedExplorerGoggles() {
 }
 
 export function AvatarPreview({
+  fitOverrides,
+  highlightedItemId,
   presetId,
   selection,
+  showFitGuides = false,
   size = 180,
   style,
 }: {
+  fitOverrides?: AvatarFitOverrides;
+  highlightedItemId?: string;
   presetId?: string;
   selection?: Partial<AvatarSelection>;
+  showFitGuides?: boolean;
   size?: number;
   style?: StyleProp<ViewStyle>;
 }) {
@@ -176,6 +263,7 @@ export function AvatarPreview({
     activeSelection.shoesId === 'winter_snow_boots' ||
     activeSelection.shoesId === 'cowboy_brown_boots' ||
     activeSelection.shoesId === 'cowboy_red_boots';
+  const hidesShoes = activeSelection.bottomId === 'princess_ballgown_skirt';
 
   return (
     <ThemedView
@@ -208,133 +296,159 @@ export function AvatarPreview({
             />
           ) : null}
           {activeSelection.bottomId === 'explorer_cargo' ? (
-            <AvatarLayer
+            <FittedAvatarLayer
+              fitOverrides={fitOverrides}
+              itemId="explorer_cargo"
               source={avatarImages.explorerBottom}
-              style={styles.bottomLayer}
             />
           ) : null}
           {activeSelection.bottomId === 'winter_charcoal_pants' ? (
-            <AvatarLayer
+            <FittedAvatarLayer
+              fitOverrides={fitOverrides}
+              itemId="winter_charcoal_pants"
               source={avatarImages.winterBottom}
-              style={styles.winterBottomLayer}
             />
           ) : null}
           {activeSelection.bottomId === 'cowboy_western_pants' ? (
-            <AvatarLayer
+            <FittedAvatarLayer
+              fitOverrides={fitOverrides}
+              itemId="cowboy_western_pants"
               source={avatarImages.cowboyPants}
-              style={styles.cowboyPantsLayer}
             />
           ) : null}
           {activeSelection.bottomId === 'cowboy_western_shorts' ? (
-            <AvatarLayer
+            <FittedAvatarLayer
+              fitOverrides={fitOverrides}
+              itemId="cowboy_western_shorts"
               source={avatarImages.cowboyShorts}
-              style={styles.cowboyShortsLayer}
             />
           ) : null}
           {activeSelection.bottomId === 'princess_ballgown_skirt' ? (
-            <AvatarLayer
+            <FittedAvatarLayer
+              fitOverrides={fitOverrides}
+              itemId="princess_ballgown_skirt"
               source={avatarImages.princessSkirt}
-              style={styles.princessSkirtLayer}
             />
           ) : null}
-          {activeSelection.shoesId === 'explorer_boots' ? (
+          {!hidesShoes && activeSelection.shoesId === 'explorer_boots' ? (
             <FittedExplorerBoots />
           ) : null}
-          {activeSelection.shoesId === 'winter_snow_boots' ? (
-            <AvatarLayer
+          {!hidesShoes && activeSelection.shoesId === 'winter_snow_boots' ? (
+            <FittedAvatarLayer
+              fitOverrides={fitOverrides}
+              itemId="winter_snow_boots"
               source={avatarImages.winterShoes}
-              style={styles.winterShoesLayer}
             />
           ) : null}
-          {activeSelection.shoesId === 'cowboy_brown_boots' ? (
-            <AvatarLayer
+          {!hidesShoes && activeSelection.shoesId === 'cowboy_brown_boots' ? (
+            <FittedAvatarLayer
+              fitOverrides={fitOverrides}
+              itemId="cowboy_brown_boots"
               source={avatarImages.cowboyBrownBoots}
-              style={styles.cowboyBootsLayer}
             />
           ) : null}
-          {activeSelection.shoesId === 'cowboy_red_boots' ? (
-            <AvatarLayer
+          {!hidesShoes && activeSelection.shoesId === 'cowboy_red_boots' ? (
+            <FittedAvatarLayer
+              fitOverrides={fitOverrides}
+              itemId="cowboy_red_boots"
               source={avatarImages.cowboyRedBoots}
-              style={styles.cowboyBootsLayer}
             />
           ) : null}
           {activeSelection.topId === 'explorer_field' ? (
-            <AvatarLayer
+            <FittedAvatarLayer
+              fitOverrides={fitOverrides}
+              itemId="explorer_field"
               source={avatarImages.explorerTop}
-              style={styles.topLayer}
             />
           ) : null}
           {activeSelection.topId === 'new_explorer_tee' ? (
-            <AvatarLayer
+            <FittedAvatarLayer
+              fitOverrides={fitOverrides}
+              itemId="new_explorer_tee"
               source={avatarImages.newExplorerTop}
-              style={styles.fullLayer}
             />
           ) : null}
           {activeSelection.topId === 'winter_polka_sweater' ? (
-            <AvatarLayer
+            <FittedAvatarLayer
+              fitOverrides={fitOverrides}
+              itemId="winter_polka_sweater"
               source={avatarImages.winterTop}
-              style={styles.winterTopLayer}
             />
           ) : null}
           {activeSelection.topId === 'cowboy_sheriff_shirt' ? (
-            <AvatarLayer
+            <FittedAvatarLayer
+              fitOverrides={fitOverrides}
+              itemId="cowboy_sheriff_shirt"
               source={avatarImages.cowboyTop}
-              style={styles.cowboyTopLayer}
             />
           ) : null}
           {activeSelection.topId === 'princess_puff_bodice' ? (
-            <AvatarLayer
+            <FittedAvatarLayer
+              fitOverrides={fitOverrides}
+              itemId="princess_puff_bodice"
               source={avatarImages.princessTop}
-              style={styles.princessTopLayer}
             />
           ) : null}
           {activeSelection.neckId === 'rust_neckerchief' ? (
-            <AvatarLayer
+            <FittedAvatarLayer
+              fitOverrides={fitOverrides}
+              itemId="rust_neckerchief"
               source={avatarImages.rustNeckerchief}
-              style={styles.neckLayer}
             />
           ) : null}
           {activeSelection.neckId === 'winter_cream_scarf' ? (
-            <AvatarLayer
+            <FittedAvatarLayer
+              fitOverrides={fitOverrides}
+              itemId="winter_cream_scarf"
               source={avatarImages.winterScarf}
-              style={styles.winterScarfLayer}
             />
           ) : null}
           {activeSelection.neckId === 'cowboy_red_bandana' ? (
-            <AvatarLayer
+            <FittedAvatarLayer
+              fitOverrides={fitOverrides}
+              itemId="cowboy_red_bandana"
               source={avatarImages.cowboyBandana}
-              style={styles.cowboyBandanaLayer}
             />
           ) : null}
           {activeSelection.faceId === 'explorer_goggles' ? (
             <FittedExplorerGoggles />
           ) : null}
           {activeSelection.headwearId === 'winter_knit_beanie' ? (
-            <AvatarLayer
+            <FittedAvatarLayer
+              fitOverrides={fitOverrides}
+              itemId="winter_knit_beanie"
               source={avatarImages.winterBeanie}
-              style={styles.winterBeanieLayer}
             />
           ) : null}
           {activeSelection.headwearId === 'cowboy_sheriff_hat' ? (
-            <AvatarLayer
+            <FittedAvatarLayer
+              fitOverrides={fitOverrides}
+              itemId="cowboy_sheriff_hat"
               source={avatarImages.cowboyHat}
-              style={styles.cowboyHatLayer}
             />
           ) : null}
           {activeSelection.headwearId === 'princess_crown' ? (
-            <AvatarLayer
+            <FittedAvatarLayer
+              fitOverrides={fitOverrides}
+              itemId="princess_crown"
               source={avatarImages.princessCrown}
-              style={styles.princessCrownLayer}
             />
           ) : null}
           {activeSelection.handheldId === 'princess_star_wand' ? (
-            <AvatarLayer
+            <FittedAvatarLayer
+              fitOverrides={fitOverrides}
+              itemId="princess_star_wand"
               source={avatarImages.princessWand}
-              style={styles.princessWandLayer}
             />
           ) : null}
         </>
       )}
+      {showFitGuides ? (
+        <AvatarFitGuides
+          fitOverrides={fitOverrides}
+          highlightedItemId={highlightedItemId}
+        />
+      ) : null}
     </ThemedView>
   );
 }
@@ -363,18 +477,6 @@ const styles = StyleSheet.create({
     top: '80%',
     width: '44%',
   },
-  topLayer: {
-    height: '87%',
-    left: '7.5%',
-    top: '3%',
-    width: '87%',
-  },
-  bottomLayer: {
-    height: '63%',
-    left: '19.5%',
-    top: '19%',
-    width: '63%',
-  },
   bootSlice: {
     bottom: 0,
     height: '25%',
@@ -389,12 +491,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: '-300%',
     width: '100%',
-  },
-  neckLayer: {
-    height: '60%',
-    left: '20%',
-    top: '9%',
-    width: '60%',
   },
   goggleSlice: {
     height: '18%',
@@ -411,94 +507,41 @@ const styles = StyleSheet.create({
     top: 0,
     width: '100%',
   },
-  winterTopLayer: {
-    height: '58%',
-    left: '20%',
-    top: '7%',
-    width: '60%',
-  },
-  winterBottomLayer: {
-    height: '58%',
-    left: '21%',
-    top: '39%',
-    width: '58%',
-  },
-  winterShoesLayer: {
-    height: '34%',
-    left: '33%',
-    top: '68%',
-    width: '34%',
-  },
-  winterScarfLayer: {
-    height: '22%',
-    left: '39%',
-    top: '14%',
-    width: '22%',
-  },
-  winterBeanieLayer: {
-    height: '17%',
-    left: '40%',
-    top: '-5%',
-    width: '20%',
-  },
-  cowboyTopLayer: {
-    height: '50%',
-    left: '25%',
-    top: '8%',
-    width: '50%',
-  },
-  cowboyPantsLayer: {
-    height: '59%',
-    left: '21%',
-    top: '39%',
-    width: '58%',
-  },
-  cowboyShortsLayer: {
-    height: '28%',
-    left: '29%',
-    top: '43%',
-    width: '42%',
-  },
-  cowboyBootsLayer: {
-    height: '34%',
-    left: '33%',
-    top: '68%',
-    width: '34%',
-  },
-  cowboyBandanaLayer: {
-    height: '11%',
-    left: '43%',
-    top: '20%',
-    width: '14%',
-  },
-  cowboyHatLayer: {
-    height: '20%',
-    left: '36%',
-    top: '-7%',
-    width: '28%',
-  },
-  princessTopLayer: {
-    height: '50%',
-    left: '22%',
-    top: '8%',
-    width: '56%',
-  },
-  princessSkirtLayer: {
-    height: '65%',
-    left: '14%',
-    top: '39%',
-    width: '72%',
-  },
-  princessCrownLayer: {
-    height: '12%',
-    left: '43%',
+  fitGuides: {
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
     top: 0,
-    width: '14%',
   },
-  princessWandLayer: {
-    height: '52%',
-    left: '59%',
-    top: '27%',
-    width: '32%',
+  fitGuideLine: {
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    position: 'absolute',
+  },
+  fitGuideCenter: {
+    backgroundColor: 'rgba(212, 163, 115, 0.9)',
+    position: 'absolute',
+  },
+  fitGuideVertical: {
+    bottom: 0,
+    top: 0,
+    width: 1,
+  },
+  fitGuideHorizontal: {
+    height: 1,
+    left: 0,
+    right: 0,
+  },
+  fitGuideCenterVertical: {
+    left: '50%',
+  },
+  fitGuideCenterHorizontal: {
+    top: '50%',
+  },
+  fitOutline: {
+    borderColor: 'rgba(255, 250, 224, 0.95)',
+    borderStyle: 'dashed',
+    borderWidth: 2,
+    position: 'absolute',
   },
 });
