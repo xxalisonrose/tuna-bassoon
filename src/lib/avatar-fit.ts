@@ -12,17 +12,17 @@ export type AvatarFitOverrides = Partial<Record<string, Partial<AvatarFit>>>;
 
 export const avatarItemFits: Readonly<Record<string, AvatarFit>> = {
   explorer_field: {
-    left: 3.6,
-    top: -0.6,
-    width: 93,
-    height: 98,
+    left: 9.1,
+    top: 0.2,
+    width: 81.7,
+    height: 97.2,
     rotation: 0,
   },
   new_explorer_tee: {
-    left: -2.5,
+    left: -2.9,
     top: -2.9,
-    width: 105,
-    height: 108,
+    width: 105.4,
+    height: 111.7,
     rotation: 0,
   },
   explorer_cargo: {
@@ -40,10 +40,10 @@ export const avatarItemFits: Readonly<Record<string, AvatarFit>> = {
     rotation: 0,
   },
   winter_polka_sweater: {
-    left: 13.6,
-    top: -1.7,
-    width: 73,
-    height: 78,
+    left: 13,
+    top: -0.4,
+    width: 74,
+    height: 76.7,
     rotation: 0,
   },
   winter_charcoal_pants: {
@@ -75,10 +75,10 @@ export const avatarItemFits: Readonly<Record<string, AvatarFit>> = {
     rotation: 0,
   },
   cowboy_sheriff_shirt: {
-    left: 30.8,
-    top: 6.3,
-    width: 38,
-    height: 50,
+    left: 30.6,
+    top: 10.7,
+    width: 38.7,
+    height: 42.7,
     rotation: 0,
   },
   cowboy_western_pants: {
