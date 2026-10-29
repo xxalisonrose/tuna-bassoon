@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Platform,
   Pressable,
@@ -72,6 +72,95 @@ const fitItems: FitItem[] = Object.entries(avatarItemOptions).flatMap(
 
 const initialItem =
   fitItems.find((item) => item.id === 'winter_polka_sweater') ?? fitItems[0];
+
+const fitBatchStorageKey = 'lorcal.avatar-fitting-batch.v1';
+const avatarFitKeys: readonly (keyof AvatarFit)[] = [
+  'left',
+  'top',
+  'width',
+  'height',
+  'rotation',
+];
+
+function readStoredFitOverrides(): AvatarFitOverrides {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') {
+    return {};
+  }
+
+  try {
+    const storedValue = window.localStorage.getItem(fitBatchStorageKey);
+
+    if (!storedValue) {
+      return {};
+    }
+
+    const parsedValue: unknown = JSON.parse(storedValue);
+
+    if (
+      !parsedValue ||
+      typeof parsedValue !== 'object' ||
+      Array.isArray(parsedValue)
+    ) {
+      return {};
+    }
+
+    const storedOverrides: AvatarFitOverrides = {};
+
+    for (const [itemId, storedFit] of Object.entries(parsedValue)) {
+      const defaultFit = getAvatarItemFit(itemId);
+
+      if (
+        !defaultFit ||
+        !storedFit ||
+        typeof storedFit !== 'object' ||
+        Array.isArray(storedFit)
+      ) {
+        continue;
+      }
+
+      const fitRecord = storedFit as Record<string, unknown>;
+      const restoredFit = { ...defaultFit };
+      const isCompleteFit = avatarFitKeys.every((key) => {
+        const value = fitRecord[key];
+
+        if (typeof value !== 'number' || !Number.isFinite(value)) {
+          return false;
+        }
+
+        restoredFit[key] = value;
+        return true;
+      });
+
+      if (isCompleteFit) {
+        storedOverrides[itemId] = restoredFit;
+      }
+    }
+
+    return storedOverrides;
+  } catch {
+    return {};
+  }
+}
+
+function storeFitOverrides(fitOverrides: AvatarFitOverrides) {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    if (Object.keys(fitOverrides).length === 0) {
+      window.localStorage.removeItem(fitBatchStorageKey);
+      return;
+    }
+
+    window.localStorage.setItem(
+      fitBatchStorageKey,
+      JSON.stringify(fitOverrides),
+    );
+  } catch {
+    // The fitting lab still works in memory when browser storage is disabled.
+  }
+}
 
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(maximum, Math.max(minimum, value));
@@ -336,7 +425,9 @@ export function AvatarFittingLab() {
     initialItem.slot,
   );
   const [selectedItemId, setSelectedItemId] = useState(initialItem.id);
-  const [fitOverrides, setFitOverrides] = useState<AvatarFitOverrides>({});
+  const [fitOverrides, setFitOverrides] = useState<AvatarFitOverrides>(
+    readStoredFitOverrides,
+  );
   const [showGrid, setShowGrid] = useState(true);
   const [lockProportions, setLockProportions] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
@@ -352,6 +443,10 @@ export function AvatarFittingLab() {
     selectedItem.id,
   );
   const changedItemIds = Object.keys(fitOverrides);
+
+  useEffect(() => {
+    storeFitOverrides(fitOverrides);
+  }, [fitOverrides]);
 
   const updateCurrentFit = (updater: (currentFit: AvatarFit) => AvatarFit) => {
     setExportStatus(null);
@@ -556,8 +651,9 @@ export function AvatarFittingLab() {
             {changedItemIds.length === 1 ? 'item' : 'items'}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            Switch categories freely. Nothing is lost until you reset the batch
-            or leave this page.
+            {Platform.OS === 'web'
+              ? 'Auto-saved in this browser. Switch items, sections, or refresh without losing the batch.'
+              : 'Switch categories freely. The batch remains available during this session.'}
           </ThemedText>
         </View>
         <Pressable

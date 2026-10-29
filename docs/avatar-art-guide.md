@@ -191,8 +191,10 @@ describe the actual runtime result instead of a separate mockup.
 4. Use the Horizontal, Vertical, Width, Height, and Rotation buttons for
    one-percent and one-degree fine adjustments.
 5. Switch between items and categories as needed. Every changed item stays in
-   the current working batch and receives an adjusted-item dot. The batch is
-   local to the open page, so export it before navigating away or refreshing.
+   the current working batch and receives an adjusted-item dot. On the web,
+   the fitting lab auto-saves the batch in that browser and restores it after
+   switching portal sections, navigating away, or refreshing. **Reset All**
+   clears both the working batch and that saved copy.
 6. Inspect the 92-pixel map-size preview before accepting a fit. Fine details
    that disappear there should be strengthened in the artwork rather than
    solved with more scaling.
