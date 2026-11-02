@@ -8,6 +8,7 @@ import {
   getAvatarItemFit,
   type AvatarFit,
 } from '@/lib/avatar-fit';
+import { buildAvatarMaskSvg, type AvatarMaskStamp } from '@/lib/avatar-mask';
 import type {
   AvatarFitExportOptions,
   AvatarFitExportResult,
@@ -66,11 +67,13 @@ function buildPreviewSvg({
   fit,
   itemImage,
   itemName,
+  maskStamps,
 }: {
   baseImage: string;
   fit: AvatarFit;
   itemImage: string;
   itemName: string;
+  maskStamps: AvatarMaskStamp[];
 }) {
   const x = (fit.left / 100) * exportCanvasSize;
   const y = (fit.top / 100) * exportCanvasSize;
@@ -78,13 +81,60 @@ function buildPreviewSvg({
   const height = (fit.height / 100) * exportCanvasSize;
   const centerX = x + width / 2;
   const centerY = y + height / 2;
+  const maskShapes = maskStamps
+    .map(
+      (stamp) =>
+        `<ellipse cx="${x + (stamp.x / 100) * width}" cy="${y + (stamp.y / 100) * height}" rx="${(stamp.radiusX / 100) * width}" ry="${(stamp.radiusY / 100) * height}" fill="black" />`,
+    )
+    .join('\n      ');
+  const maskDefinition = maskStamps.length
+    ? `<defs>
+    <mask id="item-visibility-mask" maskUnits="userSpaceOnUse" x="${x}" y="${y}" width="${width}" height="${height}">
+      <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="white" />
+      ${maskShapes}
+    </mask>
+  </defs>`
+    : '';
+  const maskAttribute = maskStamps.length
+    ? ' mask="url(#item-visibility-mask)"'
+    : '';
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${exportCanvasSize}" height="${exportCanvasSize}" viewBox="0 0 ${exportCanvasSize} ${exportCanvasSize}">
   <title>${escapeXml(itemName)} Lorcal fitting preview</title>
+  ${maskDefinition}
   <rect width="${exportCanvasSize}" height="${exportCanvasSize}" rx="64" fill="#443A2D" />
   <image href="${baseImage}" x="0" y="0" width="${exportCanvasSize}" height="${exportCanvasSize}" preserveAspectRatio="none" />
-  <image href="${itemImage}" x="${x}" y="${y}" width="${width}" height="${height}" preserveAspectRatio="none" transform="rotate(${fit.rotation} ${centerX} ${centerY})" />
+  <image href="${itemImage}" x="${x}" y="${y}" width="${width}" height="${height}" preserveAspectRatio="none" transform="rotate(${fit.rotation} ${centerX} ${centerY})"${maskAttribute} />
+</svg>`;
+}
+
+function buildMaskedLayerSvg({
+  itemImage,
+  itemName,
+  maskStamps,
+}: {
+  itemImage: string;
+  itemName: string;
+  maskStamps: AvatarMaskStamp[];
+}) {
+  const maskShapes = maskStamps
+    .map(
+      (stamp) =>
+        `<ellipse cx="${(stamp.x / 100) * exportCanvasSize}" cy="${(stamp.y / 100) * exportCanvasSize}" rx="${(stamp.radiusX / 100) * exportCanvasSize}" ry="${(stamp.radiusY / 100) * exportCanvasSize}" fill="black" />`,
+    )
+    .join('\n      ');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${exportCanvasSize}" height="${exportCanvasSize}" viewBox="0 0 ${exportCanvasSize} ${exportCanvasSize}">
+  <title>${escapeXml(itemName)} masked garment layer</title>
+  <defs>
+    <mask id="item-visibility-mask">
+      <rect width="${exportCanvasSize}" height="${exportCanvasSize}" fill="white" />
+      ${maskShapes}
+    </mask>
+  </defs>
+  <image href="${itemImage}" width="${exportCanvasSize}" height="${exportCanvasSize}" preserveAspectRatio="none" mask="url(#item-visibility-mask)" />
 </svg>`;
 }
 
@@ -143,6 +193,7 @@ function downloadBlob(blob: Blob, fileName: string) {
 export async function exportAvatarFitBatch({
   changedItemIds,
   fitOverrides,
+  maskOverrides,
   onProgress,
 }: AvatarFitExportOptions): Promise<AvatarFitExportResult> {
   const exportedAt = new Date().toISOString();
@@ -157,6 +208,8 @@ export async function exportAvatarFitBatch({
   onProgress?.('Preparing avatar images...');
   const zip = new JSZip();
   const previews = zip.folder('previews');
+  const maskedItemLayers = zip.folder('masked-item-layers');
+  const occlusionMasks = zip.folder('occlusion-masks');
   const sourceImages = zip.folder('source-images');
   const baseBlob = await getAssetBlob(avatarImages.base);
   const baseDataUrl = await blobToDataUrl(baseBlob);
@@ -167,6 +220,11 @@ export async function exportAvatarFitBatch({
       itemId,
       getAvatarItemFit(itemId, fitOverrides),
     ]),
+  );
+  const changedMasks = Object.fromEntries(
+    uniqueItemIds
+      .filter((itemId) => (maskOverrides[itemId]?.length ?? 0) > 0)
+      .map((itemId) => [itemId, maskOverrides[itemId]]),
   );
   const allFits = Object.fromEntries(
     Object.keys(avatarItemFits).map((itemId) => [
@@ -189,17 +247,39 @@ export async function exportAvatarFitBatch({
     const itemBlob = await getAssetBlob(source);
     const itemDataUrl = await blobToDataUrl(itemBlob);
     const itemName = avatarItemNames[itemId] ?? itemId;
+    const maskStamps = maskOverrides[itemId] ?? [];
     const svg = buildPreviewSvg({
       baseImage: baseDataUrl,
       fit,
       itemImage: itemDataUrl,
       itemName,
+      maskStamps,
     });
     const png = await svgToPng(svg);
 
     previews?.file(`${itemId}.png`, png);
     previews?.file(`${itemId}.svg`, svg);
     sourceImages?.file(`${itemId}.png`, itemBlob);
+
+    if (maskStamps.length > 0) {
+      const maskedLayerSvg = buildMaskedLayerSvg({
+        itemImage: itemDataUrl,
+        itemName,
+        maskStamps,
+      });
+      const maskedLayerPng = await svgToPng(maskedLayerSvg);
+
+      maskedItemLayers?.file(`${itemId}.png`, maskedLayerPng);
+      maskedItemLayers?.file(`${itemId}.svg`, maskedLayerSvg);
+      occlusionMasks?.file(
+        `${itemId}.svg`,
+        buildAvatarMaskSvg(escapeXml(itemName), maskStamps, exportCanvasSize),
+      );
+      occlusionMasks?.file(
+        `${itemId}.json`,
+        JSON.stringify(maskStamps, null, 2),
+      );
+    }
   }
 
   zip.file(
@@ -213,9 +293,11 @@ export async function exportAvatarFitBatch({
         },
         changedFits,
         changedItemIds: uniqueItemIds,
+        changedMasks,
         exportedAt,
         fits: allFits,
-        version: 1,
+        masks: maskOverrides,
+        version: 2,
       },
       null,
       2,
@@ -231,7 +313,9 @@ export async function exportAvatarFitBatch({
       '',
       'Send this complete ZIP when requesting that the approved fitting values be applied.',
       'avatar-fit-data.json contains both the changed values and the complete merged fitting registry.',
-      'previews/ contains composed PNG and SVG previews over the neutral cow.',
+      'previews/ contains composed PNG and SVG previews with the occlusion masks applied.',
+      'masked-item-layers/ contains transparent PNG and SVG garment layers with each mask applied.',
+      'occlusion-masks/ contains white-visible, black-hidden SVG masks and the editable stamp data.',
       'source-images/ contains the exact prototype layers used by the previews.',
     ].join('\n'),
   );

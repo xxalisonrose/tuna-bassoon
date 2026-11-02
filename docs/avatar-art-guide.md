@@ -193,17 +193,26 @@ describe the actual runtime result instead of a separate mockup.
 5. Switch between items and categories as needed. Every changed item stays in
    the current working batch and receives an adjusted-item dot. On the web,
    the fitting lab auto-saves the batch in that browser and restores it after
-   switching portal sections, navigating away, or refreshing. **Reset All**
-   clears both the working batch and that saved copy.
-6. Inspect the 92-pixel map-size preview before accepting a fit. Fine details
+   switching portal sections, navigating away, or refreshing.
+6. Select **Mask Hidden Areas** after an item is aligned. Paint red only over
+   garment pixels that should disappear behind the cow, such as the inside of
+   a neckline or the rear half of a sleeve cuff. Adjust the brush size, use
+   **Undo Mask Stroke** for small corrections, or **Clear This Mask** to restart
+   that item. Mask strokes auto-save in the same browser alongside fit edits.
+7. Inspect the 92-pixel map-size preview before accepting a fit. Fine details
    that disappear there should be strengthened in the artwork rather than
    solved with more scaling.
-7. Select **Export Batch ZIP** when the fitting pass is complete. The archive
+8. Select **Export Batch ZIP** when the fitting and masking pass is complete.
+   The archive
    contains the changed values, the complete merged fit registry, composed PNG
-   and SVG previews, and the exact source layers used in the preview. Send the
-   complete ZIP for implementation instead of collecting individual
-   screenshots and value lines.
-8. Commit approved values in `src/lib/avatar-fit.ts`, then recheck the custom
+   and SVG previews, editable mask data, transparent garment layers with masks
+   applied, and the exact source layers used in the preview. Send the complete
+   ZIP for implementation instead of collecting individual screenshots and
+   value lines.
+9. **Reset Entire Batch** clears both the saved fit edits and masks only when a
+   new fitting pass should start.
+10. Commit approved values in `src/lib/avatar-fit.ts`, apply the exported mask
+   layers, then recheck the custom
    wardrobe preview, complete looks, Passport preview, and map marker.
 
 The fitting registry is a prototype bridge for the AI-assisted source sheets.

@@ -40,10 +40,10 @@ export const avatarItemFits: Readonly<Record<string, AvatarFit>> = {
     rotation: 0,
   },
   winter_polka_sweater: {
-    left: 13,
-    top: -0.4,
-    width: 74,
-    height: 76.7,
+    left: 13.2,
+    top: -0.2,
+    width: 73.3,
+    height: 75.3,
     rotation: 0,
   },
   winter_charcoal_pants: {

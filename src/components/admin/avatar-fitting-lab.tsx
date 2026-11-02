@@ -32,6 +32,11 @@ import {
   type AvatarFitOverrides,
 } from '@/lib/avatar-fit';
 import { exportAvatarFitBatch } from '@/lib/avatar-fit-export';
+import {
+  isAvatarMaskStamp,
+  type AvatarMaskOverrides,
+  type AvatarMaskStamp,
+} from '@/lib/avatar-mask';
 
 type FitItem = AvatarItemOption & {
   slot: AvatarItemSlot;
@@ -74,6 +79,7 @@ const initialItem =
   fitItems.find((item) => item.id === 'winter_polka_sweater') ?? fitItems[0];
 
 const fitBatchStorageKey = 'lorcal.avatar-fitting-batch.v1';
+const maskBatchStorageKey = 'lorcal.avatar-fitting-masks.v1';
 const avatarFitKeys: readonly (keyof AvatarFit)[] = [
   'left',
   'top',
@@ -159,6 +165,65 @@ function storeFitOverrides(fitOverrides: AvatarFitOverrides) {
     );
   } catch {
     // The fitting lab still works in memory when browser storage is disabled.
+  }
+}
+
+function readStoredMaskOverrides(): AvatarMaskOverrides {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') {
+    return {};
+  }
+
+  try {
+    const storedValue = window.localStorage.getItem(maskBatchStorageKey);
+
+    if (!storedValue) {
+      return {};
+    }
+
+    const parsedValue: unknown = JSON.parse(storedValue);
+
+    if (
+      !parsedValue ||
+      typeof parsedValue !== 'object' ||
+      Array.isArray(parsedValue)
+    ) {
+      return {};
+    }
+
+    return Object.fromEntries(
+      Object.entries(parsedValue)
+        .filter(
+          ([itemId, stamps]) =>
+            getAvatarItemFit(itemId) !== undefined && Array.isArray(stamps),
+        )
+        .map(([itemId, stamps]) => [
+          itemId,
+          (stamps as unknown[]).filter(isAvatarMaskStamp),
+        ])
+        .filter(([, stamps]) => stamps.length > 0),
+    );
+  } catch {
+    return {};
+  }
+}
+
+function storeMaskOverrides(maskOverrides: AvatarMaskOverrides) {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    if (Object.keys(maskOverrides).length === 0) {
+      window.localStorage.removeItem(maskBatchStorageKey);
+      return;
+    }
+
+    window.localStorage.setItem(
+      maskBatchStorageKey,
+      JSON.stringify(maskOverrides),
+    );
+  } catch {
+    // Mask painting still works in memory when browser storage is disabled.
   }
 }
 
@@ -417,6 +482,95 @@ function AvatarFitTransformBox({
   );
 }
 
+function AvatarMaskCanvas({
+  brushSize,
+  fit,
+  itemName,
+  onStamp,
+  previewSize,
+  stamps,
+}: {
+  brushSize: number;
+  fit: AvatarFit;
+  itemName: string;
+  onStamp: (stamp: AvatarMaskStamp) => void;
+  previewSize: number;
+  stamps: AvatarMaskStamp[];
+}) {
+  const lastPointRef = useRef<{ pageX: number; pageY: number } | null>(null);
+  const fittedWidth = (fit.width / 100) * previewSize;
+  const fittedHeight = (fit.height / 100) * previewSize;
+
+  const paintStamp = (event: GestureResponderEvent) => {
+    const { locationX, locationY, pageX, pageY } = event.nativeEvent;
+    const lastPoint = lastPointRef.current;
+
+    if (
+      lastPoint &&
+      Math.hypot(pageX - lastPoint.pageX, pageY - lastPoint.pageY) <
+        brushSize * 0.3
+    ) {
+      return;
+    }
+
+    lastPointRef.current = { pageX, pageY };
+    onStamp({
+      radiusX: (brushSize / 2 / fittedWidth) * 100,
+      radiusY: (brushSize / 2 / fittedHeight) * 100,
+      x: clamp((locationX / fittedWidth) * 100, 0, 100),
+      y: clamp((locationY / fittedHeight) * 100, 0, 100),
+    });
+  };
+
+  const finishPainting = () => {
+    lastPointRef.current = null;
+  };
+
+  return (
+    <View
+      style={[
+        styles.transformBox,
+        styles.maskBox,
+        {
+          height: `${fit.height}%`,
+          left: `${fit.left}%`,
+          top: `${fit.top}%`,
+          transform: [{ rotate: `${fit.rotation}deg` }],
+          width: `${fit.width}%`,
+        },
+      ]}
+    >
+      <View
+        accessibilityHint="Drag over garment areas that should become transparent."
+        accessibilityLabel={`Paint hidden areas on ${itemName}`}
+        accessible
+        onMoveShouldSetResponder={() => true}
+        onResponderGrant={paintStamp}
+        onResponderMove={paintStamp}
+        onResponderRelease={finishPainting}
+        onResponderTerminate={finishPainting}
+        onStartShouldSetResponder={() => true}
+        style={styles.maskPaintArea}
+      />
+      {stamps.map((stamp, index) => (
+        <View
+          key={`${stamp.x}-${stamp.y}-${index}`}
+          pointerEvents="none"
+          style={[
+            styles.maskStamp,
+            {
+              height: `${stamp.radiusY * 2}%`,
+              left: `${stamp.x - stamp.radiusX}%`,
+              top: `${stamp.y - stamp.radiusY}%`,
+              width: `${stamp.radiusX * 2}%`,
+            },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
 export function AvatarFittingLab() {
   const theme = useTheme();
   const { width: windowWidth } = useWindowDimensions();
@@ -428,6 +582,11 @@ export function AvatarFittingLab() {
   const [fitOverrides, setFitOverrides] = useState<AvatarFitOverrides>(
     readStoredFitOverrides,
   );
+  const [maskOverrides, setMaskOverrides] = useState<AvatarMaskOverrides>(
+    readStoredMaskOverrides,
+  );
+  const [workspaceMode, setWorkspaceMode] = useState<'fit' | 'mask'>('fit');
+  const [brushSize, setBrushSize] = useState(28);
   const [showGrid, setShowGrid] = useState(true);
   const [lockProportions, setLockProportions] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
@@ -442,11 +601,23 @@ export function AvatarFittingLab() {
     selectedItem.slot,
     selectedItem.id,
   );
-  const changedItemIds = Object.keys(fitOverrides);
+  const selectedMaskStamps = maskOverrides[selectedItem.id] ?? [];
+  const changedItemIds = [
+    ...new Set([
+      ...Object.keys(fitOverrides),
+      ...Object.entries(maskOverrides)
+        .filter(([, stamps]) => (stamps?.length ?? 0) > 0)
+        .map(([itemId]) => itemId),
+    ]),
+  ];
 
   useEffect(() => {
     storeFitOverrides(fitOverrides);
   }, [fitOverrides]);
+
+  useEffect(() => {
+    storeMaskOverrides(maskOverrides);
+  }, [maskOverrides]);
 
   const updateCurrentFit = (updater: (currentFit: AvatarFit) => AvatarFit) => {
     setExportStatus(null);
@@ -498,6 +669,39 @@ export function AvatarFittingLab() {
     setExportStatus(null);
   };
 
+  const addMaskStamp = (stamp: AvatarMaskStamp) => {
+    setMaskOverrides((currentOverrides) => ({
+      ...currentOverrides,
+      [selectedItem.id]: [...(currentOverrides[selectedItem.id] ?? []), stamp],
+    }));
+    setExportStatus(null);
+  };
+
+  const undoMaskStamp = () => {
+    setMaskOverrides((currentOverrides) => {
+      const nextStamps = (currentOverrides[selectedItem.id] ?? []).slice(0, -1);
+      const nextOverrides = { ...currentOverrides };
+
+      if (nextStamps.length > 0) {
+        nextOverrides[selectedItem.id] = nextStamps;
+      } else {
+        delete nextOverrides[selectedItem.id];
+      }
+
+      return nextOverrides;
+    });
+    setExportStatus(null);
+  };
+
+  const clearCurrentMask = () => {
+    setMaskOverrides((currentOverrides) => {
+      const nextOverrides = { ...currentOverrides };
+      delete nextOverrides[selectedItem.id];
+      return nextOverrides;
+    });
+    setExportStatus(null);
+  };
+
   const exportBatch = async () => {
     setIsExporting(true);
     setExportStatus('Preparing export...');
@@ -506,6 +710,7 @@ export function AvatarFittingLab() {
       const result = await exportAvatarFitBatch({
         changedItemIds,
         fitOverrides,
+        maskOverrides,
         onProgress: setExportStatus,
       });
       setExportStatus(
@@ -634,9 +839,10 @@ export function AvatarFittingLab() {
             >
               {item.name}
             </ThemedText>
-            {fitOverrides[item.id] ? (
+            {fitOverrides[item.id] ||
+            (maskOverrides[item.id]?.length ?? 0) > 0 ? (
               <View
-                accessibilityLabel="Adjusted in this batch"
+                accessibilityLabel="Edited in this batch"
                 style={styles.adjustedDot}
               />
             ) : null}
@@ -644,10 +850,55 @@ export function AvatarFittingLab() {
         ))}
       </View>
 
+      <View
+        accessibilityLabel="Avatar editing mode"
+        accessibilityRole="tablist"
+        style={styles.modeTabs}
+      >
+        <Pressable
+          accessibilityRole="tab"
+          accessibilityState={{ selected: workspaceMode === 'fit' }}
+          onPress={() => setWorkspaceMode('fit')}
+          style={({ pressed }) => [
+            styles.modeTab,
+            workspaceMode === 'fit' && styles.modeTabSelected,
+            pressed && styles.pressed,
+          ]}
+        >
+          <ThemedText
+            type="smallBold"
+            style={
+              workspaceMode === 'fit' ? styles.selectedButtonText : undefined
+            }
+          >
+            Fit & Resize
+          </ThemedText>
+        </Pressable>
+        <Pressable
+          accessibilityRole="tab"
+          accessibilityState={{ selected: workspaceMode === 'mask' }}
+          onPress={() => setWorkspaceMode('mask')}
+          style={({ pressed }) => [
+            styles.modeTab,
+            workspaceMode === 'mask' && styles.modeTabSelected,
+            pressed && styles.pressed,
+          ]}
+        >
+          <ThemedText
+            type="smallBold"
+            style={
+              workspaceMode === 'mask' ? styles.selectedButtonText : undefined
+            }
+          >
+            Mask Hidden Areas
+          </ThemedText>
+        </Pressable>
+      </View>
+
       <ThemedView type="background" style={styles.batchBar}>
         <View style={styles.batchCopy}>
           <ThemedText type="smallBold">
-            Working batch: {changedItemIds.length} adjusted{' '}
+            Working batch: {changedItemIds.length} edited{' '}
             {changedItemIds.length === 1 ? 'item' : 'items'}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
@@ -711,87 +962,174 @@ export function AvatarFittingLab() {
               showFitGuides={showGrid}
               size={previewSize}
             />
-            <AvatarFitTransformBox
-              key={selectedItem.id}
-              fit={selectedFit}
-              itemName={selectedItem.name}
-              lockProportions={lockProportions}
-              onFitChange={updateSelectedFit}
-              previewSize={previewSize}
-            />
+            {workspaceMode === 'fit' ? (
+              <AvatarFitTransformBox
+                key={selectedItem.id}
+                fit={selectedFit}
+                itemName={selectedItem.name}
+                lockProportions={lockProportions}
+                onFitChange={updateSelectedFit}
+                previewSize={previewSize}
+              />
+            ) : (
+              <AvatarMaskCanvas
+                key={selectedItem.id}
+                brushSize={brushSize}
+                fit={selectedFit}
+                itemName={selectedItem.name}
+                onStamp={addMaskStamp}
+                previewSize={previewSize}
+                stamps={selectedMaskStamps}
+              />
+            )}
           </View>
           <ThemedText type="small" themeColor="textSecondary">
-            Drag inside the box to move. Drag its corners or edges to resize.
+            {workspaceMode === 'fit'
+              ? 'Drag inside the box to move. Drag its corners or edges to resize.'
+              : 'Paint red over garment pixels that should disappear behind the cow. The ZIP preview applies the real transparency.'}
           </ThemedText>
-          <Pressable
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: lockProportions }}
-            onPress={() => setLockProportions((currentValue) => !currentValue)}
-            style={({ pressed }) => [
-              styles.proportionToggle,
-              lockProportions && styles.proportionToggleSelected,
-              pressed && styles.pressed,
-            ]}
-          >
-            <ThemedText
-              type="smallBold"
-              style={lockProportions ? styles.selectedButtonText : undefined}
+          {workspaceMode === 'fit' ? (
+            <Pressable
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: lockProportions }}
+              onPress={() =>
+                setLockProportions((currentValue) => !currentValue)
+              }
+              style={({ pressed }) => [
+                styles.proportionToggle,
+                lockProportions && styles.proportionToggleSelected,
+                pressed && styles.pressed,
+              ]}
             >
-              {lockProportions ? '✓ ' : ''}Keep corner proportions
-            </ThemedText>
-          </Pressable>
+              <ThemedText
+                type="smallBold"
+                style={lockProportions ? styles.selectedButtonText : undefined}
+              >
+                {lockProportions ? '✓ ' : ''}Keep corner proportions
+              </ThemedText>
+            </Pressable>
+          ) : null}
         </View>
 
         <View style={styles.controlColumn}>
           <ThemedText type="subtitle" style={styles.itemTitle}>
             {selectedItem.name}
           </ThemedText>
-          <FitControl
-            label="Horizontal"
-            onDecrease={() => adjustFit('left', -1)}
-            onIncrease={() => adjustFit('left', 1)}
-            value={`${selectedFit.left.toFixed(1)}%`}
-          />
-          <FitControl
-            label="Vertical"
-            onDecrease={() => adjustFit('top', -1)}
-            onIncrease={() => adjustFit('top', 1)}
-            value={`${selectedFit.top.toFixed(1)}%`}
-          />
-          <FitControl
-            label="Width"
-            onDecrease={() => adjustFit('width', -1)}
-            onIncrease={() => adjustFit('width', 1)}
-            value={`${selectedFit.width.toFixed(1)}%`}
-          />
-          <FitControl
-            label="Height"
-            onDecrease={() => adjustFit('height', -1)}
-            onIncrease={() => adjustFit('height', 1)}
-            value={`${selectedFit.height.toFixed(1)}%`}
-          />
-          <FitControl
-            label="Rotation"
-            onDecrease={() => adjustFit('rotation', -1)}
-            onIncrease={() => adjustFit('rotation', 1)}
-            value={`${selectedFit.rotation.toFixed(1)}°`}
-          />
+          {workspaceMode === 'fit' ? (
+            <>
+              <FitControl
+                label="Horizontal"
+                onDecrease={() => adjustFit('left', -1)}
+                onIncrease={() => adjustFit('left', 1)}
+                value={`${selectedFit.left.toFixed(1)}%`}
+              />
+              <FitControl
+                label="Vertical"
+                onDecrease={() => adjustFit('top', -1)}
+                onIncrease={() => adjustFit('top', 1)}
+                value={`${selectedFit.top.toFixed(1)}%`}
+              />
+              <FitControl
+                label="Width"
+                onDecrease={() => adjustFit('width', -1)}
+                onIncrease={() => adjustFit('width', 1)}
+                value={`${selectedFit.width.toFixed(1)}%`}
+              />
+              <FitControl
+                label="Height"
+                onDecrease={() => adjustFit('height', -1)}
+                onIncrease={() => adjustFit('height', 1)}
+                value={`${selectedFit.height.toFixed(1)}%`}
+              />
+              <FitControl
+                label="Rotation"
+                onDecrease={() => adjustFit('rotation', -1)}
+                onIncrease={() => adjustFit('rotation', 1)}
+                value={`${selectedFit.rotation.toFixed(1)}°`}
+              />
+            </>
+          ) : (
+            <>
+              <ThemedText themeColor="textSecondary">
+                Use a small brush around necklines and cuffs. Paint only the
+                garment areas that should sit behind the body.
+              </ThemedText>
+              <FitControl
+                label="Brush"
+                onDecrease={() =>
+                  setBrushSize((currentSize) => clamp(currentSize - 4, 8, 80))
+                }
+                onIncrease={() =>
+                  setBrushSize((currentSize) => clamp(currentSize + 4, 8, 80))
+                }
+                value={`${brushSize}px`}
+              />
+              <ThemedView type="background" style={styles.valueCard}>
+                <ThemedText type="smallBold">Mask stamps</ThemedText>
+                <ThemedText type="code">
+                  {selectedMaskStamps.length} on this item
+                </ThemedText>
+              </ThemedView>
+            </>
+          )}
 
           <View style={styles.actionRow}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={resetCurrentFit}
-              style={({ pressed }) => [
-                styles.secondaryButton,
-                pressed && styles.pressed,
-              ]}
-            >
-              <ThemedText style={styles.buttonText}>Reset This Item</ThemedText>
-            </Pressable>
+            {workspaceMode === 'fit' ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={resetCurrentFit}
+                style={({ pressed }) => [
+                  styles.secondaryButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <ThemedText style={styles.buttonText}>
+                  Reset This Fit
+                </ThemedText>
+              </Pressable>
+            ) : (
+              <>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{
+                    disabled: selectedMaskStamps.length === 0,
+                  }}
+                  disabled={selectedMaskStamps.length === 0}
+                  onPress={undoMaskStamp}
+                  style={({ pressed }) => [
+                    styles.secondaryButton,
+                    selectedMaskStamps.length === 0 && styles.disabledButton,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <ThemedText style={styles.buttonText}>
+                    Undo Mask Stroke
+                  </ThemedText>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{
+                    disabled: selectedMaskStamps.length === 0,
+                  }}
+                  disabled={selectedMaskStamps.length === 0}
+                  onPress={clearCurrentMask}
+                  style={({ pressed }) => [
+                    styles.secondaryButton,
+                    selectedMaskStamps.length === 0 && styles.disabledButton,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <ThemedText style={styles.buttonText}>
+                    Clear This Mask
+                  </ThemedText>
+                </Pressable>
+              </>
+            )}
             <Pressable
               accessibilityRole="button"
               onPress={() => {
                 setFitOverrides({});
+                setMaskOverrides({});
                 setExportStatus(null);
               }}
               style={({ pressed }) => [
@@ -799,38 +1137,53 @@ export function AvatarFittingLab() {
                 pressed && styles.pressed,
               ]}
             >
-              <ThemedText style={styles.buttonText}>Reset All</ThemedText>
+              <ThemedText style={styles.buttonText}>
+                Reset Entire Batch
+              </ThemedText>
             </Pressable>
           </View>
 
-          <ThemedView type="background" style={styles.valueCard}>
-            <ThemedText type="smallBold">Fit values</ThemedText>
-            <ThemedText selectable type="code" style={styles.fitSnippet}>
-              {fitSnippet}
-            </ThemedText>
-          </ThemedView>
-
-          <View style={styles.mapPreviewRow}>
-            <View>
-              <ThemedText type="smallBold">Map-size check</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                Confirms the silhouette at the size explorers see.
+          {workspaceMode === 'fit' ? (
+            <ThemedView type="background" style={styles.valueCard}>
+              <ThemedText type="smallBold">Fit values</ThemedText>
+              <ThemedText selectable type="code" style={styles.fitSnippet}>
+                {fitSnippet}
               </ThemedText>
+            </ThemedView>
+          ) : (
+            <ThemedView type="background" style={styles.valueCard}>
+              <ThemedText type="smallBold">What the export keeps</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                Every brush stamp is saved for later editing, and the ZIP also
+                includes a transparent garment layer with the mask already
+                applied.
+              </ThemedText>
+            </ThemedView>
+          )}
+
+          {workspaceMode === 'fit' ? (
+            <View style={styles.mapPreviewRow}>
+              <View>
+                <ThemedText type="smallBold">Map-size check</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Confirms the silhouette at the size explorers see.
+                </ThemedText>
+              </View>
+              <AvatarPreview
+                fitOverrides={fitOverrides}
+                selection={previewSelection}
+                size={92}
+              />
             </View>
-            <AvatarPreview
-              fitOverrides={fitOverrides}
-              selection={previewSelection}
-              size={92}
-            />
-          </View>
+          ) : null}
         </View>
       </View>
 
       <ThemedText themeColor="textSecondary" style={styles.note}>
-        This lab previews fit values only; it does not spend Lorcoins or change
-        any tester&apos;s saved avatar. Exporting creates one ZIP with the batch
-        data, composed preview images, and original prototype layers needed to
-        apply the approved fits.
+        This lab previews fits and hidden-area masks only; it does not spend
+        Lorcoins or change any tester&apos;s saved avatar. Exporting creates one
+        ZIP with the batch data, masked garment layers, composed previews, and
+        original prototype layers needed to apply the approved edits.
       </ThemedText>
     </ThemedView>
   );
@@ -874,6 +1227,22 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
   },
   categoryTabSelected: {
+    backgroundColor: Palette.lightBronze,
+  },
+  modeTabs: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.one,
+  },
+  modeTab: {
+    borderColor: Palette.borderStrong,
+    borderRadius: 999,
+    borderWidth: 1,
+    minHeight: 44,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+  },
+  modeTabSelected: {
     backgroundColor: Palette.lightBronze,
   },
   itemList: {
@@ -936,6 +1305,27 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     borderWidth: 2,
     position: 'absolute',
+  },
+  maskBox: {
+    borderColor: '#ff7a6b',
+    overflow: 'hidden',
+  },
+  maskPaintArea: {
+    backgroundColor: 'rgba(255, 122, 107, 0.08)',
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    zIndex: 3,
+  },
+  maskStamp: {
+    backgroundColor: 'rgba(220, 66, 60, 0.55)',
+    borderColor: '#fff3d8',
+    borderRadius: 999,
+    borderWidth: 1,
+    position: 'absolute',
+    zIndex: 4,
   },
   moveIndicator: {
     backgroundColor: 'rgba(254, 250, 224, 0.16)',
