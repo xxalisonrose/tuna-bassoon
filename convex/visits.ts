@@ -4,7 +4,7 @@ import { mutation, query } from './_generated/server';
 import { requireAdmin } from './lib/auth';
 import { CHECK_IN_LORCOIN_REWARD } from './lib/avatarEconomy';
 
-const CHECK_IN_RADIUS_METERS = 80;
+const CHECK_IN_RADIUS_METERS = 76.2; // 250 feet
 const EARTH_RADIUS_METERS = 6_371_000;
 
 function degreesToRadians(degrees: number) {
@@ -133,6 +133,19 @@ export const checkIn = mutation({
       visitedAt: Date.now(),
       distanceMeters: Math.round(distanceMeters),
     });
+
+    const wishlistEntry = await ctx.db
+      .query('locationWishlist')
+      .withIndex('by_user_and_location', (queryBuilder) =>
+        queryBuilder
+          .eq('clerkUserId', identity.subject)
+          .eq('locationId', args.locationId),
+      )
+      .unique();
+
+    if (wishlistEntry !== null) {
+      await ctx.db.delete(wishlistEntry._id);
+    }
 
     return {
       status: 'success' as const,

@@ -35,6 +35,7 @@ import {
   Palette,
   Spacing,
 } from '@/constants/theme';
+import { useRootCurrentUser } from '@/contexts/root-convex-data-context';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '../../convex/_generated/api';
 
@@ -171,10 +172,7 @@ export default function SubmitLocationScreen() {
   const focusedFieldRef = useRef<View | null>(null);
   useScrollToTop(scrollViewRef);
   const { isAuthenticated, isLoading } = useConvexAuth();
-  const currentUser = useQuery(
-    api.users.getCurrentUser,
-    isAuthenticated ? {} : 'skip',
-  );
+  const currentUser = useRootCurrentUser();
   const submissions = useQuery(
     api.adminIngest.getMyLocationSubmissions,
     isAuthenticated && currentUser?.canSubmitContent ? {} : 'skip',

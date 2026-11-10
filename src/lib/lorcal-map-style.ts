@@ -244,6 +244,7 @@ export const LORCAL_MAP_STYLE: StyleSpecification = {
       source: 'openmaptiles',
       'source-layer': 'building',
       minzoom: 13,
+      maxzoom: 14,
       paint: {
         'fill-color': '#B68E6C',
         'fill-outline-color': '#7B5A45',

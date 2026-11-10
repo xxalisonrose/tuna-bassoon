@@ -1335,8 +1335,11 @@ export function IngestReviewPanel({
                     {card.matchDistanceMeters !== undefined &&
                     card.matchDistanceMeters > 0 ? (
                       <ThemedText type="small" themeColor="textSecondary">
-                        Approximately {Math.round(card.matchDistanceMeters)}{' '}
-                        meters from the proposed coordinates
+                        Approximately{' '}
+                        {Math.round(
+                          card.matchDistanceMeters * 3.28084,
+                        ).toLocaleString()}{' '}
+                        feet from the proposed coordinates
                       </ThemedText>
                     ) : null}
                     {card.matchDetails.map((detail) => (

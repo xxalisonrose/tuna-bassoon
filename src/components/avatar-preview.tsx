@@ -9,7 +9,10 @@ import {
 
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { avatarImages } from '@/lib/avatar-assets';
+import {
+  avatarImages,
+  avatarMapImages,
+} from '@/lib/avatar-assets';
 import {
   getMatchingAvatarPresetId,
   normalizeAvatarSelection,
@@ -181,25 +184,7 @@ function AvatarFitGuides({
   );
 }
 
-function FittedExplorerBoots() {
-  return (
-    <View
-      accessible={false}
-      importantForAccessibility="no-hide-descendants"
-      style={styles.bootSlice}
-    >
-      <Image
-        accessible={false}
-        contentFit="contain"
-        importantForAccessibility="no"
-        source={avatarImages.explorerReference}
-        style={styles.bootSliceImage}
-      />
-    </View>
-  );
-}
-
-function FittedExplorerGoggles() {
+function FittedExplorerGoggles({ source }: { source: number }) {
   return (
     <View
       accessible={false}
@@ -210,7 +195,7 @@ function FittedExplorerGoggles() {
         accessible={false}
         contentFit="contain"
         importantForAccessibility="no"
-        source={avatarImages.explorerReference}
+        source={source}
         style={styles.goggleSliceImage}
       />
     </View>
@@ -220,6 +205,7 @@ function FittedExplorerGoggles() {
 export function AvatarPreview({
   fitOverrides,
   highlightedItemId,
+  imageResolution = 'full',
   presetId,
   selection,
   showFitGuides = false,
@@ -228,6 +214,7 @@ export function AvatarPreview({
 }: {
   fitOverrides?: AvatarFitOverrides;
   highlightedItemId?: string;
+  imageResolution?: 'full' | 'map';
   presetId?: string;
   selection?: Partial<AvatarSelection>;
   showFitGuides?: boolean;
@@ -235,12 +222,43 @@ export function AvatarPreview({
   style?: StyleProp<ViewStyle>;
 }) {
   const activeSelection = normalizeAvatarSelection(selection, presetId);
+  const imageSources =
+    imageResolution === 'map' ? avatarMapImages : avatarImages;
   const matchingPresetId = getMatchingAvatarPresetId(activeSelection);
+  const wearsLongPants =
+    activeSelection.bottomId === 'winter_charcoal_pants' ||
+    activeSelection.bottomId === 'cowboy_western_pants';
   const wearsFullBoots =
     activeSelection.shoesId === 'winter_snow_boots' ||
     activeSelection.shoesId === 'cowboy_brown_boots' ||
     activeSelection.shoesId === 'cowboy_red_boots';
-  const hidesShoes = activeSelection.bottomId === 'princess_ballgown_skirt';
+  const mapBootFitOverrides =
+    imageResolution === 'map'
+      ? {
+          ...fitOverrides,
+          winter_snow_boots: {
+            ...fitOverrides?.winter_snow_boots,
+            height: 31.5,
+            left: 28.5,
+            top: 68.8,
+            width: 43,
+          },
+          cowboy_brown_boots: {
+            ...fitOverrides?.cowboy_brown_boots,
+            height: 32,
+            left: 25,
+            top: 68.2,
+            width: 50,
+          },
+          cowboy_red_boots: {
+            ...fitOverrides?.cowboy_red_boots,
+            height: 32,
+            left: 25,
+            top: 68.2,
+            width: 50,
+          },
+        }
+      : fitOverrides;
 
   return (
     <ThemedView
@@ -258,164 +276,188 @@ export function AvatarPreview({
     >
       {matchingPresetId === 'explorer' ? (
         <AvatarLayer
-          source={avatarImages.explorerReference}
+          source={imageSources.explorerReference}
           style={styles.fullLayer}
         />
       ) : (
         <>
-          <AvatarLayer source={avatarImages.base} style={styles.fullLayer} />
-          {wearsFullBoots ? (
+          <AvatarLayer source={imageSources.base} style={styles.fullLayer} />
+          {wearsLongPants ? (
             <ThemedView
               accessible={false}
               importantForAccessibility="no-hide-descendants"
               type="surfaceWarm"
-              style={styles.fullBootMask}
+              style={styles.pantsGapOcclusion}
+            />
+          ) : null}
+          {/* Map boot artwork is already masked; background-colored hoof
+              covers would appear as pale boxes on the transparent marker. */}
+          {wearsFullBoots && imageResolution !== 'map' ? (
+            <>
+              <ThemedView
+                accessible={false}
+                importantForAccessibility="no-hide-descendants"
+                type="surfaceWarm"
+                style={[styles.hoofOcclusion, styles.leftHoofOcclusion]}
+              />
+              <ThemedView
+                accessible={false}
+                importantForAccessibility="no-hide-descendants"
+                type="surfaceWarm"
+                style={[styles.hoofOcclusion, styles.rightHoofOcclusion]}
+              />
+            </>
+          ) : null}
+          {activeSelection.shoesId === 'explorer_boots' ? (
+            <FittedAvatarLayer
+              fitOverrides={fitOverrides}
+              itemId="explorer_boots"
+              source={imageSources.explorerShoes}
+            />
+          ) : null}
+          {activeSelection.shoesId === 'winter_snow_boots' ? (
+            <FittedAvatarLayer
+              fitOverrides={mapBootFitOverrides}
+              itemId="winter_snow_boots"
+              source={imageSources.winterShoes}
+            />
+          ) : null}
+          {activeSelection.shoesId === 'cowboy_brown_boots' ? (
+            <FittedAvatarLayer
+              fitOverrides={mapBootFitOverrides}
+              itemId="cowboy_brown_boots"
+              source={imageSources.cowboyBrownBoots}
+            />
+          ) : null}
+          {activeSelection.shoesId === 'cowboy_red_boots' ? (
+            <FittedAvatarLayer
+              fitOverrides={mapBootFitOverrides}
+              itemId="cowboy_red_boots"
+              source={imageSources.cowboyRedBoots}
             />
           ) : null}
           {activeSelection.bottomId === 'explorer_cargo' ? (
             <FittedAvatarLayer
               fitOverrides={fitOverrides}
               itemId="explorer_cargo"
-              source={avatarImages.explorerBottom}
+              source={imageSources.explorerBottom}
             />
           ) : null}
           {activeSelection.bottomId === 'winter_charcoal_pants' ? (
             <FittedAvatarLayer
               fitOverrides={fitOverrides}
               itemId="winter_charcoal_pants"
-              source={avatarImages.winterBottom}
+              source={imageSources.winterBottom}
             />
           ) : null}
           {activeSelection.bottomId === 'cowboy_western_pants' ? (
             <FittedAvatarLayer
               fitOverrides={fitOverrides}
               itemId="cowboy_western_pants"
-              source={avatarImages.cowboyPants}
+              source={imageSources.cowboyPants}
             />
           ) : null}
           {activeSelection.bottomId === 'cowboy_western_shorts' ? (
             <FittedAvatarLayer
               fitOverrides={fitOverrides}
               itemId="cowboy_western_shorts"
-              source={avatarImages.cowboyShorts}
+              source={imageSources.cowboyShorts}
             />
           ) : null}
           {activeSelection.bottomId === 'princess_ballgown_skirt' ? (
             <FittedAvatarLayer
               fitOverrides={fitOverrides}
               itemId="princess_ballgown_skirt"
-              source={avatarImages.princessSkirt}
-            />
-          ) : null}
-          {!hidesShoes && activeSelection.shoesId === 'explorer_boots' ? (
-            <FittedExplorerBoots />
-          ) : null}
-          {!hidesShoes && activeSelection.shoesId === 'winter_snow_boots' ? (
-            <FittedAvatarLayer
-              fitOverrides={fitOverrides}
-              itemId="winter_snow_boots"
-              source={avatarImages.winterShoes}
-            />
-          ) : null}
-          {!hidesShoes && activeSelection.shoesId === 'cowboy_brown_boots' ? (
-            <FittedAvatarLayer
-              fitOverrides={fitOverrides}
-              itemId="cowboy_brown_boots"
-              source={avatarImages.cowboyBrownBoots}
-            />
-          ) : null}
-          {!hidesShoes && activeSelection.shoesId === 'cowboy_red_boots' ? (
-            <FittedAvatarLayer
-              fitOverrides={fitOverrides}
-              itemId="cowboy_red_boots"
-              source={avatarImages.cowboyRedBoots}
+              source={imageSources.princessSkirt}
             />
           ) : null}
           {activeSelection.topId === 'explorer_field' ? (
             <FittedAvatarLayer
               fitOverrides={fitOverrides}
               itemId="explorer_field"
-              source={avatarImages.explorerTop}
+              source={imageSources.explorerTop}
             />
           ) : null}
           {activeSelection.topId === 'new_explorer_tee' ? (
             <FittedAvatarLayer
               fitOverrides={fitOverrides}
               itemId="new_explorer_tee"
-              source={avatarImages.newExplorerTop}
+              source={imageSources.newExplorerTop}
             />
           ) : null}
           {activeSelection.topId === 'winter_polka_sweater' ? (
             <FittedAvatarLayer
               fitOverrides={fitOverrides}
               itemId="winter_polka_sweater"
-              source={avatarImages.winterTop}
+              source={imageSources.winterTop}
             />
           ) : null}
           {activeSelection.topId === 'cowboy_sheriff_shirt' ? (
             <FittedAvatarLayer
               fitOverrides={fitOverrides}
               itemId="cowboy_sheriff_shirt"
-              source={avatarImages.cowboyTop}
+              source={imageSources.cowboyTop}
             />
           ) : null}
           {activeSelection.topId === 'princess_puff_bodice' ? (
             <FittedAvatarLayer
               fitOverrides={fitOverrides}
               itemId="princess_puff_bodice"
-              source={avatarImages.princessTop}
+              source={imageSources.princessTop}
             />
           ) : null}
           {activeSelection.neckId === 'rust_neckerchief' ? (
             <FittedAvatarLayer
               fitOverrides={fitOverrides}
               itemId="rust_neckerchief"
-              source={avatarImages.rustNeckerchief}
+              source={imageSources.rustNeckerchief}
             />
           ) : null}
           {activeSelection.neckId === 'winter_cream_scarf' ? (
             <FittedAvatarLayer
               fitOverrides={fitOverrides}
               itemId="winter_cream_scarf"
-              source={avatarImages.winterScarf}
+              source={imageSources.winterScarf}
             />
           ) : null}
           {activeSelection.neckId === 'cowboy_red_bandana' ? (
             <FittedAvatarLayer
               fitOverrides={fitOverrides}
               itemId="cowboy_red_bandana"
-              source={avatarImages.cowboyBandana}
+              source={imageSources.cowboyBandana}
             />
           ) : null}
           {activeSelection.faceId === 'explorer_goggles' ? (
-            <FittedExplorerGoggles />
+            <FittedExplorerGoggles
+              source={imageSources.explorerReference}
+            />
           ) : null}
           {activeSelection.headwearId === 'winter_knit_beanie' ? (
             <FittedAvatarLayer
               fitOverrides={fitOverrides}
               itemId="winter_knit_beanie"
-              source={avatarImages.winterBeanie}
+              source={imageSources.winterBeanie}
             />
           ) : null}
           {activeSelection.headwearId === 'cowboy_sheriff_hat' ? (
             <FittedAvatarLayer
               fitOverrides={fitOverrides}
               itemId="cowboy_sheriff_hat"
-              source={avatarImages.cowboyHat}
+              source={imageSources.cowboyHat}
             />
           ) : null}
           {activeSelection.headwearId === 'princess_crown' ? (
             <FittedAvatarLayer
               fitOverrides={fitOverrides}
               itemId="princess_crown"
-              source={avatarImages.princessCrown}
+              source={imageSources.princessCrown}
             />
           ) : null}
           {activeSelection.handheldId === 'princess_star_wand' ? (
             <FittedAvatarLayer
               fitOverrides={fitOverrides}
               itemId="princess_star_wand"
-              source={avatarImages.princessWand}
+              source={imageSources.princessWand}
             />
           ) : null}
         </>
@@ -447,27 +489,26 @@ const styles = StyleSheet.create({
     top: 0,
     width: '100%',
   },
-  fullBootMask: {
-    height: '20%',
-    left: '28%',
+  pantsGapOcclusion: {
+    borderRadius: 999,
+    height: '43%',
+    left: '41%',
     position: 'absolute',
-    top: '80%',
-    width: '44%',
+    top: '48%',
+    width: '18%',
   },
-  bootSlice: {
-    bottom: 0,
-    height: '25%',
-    left: 0,
-    overflow: 'hidden',
+  hoofOcclusion: {
+    borderRadius: 999,
+    height: '15%',
     position: 'absolute',
-    width: '100%',
+    top: '85%',
+    width: '19%',
   },
-  bootSliceImage: {
-    height: '400%',
-    left: 0,
-    position: 'absolute',
-    top: '-300%',
-    width: '100%',
+  leftHoofOcclusion: {
+    left: '30%',
+  },
+  rightHoofOcclusion: {
+    right: '30%',
   },
   goggleSlice: {
     height: '18%',

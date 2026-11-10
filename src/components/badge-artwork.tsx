@@ -6,6 +6,7 @@ import { useTheme } from '@/hooks/use-theme';
 
 const badgeArtworkSources = {
   'america-250': require('@/assets/images/badges/america-250.png'),
+  'beta-pathfinder': require('@/assets/images/badges/beta-pathfinder.png'),
   'ghost-stories': require('@/assets/images/badges/ghost-stories.png'),
   'mission-tutorial': require('@/assets/images/badges/mission-tutorial.png'),
 };

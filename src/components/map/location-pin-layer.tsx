@@ -1,11 +1,11 @@
 import { GeoJSONSource, Images, Layer } from '@maplibre/maplibre-react-native';
 import type { FilterSpecification } from '@maplibre/maplibre-gl-style-spec';
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import type { Place } from '@/data/places';
 import { usesWomensHistoryPersonPin } from '@/lib/location-map-pin';
 
-const locationPinImages = {
+export const locationPinImages = {
   'historic-sites-unvisited': require('../../../assets/images/map-pins/historic-sites-unvisited.png'),
   'historic-sites-visited': require('../../../assets/images/map-pins/historic-sites-visited.png'),
   'monuments-public-art-unvisited': require('../../../assets/images/map-pins/monuments-public-art-unvisited.png'),
@@ -19,6 +19,31 @@ const locationPinImages = {
   'womens-history-unvisited': require('../../../assets/images/map-pins/womens-history-unvisited.png'),
   'womens-history-visited': require('../../../assets/images/map-pins/womens-history-visited.png'),
 };
+
+export function getLocationPinImageSource(
+  place: Place,
+  visited: boolean,
+) {
+  const state = visited ? 'visited' : 'unvisited';
+
+  if (
+    place.mapPinType === 'noteworthy_people' &&
+    usesWomensHistoryPersonPin(place.badges)
+  ) {
+    return locationPinImages[`womens-history-${state}`];
+  }
+
+  const imagePrefix = {
+    historic_sites: 'historic-sites',
+    monuments_public_art: 'monuments-public-art',
+    mystery_lore: 'mystery-lore',
+    noteworthy_people: 'noteworthy-people',
+    other_discoveries: 'other-discovery',
+  }[place.mapPinType];
+  const imageKey = `${imagePrefix}-${state}` as keyof typeof locationPinImages;
+
+  return locationPinImages[imageKey];
+}
 
 type LocationPinArtworkLayerDefinition = {
   image: keyof typeof locationPinImages;
@@ -114,7 +139,7 @@ type LocationPinLayerProps = {
   visitedLocationIds: ReadonlySet<string>;
 };
 
-export function LocationPinLayer({
+export const LocationPinLayer = memo(function LocationPinLayer({
   onSelect,
   places,
   selectedPlaceId,
@@ -143,6 +168,10 @@ export function LocationPinLayer({
     }),
     [places, selectedPlaceId, visitedLocationIds],
   );
+  const placeById = useMemo(
+    () => new Map(places.map((place) => [place.id, place])),
+    [places],
+  );
 
   return (
     <>
@@ -153,17 +182,55 @@ export function LocationPinLayer({
         hitbox={{ top: 14, right: 14, bottom: 14, left: 14 }}
         id="location-pins"
         onPress={(event) => {
-          const placeId = event.nativeEvent.features[0]?.properties?.placeId;
+          const tappedPlaces = event.nativeEvent.features.reduce<Place[]>(
+            (matches, feature) => {
+              const placeId = feature.properties?.placeId;
 
-          if (typeof placeId !== 'string') {
+              if (
+                typeof placeId !== 'string' ||
+                matches.some((place) => place.id === placeId)
+              ) {
+                return matches;
+              }
+
+              const place = placeById.get(placeId as Place['id']);
+
+              if (place !== undefined) {
+                matches.push(place);
+              }
+
+              return matches;
+            },
+            [],
+          );
+
+          if (tappedPlaces.length === 0) {
             return;
           }
 
-          const place = places.find((candidate) => candidate.id === placeId);
+          const [tapLongitude, tapLatitude] = event.nativeEvent.lngLat;
+          const longitudeScale = Math.cos(
+            (tapLatitude * Math.PI) / 180,
+          );
+          const distanceFromTap = (place: Place) => {
+            const [longitude, latitude] = place.coordinates;
+            const horizontalDelta =
+              (longitude - tapLongitude) * longitudeScale;
+            const verticalDelta = latitude - tapLatitude;
 
-          if (place !== undefined) {
-            onSelect(place);
-          }
+            return (
+              horizontalDelta * horizontalDelta +
+              verticalDelta * verticalDelta
+            );
+          };
+          const closestPlace = tappedPlaces.reduce(
+            (closest, candidate) =>
+              distanceFromTap(candidate) < distanceFromTap(closest)
+                ? candidate
+                : closest,
+          );
+
+          onSelect(closestPlace);
         }}
       >
         <Layer
@@ -277,7 +344,12 @@ export function LocationPinLayer({
                 'icon-anchor': 'center',
                 'icon-ignore-placement': true,
                 'icon-image': artworkLayer.image,
-                'icon-size': 0.2,
+                'icon-size': [
+                  'case',
+                  ['==', ['get', 'selected'], true],
+                  0.21,
+                  0.17,
+                ],
               }}
             />
           );
@@ -285,4 +357,4 @@ export function LocationPinLayer({
       </GeoJSONSource>
     </>
   );
-}
+});

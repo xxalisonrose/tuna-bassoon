@@ -1,5 +1,7 @@
 import {
+  forwardRef,
   type ReactNode,
+  type Ref,
   type RefObject,
   useCallback,
   useEffect,
@@ -28,25 +30,46 @@ const indicatorInset = Spacing.two;
 const minimumThumbHeight = 56;
 const hideDelayMilliseconds = 3000;
 
-type DraggableScrollViewProps = {
-  automaticallyAdjustKeyboardInsets?: boolean;
-  children: ReactNode;
+type DraggableScrollViewProps = Omit<
+  ScrollViewProps,
+  'ref' | 'scrollViewRef'
+> & {
+  children?: ReactNode;
   contentContainerStyle?: StyleProp<ViewStyle>;
-  keyboardDismissMode?: ScrollViewProps['keyboardDismissMode'];
-  keyboardShouldPersistTaps?: ScrollViewProps['keyboardShouldPersistTaps'];
-  scrollViewRef: RefObject<ScrollView | null>;
+  scrollViewRef?: RefObject<ScrollView | null>;
   onScrollOffsetChange?: (offset: number) => void;
 };
 
-export function DraggableScrollView({
+function assignRef<T>(ref: Ref<T> | undefined, value: T | null) {
+  if (typeof ref === 'function') {
+    ref(value);
+  } else if (ref !== undefined && ref !== null) {
+    ref.current = value;
+  }
+}
+
+export const DraggableScrollView = forwardRef<
+  ScrollView,
+  DraggableScrollViewProps
+>(function DraggableScrollView({
   automaticallyAdjustKeyboardInsets,
   children,
   contentContainerStyle,
   keyboardDismissMode,
   keyboardShouldPersistTaps,
+  onContentSizeChange,
+  onLayout,
+  onMomentumScrollBegin,
+  onMomentumScrollEnd,
+  onScroll,
+  onScrollBeginDrag,
+  onScrollEndDrag,
   scrollViewRef,
+  scrollEventThrottle = 16,
+  showsVerticalScrollIndicator = Platform.OS === 'web',
   onScrollOffsetChange,
-}: DraggableScrollViewProps) {
+  ...scrollViewProps
+}, forwardedRef) {
   const theme = useTheme();
   const [viewportHeight, setViewportHeight] = useState(0);
   const [contentHeight, setContentHeight] = useState(0);
@@ -55,6 +78,7 @@ export function DraggableScrollView({
   const [indicatorOpacity] = useState(() => new Animated.Value(0));
   const [thumbTranslateY] = useState(() => new Animated.Value(0));
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const internalScrollViewRef = useRef<ScrollView | null>(null);
   const scrollOffsetRef = useRef(0);
   const thumbPositionRef = useRef(0);
   const dragOriginRef = useRef(0);
@@ -152,13 +176,13 @@ export function DraggableScrollView({
         maximumScrollOffset,
         Math.max(0, offset),
       );
-      scrollViewRef.current?.scrollTo({
+      internalScrollViewRef.current?.scrollTo({
         animated,
         y: clampedOffset,
       });
       updateThumbFromScroll(clampedOffset);
     },
-    [maximumScrollOffset, scrollViewRef, updateThumbFromScroll],
+    [maximumScrollOffset, updateThumbFromScroll],
   );
 
   const handleThumbGrant = (event: GestureResponderEvent) => {
@@ -187,10 +211,12 @@ export function DraggableScrollView({
     const offset = event.nativeEvent.contentOffset.y;
     updateThumbFromScroll(offset);
     onScrollOffsetChange?.(offset);
+    onScroll?.(event);
   };
 
   const handleLayout = (event: LayoutChangeEvent) => {
     setViewportHeight(event.nativeEvent.layout.height);
+    onLayout?.(event);
   };
 
   const handleAccessibilityAction = (event: {
@@ -209,20 +235,40 @@ export function DraggableScrollView({
   return (
     <View onLayout={handleLayout} style={styles.container}>
       <ScrollView
+        {...scrollViewProps}
         automaticallyAdjustKeyboardInsets={automaticallyAdjustKeyboardInsets}
         keyboardDismissMode={keyboardDismissMode}
         keyboardShouldPersistTaps={keyboardShouldPersistTaps}
         nativeID={Platform.OS === 'web' ? 'app-page-scroll-view' : undefined}
-        ref={scrollViewRef}
+        ref={(value) => {
+          internalScrollViewRef.current = value;
+          assignRef(forwardedRef, value);
+          assignRef(scrollViewRef, value);
+        }}
         contentContainerStyle={contentContainerStyle}
-        onContentSizeChange={(_width, height) => setContentHeight(height)}
-        onMomentumScrollBegin={showIndicator}
-        onMomentumScrollEnd={scheduleIndicatorHide}
+        onContentSizeChange={(width, height) => {
+          setContentHeight(height);
+          onContentSizeChange?.(width, height);
+        }}
+        onMomentumScrollBegin={(event) => {
+          showIndicator();
+          onMomentumScrollBegin?.(event);
+        }}
+        onMomentumScrollEnd={(event) => {
+          scheduleIndicatorHide();
+          onMomentumScrollEnd?.(event);
+        }}
         onScroll={handleScroll}
-        onScrollBeginDrag={showIndicator}
-        onScrollEndDrag={scheduleIndicatorHide}
-        scrollEventThrottle={16}
-        showsVerticalScrollIndicator={Platform.OS === 'web'}>
+        onScrollBeginDrag={(event) => {
+          showIndicator();
+          onScrollBeginDrag?.(event);
+        }}
+        onScrollEndDrag={(event) => {
+          scheduleIndicatorHide();
+          onScrollEndDrag?.(event);
+        }}
+        scrollEventThrottle={scrollEventThrottle}
+        showsVerticalScrollIndicator={showsVerticalScrollIndicator}>
         {children}
       </ScrollView>
 
@@ -271,7 +317,7 @@ export function DraggableScrollView({
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

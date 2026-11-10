@@ -35,6 +35,45 @@ type CheckInMessage = {
   type: 'success' | 'error' | 'information';
 };
 
+const CHECK_IN_RADIUS_FEET = 250;
+const EARTH_RADIUS_METERS = 6_371_000;
+const FEET_PER_METER = 3.28084;
+
+function degreesToRadians(degrees: number) {
+  return degrees * (Math.PI / 180);
+}
+
+function calculateDistanceFeet(
+  firstCoordinates: [number, number],
+  secondCoordinates: [number, number],
+) {
+  const [firstLongitude, firstLatitude] = firstCoordinates;
+  const [secondLongitude, secondLatitude] = secondCoordinates;
+  const latitudeDifference = degreesToRadians(
+    secondLatitude - firstLatitude,
+  );
+  const longitudeDifference = degreesToRadians(
+    secondLongitude - firstLongitude,
+  );
+  const firstLatitudeRadians = degreesToRadians(firstLatitude);
+  const secondLatitudeRadians = degreesToRadians(secondLatitude);
+  const haversine =
+    Math.sin(latitudeDifference / 2) ** 2 +
+    Math.cos(firstLatitudeRadians) *
+      Math.cos(secondLatitudeRadians) *
+      Math.sin(longitudeDifference / 2) ** 2;
+  const angularDistance =
+    2 *
+    Math.atan2(
+      Math.sqrt(haversine),
+      Math.sqrt(1 - haversine),
+    );
+
+  return Math.round(
+    EARTH_RADIUS_METERS * angularDistance * FEET_PER_METER,
+  );
+}
+
 export function LocationPopup({
   place,
   userCoordinates,
@@ -67,6 +106,11 @@ export function LocationPopup({
     useState<CheckInMessage | null>(null);
 
   const uniqueBadgeTags = [...new Set(place.badges)];
+  const distanceFeet = userCoordinates === null
+    ? null
+    : calculateDistanceFeet(userCoordinates, place.coordinates);
+  const checkInIsTooFar =
+    distanceFeet !== null && distanceFeet > CHECK_IN_RADIUS_FEET;
 
   useEffect(() => {
     // A different location starts without the previous check-in result.
@@ -120,10 +164,13 @@ export function LocationPopup({
       });
 
       if (result.status === 'too_far') {
+        const resultDistanceFeet = Math.round(
+          result.distanceMeters * FEET_PER_METER,
+        );
         showCheckInMessage({
           text:
-            `You are approximately ${result.distanceMeters} ` +
-            'meters away. Move within 80 meters to check in.',
+            `You are approximately ${resultDistanceFeet.toLocaleString()} ` +
+            'feet away. Move within 250 feet to check in.',
           type: 'error',
         });
         return;
@@ -184,7 +231,11 @@ export function LocationPopup({
       return 'Waiting for GPS...';
     }
 
-    return 'Check In';
+    if (checkInIsTooFar) {
+      return `Too far away — ${distanceFeet?.toLocaleString()} ft`;
+    }
+
+    return `Check In — ${distanceFeet?.toLocaleString()} ft away`;
   })();
 
   const checkInIsDisabled =
@@ -192,6 +243,7 @@ export function LocationPopup({
     visitStatusIsLoading ||
     existingVisit !== null ||
     !userCoordinates ||
+    checkInIsTooFar ||
     isCheckingIn;
 
   return (
@@ -297,6 +349,68 @@ export function LocationPopup({
           </View>
         )}
 
+        {isAuthenticated &&
+        !visitStatusIsLoading &&
+        existingVisit === null &&
+        distanceFeet !== null &&
+        !checkInIsTooFar ? (
+          <View
+            accessible
+            accessibilityLabel={`Check-in available. You are ${distanceFeet.toLocaleString()} feet away.`}
+            style={[
+              styles.distanceNotice,
+              styles.distanceNoticeReady,
+            ]}>
+            <Text style={styles.distanceNoticeHeading}>
+              You’re Close Enough to Check In
+            </Text>
+            <Text style={styles.distanceNoticeText}>
+              {distanceFeet.toLocaleString()} feet away · Check-in is available.
+            </Text>
+          </View>
+        ) : null}
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={checkInButtonLabel}
+          accessibilityState={{
+            busy: isCheckingIn,
+            disabled: checkInIsDisabled,
+          }}
+          disabled={checkInIsDisabled}
+          onPress={handleCheckIn}
+          style={({ pressed }) => [
+            styles.checkInButton,
+            checkInIsDisabled && styles.checkInButtonDisabled,
+            checkInIsTooFar && styles.checkInButtonTooFar,
+            pressed && styles.checkInButtonPressed,
+          ]}>
+          {isCheckingIn ? (
+            <ActivityIndicator accessible={false} color="#ffffff" />
+          ) : (
+            <Text style={styles.checkInButtonText}>
+              {checkInButtonLabel}
+            </Text>
+          )}
+        </Pressable>
+
+        {checkInMessage && (
+          <Text
+            accessibilityLiveRegion="assertive"
+            accessibilityRole={
+              checkInMessage.type === 'error' ? 'alert' : undefined
+            }
+            style={[
+              styles.checkInMessage,
+              checkInMessage.type === 'success' &&
+                styles.checkInMessageSuccess,
+              checkInMessage.type === 'error' &&
+                styles.checkInMessageError,
+            ]}>
+            {checkInMessage.text}
+          </Text>
+        )}
+
         {place.isLore ? (
           <View
             accessible
@@ -367,51 +481,6 @@ export function LocationPopup({
           </View>
         )}
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={checkInButtonLabel}
-          accessibilityState={{
-            busy: isCheckingIn,
-            disabled: checkInIsDisabled,
-          }}
-          disabled={checkInIsDisabled}
-          onPress={handleCheckIn}
-          style={({ pressed }) => [
-            styles.checkInButton,
-            checkInIsDisabled &&
-              styles.checkInButtonDisabled,
-            pressed && styles.checkInButtonPressed,
-          ]}>
-          {isCheckingIn ? (
-            <ActivityIndicator
-              accessible={false}
-              color="#ffffff"
-            />
-          ) : (
-            <Text style={styles.checkInButtonText}>
-              {checkInButtonLabel}
-            </Text>
-          )}
-        </Pressable>
-
-        {checkInMessage && (
-          <Text
-            accessibilityLiveRegion="assertive"
-            accessibilityRole={
-              checkInMessage.type === 'error'
-                ? 'alert'
-                : undefined
-            }
-            style={[
-              styles.checkInMessage,
-              checkInMessage.type === 'success' &&
-                styles.checkInMessageSuccess,
-              checkInMessage.type === 'error' &&
-                styles.checkInMessageError,
-            ]}>
-            {checkInMessage.text}
-          </Text>
-        )}
       </ScrollView>
     </View>
   );
@@ -617,6 +686,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF2CC',
     borderRadius: 12,
   },
+  distanceNotice: {
+    alignSelf: 'stretch',
+    gap: 3,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  distanceNoticeReady: {
+    backgroundColor: '#E7F4E8',
+    borderColor: '#43834A',
+  },
+  distanceNoticeHeading: {
+    color: '#3C2D20',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  distanceNoticeText: {
+    color: '#5D4937',
+    fontSize: 14,
+    lineHeight: 20,
+  },
   checkInButton: {
     width: '100%',
     minHeight: 50,
@@ -630,6 +720,9 @@ const styles = StyleSheet.create({
   },
   checkInButtonDisabled: {
     backgroundColor: '#8A8A8A',
+  },
+  checkInButtonTooFar: {
+    backgroundColor: '#A96520',
   },
   checkInButtonPressed: {
     opacity: 0.75,

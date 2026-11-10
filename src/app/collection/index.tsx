@@ -19,9 +19,11 @@ import {
 } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   type LayoutChangeEvent,
+  type ListRenderItemInfo,
   Pressable,
-  ScrollView,
+  type ScrollViewProps,
   StyleSheet,
   View,
 } from 'react-native';
@@ -34,6 +36,10 @@ import {
   MissionDetailModal,
   type MissionDetail,
 } from '@/components/mission-detail-modal';
+import {
+  PassportTour,
+  type PassportTourTargetRect,
+} from '@/components/passport-tour';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
@@ -42,6 +48,7 @@ import {
   Palette,
   Spacing,
 } from '@/constants/theme';
+import { useRootCurrentUser } from '@/contexts/root-convex-data-context';
 import { isBetaBuild } from '@/lib/build-profile';
 import { api } from '../../../convex/_generated/api';
 
@@ -124,25 +131,35 @@ function getBadgeSeriesCandidateName(badge: {
     : badge.name.replace(/\s+\d{4}$/, '');
 }
 
+function renderDraggableScrollComponent(props: ScrollViewProps) {
+  return <DraggableScrollView {...props} />;
+}
+
 export default function PassportScreen() {
   const router = useRouter();
-  const { mission: missionParam } = useLocalSearchParams<{
+  const {
+    mission: missionParam,
+    tourPassport: tourPassportParam,
+  } = useLocalSearchParams<{
     mission?: string | string[];
+    tourPassport?: string | string[];
   }>();
   const requestedMissionKey = Array.isArray(missionParam)
     ? missionParam[0]
     : missionParam;
-  const scrollViewRef = useRef<ScrollView>(null);
-  useScrollToTop(scrollViewRef);
+  const requestedPassportTour = Array.isArray(tourPassportParam)
+    ? tourPassportParam[0]
+    : tourPassportParam;
+  const passportListRef = useRef<FlatList>(null);
+  const passportTourTargetRef = useRef<View>(null);
+  const lastPassportTourRequestRef = useRef<string | null>(null);
+  useScrollToTop(passportListRef);
   const {
     isAuthenticated,
     isLoading: isAuthenticationLoading,
   } = useConvexAuth();
 
-  const currentUser = useQuery(
-    api.users.getCurrentUser,
-    isAuthenticated ? {} : 'skip',
-  );
+  const currentUser = useRootCurrentUser();
   const avatarProfile = useQuery(
     api.users.getMyAvatarProfile,
     isAuthenticated ? {} : 'skip',
@@ -164,6 +181,9 @@ export default function PassportScreen() {
   const [missionSectionOffset, setMissionSectionOffset] =
     useState<number | null>(null);
   const [badgeEvaluationTime] = useState(() => Date.now());
+  const [passportTourVisible, setPassportTourVisible] = useState(false);
+  const [passportTourTarget, setPassportTourTarget] =
+    useState<PassportTourTargetRect | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -304,6 +324,46 @@ export default function PassportScreen() {
       (mission) =>
         mission.key === requestedMissionKey && !mission.completed,
     ) === true;
+  const passportIsReady =
+    visits !== undefined &&
+    badgeProgress !== undefined &&
+    missions !== undefined &&
+    currentUser !== undefined &&
+    avatarProfile !== undefined;
+
+  useEffect(() => {
+    if (
+      requestedPassportTour === undefined ||
+      requestedPassportTour === lastPassportTourRequestRef.current
+    ) {
+      return;
+    }
+
+    lastPassportTourRequestRef.current = requestedPassportTour;
+    setPassportTourVisible(true);
+  }, [requestedPassportTour]);
+
+  useEffect(() => {
+    if (!passportTourVisible || !passportIsReady) {
+      return;
+    }
+
+    passportListRef.current?.scrollToOffset({
+      animated: false,
+      offset: 0,
+    });
+    const timer = setTimeout(() => {
+      passportTourTargetRef.current?.measureInWindow(
+        (x, y, width, height) => {
+          if (width > 0 && height > 0) {
+            setPassportTourTarget({ x, y, width, height });
+          }
+        },
+      );
+    }, 180);
+
+    return () => clearTimeout(timer);
+  }, [passportIsReady, passportTourVisible]);
 
   useFocusEffect(
     useCallback(() => {
@@ -316,9 +376,9 @@ export default function PassportScreen() {
       }
 
       const frame = requestAnimationFrame(() => {
-        scrollViewRef.current?.scrollTo({
+        passportListRef.current?.scrollToOffset({
           animated: true,
-          y: Math.max(
+          offset: Math.max(
             0,
             badgeSectionOffset +
               missionSectionOffset -
@@ -525,9 +585,18 @@ export default function PassportScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <DraggableScrollView
-          scrollViewRef={scrollViewRef}
-          contentContainerStyle={styles.scrollContent}>
+        <FlatList
+          ref={passportListRef}
+          contentContainerStyle={styles.scrollContent}
+          data={visibleBadges}
+          initialNumToRender={8}
+          keyExtractor={(badge) => badge._id}
+          maxToRenderPerBatch={8}
+          renderScrollComponent={renderDraggableScrollComponent}
+          style={styles.passportList}
+          windowSize={7}
+          ListHeaderComponent={(
+          <View style={styles.passportHeader}>
           <View style={styles.heading}>
             <ThemedText
               accessibilityRole="header"
@@ -541,47 +610,51 @@ export default function PassportScreen() {
             </ThemedText>
           </View>
 
-          <ThemedView
-            type="backgroundElement"
-            style={styles.avatarCard}>
-            <AvatarPreview
-              presetId={avatarProfile.avatarPresetId}
-              selection={avatarProfile.selection}
-              size={184}
-            />
+          <View ref={passportTourTargetRef} collapsable={false}>
+            <ThemedView
+              type="backgroundElement"
+              style={styles.avatarCard}>
+              <AvatarPreview
+                presetId={avatarProfile.avatarPresetId}
+                selection={avatarProfile.selection}
+                size={184}
+              />
 
-            <View style={styles.avatarDetails}>
-              <ThemedText type="smallBold" themeColor="textSecondary">
-                YOUR EXPLORER
-              </ThemedText>
-              <ThemedText
-                accessibilityRole="header"
-                type="subtitle"
-                style={styles.avatarName}>
-                {currentUser?.name ?? 'Harvard Explorer'}
-              </ThemedText>
-              <ThemedText
-                themeColor="textSecondary"
-                style={styles.avatarDescription}>
-                Mix and match your saved clothing and accessories here.
-                This same look can follow you into future avatar features.
-              </ThemedText>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Customize Avatar"
-                onPress={() => router.push(avatarRoute)}
-                style={({ pressed }) => [
-                  styles.avatarButton,
-                  pressed && styles.pressed,
-                ]}>
+              <View style={styles.avatarDetails}>
                 <ThemedText
                   type="smallBold"
-                  style={styles.avatarButtonText}>
-                  Customize Avatar
+                  themeColor="textSecondary">
+                  YOUR EXPLORER
                 </ThemedText>
-              </Pressable>
-            </View>
-          </ThemedView>
+                <ThemedText
+                  accessibilityRole="header"
+                  type="subtitle"
+                  style={styles.avatarName}>
+                  {currentUser?.name ?? 'Harvard Explorer'}
+                </ThemedText>
+                <ThemedText
+                  themeColor="textSecondary"
+                  style={styles.avatarDescription}>
+                  Mix and match your saved clothing and accessories here.
+                  This same look can follow you into future avatar features.
+                </ThemedText>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Customize Avatar"
+                  onPress={() => router.push(avatarRoute)}
+                  style={({ pressed }) => [
+                    styles.avatarButton,
+                    pressed && styles.pressed,
+                  ]}>
+                  <ThemedText
+                    type="smallBold"
+                    style={styles.avatarButtonText}>
+                    Customize Avatar
+                  </ThemedText>
+                </Pressable>
+              </View>
+            </ThemedView>
+          </View>
 
           <View
             accessible
@@ -707,11 +780,12 @@ export default function PassportScreen() {
                     ]}>
                     <ThemedText
                       type="small"
-                      style={
+                      style={[
+                        styles.badgeFilterText,
                         badgeClassificationFilter === value
                           ? styles.badgeFilterTextSelected
-                          : undefined
-                      }>
+                          : undefined,
+                      ]}>
                       {badgeClassificationFilterLabels[value]}
                     </ThemedText>
                   </Pressable>
@@ -743,11 +817,12 @@ export default function PassportScreen() {
                       ]}>
                       <ThemedText
                         type="small"
-                        style={
+                        style={[
+                          styles.badgeFilterText,
                           badgeFilter === value
                             ? styles.badgeFilterTextSelected
-                            : undefined
-                        }>
+                            : undefined,
+                        ]}>
                         {badgeFilterLabels[value]}
                       </ThemedText>
                     </Pressable>
@@ -870,7 +945,13 @@ export default function PassportScreen() {
                   Choose another type or status filter to see more badges.
                 </ThemedText>
               </ThemedView>
-            ) : visibleBadges.map((badge) => {
+            ) : null}
+          </View>
+          </View>
+          )}
+          renderItem={({ item: badge }: ListRenderItemInfo<
+            NonNullable<typeof badgeProgress>[number]
+          >) => {
               const displayStatus = getBadgeDisplayStatus(badge);
               const expanded = expandedBadgeIds.has(badge._id);
               const progressWidth =
@@ -972,6 +1053,7 @@ export default function PassportScreen() {
                   }}
                   style={({ pressed }) => [
                     styles.badgePressable,
+                    styles.badgeListItem,
                     pressed && styles.pressed,
                   ]}>
                   <ThemedView
@@ -1081,10 +1163,9 @@ export default function PassportScreen() {
                   </ThemedView>
                 </Pressable>
               );
-            })}
-          </View>
-
-          <View style={styles.section}>
+            }}
+          ListFooterComponent={(
+          <View style={[styles.section, styles.visitedSection]}>
             <View
               accessible
               accessibilityRole="header"
@@ -1126,7 +1207,7 @@ export default function PassportScreen() {
                   themeColor="textSecondary"
                   style={styles.centeredText}>
                   Visit a location on the Map tab and check in
-                  while you are within 80 meters to add it here.
+                  while you are within 250 feet to add it here.
                 </ThemedText>
               </ThemedView>
             ) : (
@@ -1207,12 +1288,27 @@ export default function PassportScreen() {
               })
             )}
           </View>
-
-        </DraggableScrollView>
+          )}
+        />
       </SafeAreaView>
       <MissionDetailModal
         mission={selectedMission as MissionDetail | null}
         onClose={() => setSelectedMissionKey(null)}
+      />
+      <PassportTour
+        onClose={() => {
+          setPassportTourVisible(false);
+          router.setParams({ tourPassport: undefined });
+        }}
+        onOpenSettings={() => {
+          setPassportTourVisible(false);
+          router.replace({
+            pathname: '/settings',
+            params: { tourFinish: String(Date.now()) },
+          });
+        }}
+        target={passportTourTarget}
+        visible={passportTourVisible}
       />
     </ThemedView>
   );
@@ -1233,6 +1329,9 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
   },
+  passportList: {
+    flex: 1,
+  },
   signedOutSafeArea: {
     flex: 1,
     width: '100%',
@@ -1243,12 +1342,14 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     alignSelf: 'center',
-    gap: Spacing.five,
     maxWidth: MaxContentWidth,
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.four,
     paddingBottom: BottomTabInset + Spacing.five,
     width: '100%',
+  },
+  passportHeader: {
+    gap: Spacing.five,
   },
   heading: {
     gap: Spacing.two,
@@ -1335,6 +1436,9 @@ const styles = StyleSheet.create({
   badgePressable: {
     borderRadius: Spacing.three,
   },
+  badgeListItem: {
+    marginTop: Spacing.three,
+  },
   earnedBadgeCard: {
     borderColor: '#18864B',
   },
@@ -1391,8 +1495,10 @@ const styles = StyleSheet.create({
   },
   badgeFilterButton: {
     alignItems: 'center',
-    backgroundColor: '#E0E1E6',
+    backgroundColor: Palette.beige,
+    borderColor: Palette.borderStrong,
     borderRadius: 999,
+    borderWidth: 1,
     justifyContent: 'center',
     minHeight: 44,
     paddingHorizontal: Spacing.three,
@@ -1400,6 +1506,11 @@ const styles = StyleSheet.create({
   },
   badgeFilterButtonSelected: {
     backgroundColor: '#A51C30',
+    borderColor: '#A51C30',
+  },
+  badgeFilterText: {
+    color: Palette.ink,
+    fontWeight: '700',
   },
   badgeFilterTextSelected: {
     color: '#FFFFFF',
@@ -1480,6 +1591,9 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     padding: Spacing.four,
     borderRadius: Spacing.four,
+  },
+  visitedSection: {
+    marginTop: Spacing.five,
   },
   stampCard: {
     flexDirection: 'row',

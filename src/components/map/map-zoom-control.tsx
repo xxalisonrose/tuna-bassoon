@@ -1,4 +1,5 @@
 import {
+  forwardRef,
   useCallback,
   useEffect,
   useMemo,
@@ -35,13 +36,14 @@ function clamp(
   return Math.min(maximumValue, Math.max(minimumValue, value));
 }
 
-export function MapZoomControl({
-  maximumValue,
-  minimumValue,
-  onChange,
-  top,
-  value,
-}: MapZoomControlProps) {
+export const MapZoomControl = forwardRef<View, MapZoomControlProps>(
+  function MapZoomControl({
+    maximumValue,
+    minimumValue,
+    onChange,
+    top,
+    value,
+  }, ref) {
   const [sliderVisible, setSliderVisible] = useState(false);
   const gestureStartedAtRef = useRef(0);
   const gestureStartValueRef = useRef(value);
@@ -96,7 +98,6 @@ export function MapZoomControl({
     );
   };
 
-  /* eslint-disable react-hooks/refs, react-hooks/purity -- PanResponder stores these callbacks for touch events; they do not run during render. */
   const buttonPanResponder = useMemo(
     () =>
       PanResponder.create({
@@ -154,7 +155,6 @@ export function MapZoomControl({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [maximumValue, minimumValue, scheduleValue],
   );
-  /* eslint-enable react-hooks/refs, react-hooks/purity */
 
   const progress =
     (value - minimumValue) /
@@ -226,6 +226,7 @@ export function MapZoomControl({
       ) : null}
 
       <View
+        ref={ref}
         accessible
         accessibilityRole="button"
         accessibilityLabel="Map zoom"
@@ -241,7 +242,8 @@ export function MapZoomControl({
       </View>
     </View>
   );
-}
+  },
+);
 
 const styles = StyleSheet.create({
   container: {

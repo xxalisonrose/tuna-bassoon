@@ -477,8 +477,7 @@ export const getBadgesForAdmin = query({
       definitions
         .filter(
           (definition) =>
-            definition.classification !== 'mission' &&
-            definition.betaOnly !== true,
+            definition.classification !== 'mission',
         )
         .map(async (definition) => ({
         ...definition,

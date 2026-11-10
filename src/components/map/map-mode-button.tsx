@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { forwardRef, useEffect, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -20,15 +20,16 @@ type MapModeButtonProps = {
   top?: number;
 };
 
-export function MapModeButton({
-  bottom,
-  compassActive,
-  mode,
-  northArrowRotation,
-  onPress,
-  right = 18,
-  top,
-}: MapModeButtonProps) {
+export const MapModeButton = forwardRef<View, MapModeButtonProps>(
+  function MapModeButton({
+    bottom,
+    compassActive,
+    mode,
+    northArrowRotation,
+    onPress,
+    right = 18,
+    top,
+  }, ref) {
   const [pupilOffset] = useState(
     () => new Animated.Value(0),
   );
@@ -89,6 +90,7 @@ export function MapModeButton({
 
   return (
     <Pressable
+      ref={ref}
       accessibilityRole="button"
       accessibilityLabel={
         mode === 'look'
@@ -155,7 +157,8 @@ export function MapModeButton({
       </Animated.View>
     </Pressable>
   );
-}
+  },
+);
 
 const styles = StyleSheet.create({
   button: {

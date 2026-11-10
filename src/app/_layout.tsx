@@ -4,12 +4,14 @@ import { ConvexReactClient } from 'convex/react';
 import { ConvexProviderWithClerk } from 'convex/react-clerk';
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
 import { useColorScheme } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import AppTabs from '@/components/app-tabs';
 import { AwardCelebrationProvider } from '@/components/award-celebration-provider';
 import { CommunityContributorProvider } from '@/components/community-contributor-provider';
 import { MissionProvider } from '@/components/mission-provider';
 import { UserProfileProvider } from '@/components/user-profile-provider';
+import { RootConvexDataProvider } from '@/contexts/root-convex-data-context';
 
 const publishableKey =
   process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
@@ -37,29 +39,33 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
 
   return (
-    <ClerkProvider
-      publishableKey={publishableKey}
-      tokenCache={tokenCache}>
-      <ConvexProviderWithClerk
-        client={convex}
-        useAuth={useAuth}>
-        <ThemeProvider
-          value={
-            colorScheme === 'dark'
-              ? DarkTheme
-              : DefaultTheme
-          }>
-          <UserProfileProvider>
-            <MissionProvider>
-              <CommunityContributorProvider>
-                <AwardCelebrationProvider>
-                  <AppTabs />
-                </AwardCelebrationProvider>
-              </CommunityContributorProvider>
-            </MissionProvider>
-          </UserProfileProvider>
-        </ThemeProvider>
-      </ConvexProviderWithClerk>
-    </ClerkProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ClerkProvider
+        publishableKey={publishableKey}
+        tokenCache={tokenCache}>
+        <ConvexProviderWithClerk
+          client={convex}
+          useAuth={useAuth}>
+          <ThemeProvider
+            value={
+              colorScheme === 'dark'
+                ? DarkTheme
+                : DefaultTheme
+            }>
+            <RootConvexDataProvider>
+              <UserProfileProvider>
+                <MissionProvider>
+                  <CommunityContributorProvider>
+                    <AwardCelebrationProvider>
+                      <AppTabs />
+                    </AwardCelebrationProvider>
+                  </CommunityContributorProvider>
+                </MissionProvider>
+              </UserProfileProvider>
+            </RootConvexDataProvider>
+          </ThemeProvider>
+        </ConvexProviderWithClerk>
+      </ClerkProvider>
+    </GestureHandlerRootView>
   );
 }

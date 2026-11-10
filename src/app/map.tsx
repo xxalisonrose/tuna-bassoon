@@ -2,6 +2,7 @@ import {
   Camera,
   type CameraRef,
   Map,
+  type MapProps,
   type MapRef,
   Marker,
 } from '@maplibre/maplibre-react-native';
@@ -14,8 +15,11 @@ import * as Location from 'expo-location';
 import {
   type ErrorBoundaryProps,
   useFocusEffect,
+  useGlobalSearchParams,
+  useRouter,
 } from 'expo-router';
 import {
+  type RefObject,
   useCallback,
   useEffect,
   useMemo,
@@ -35,11 +39,17 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
+import {
+  Gesture,
+  GestureDetector,
+} from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BetaFeedbackModal } from '@/components/beta-feedback-modal';
+import { useRootCurrentUser } from '@/contexts/root-convex-data-context';
 import { LocationPopup } from '@/components/location-popup';
 import {
   AdminLocationSimulator,
@@ -51,7 +61,17 @@ import {
 } from '@/components/map/map-mode-button';
 import { LocationPinLayer } from '@/components/map/location-pin-layer';
 import { MapZoomControl } from '@/components/map/map-zoom-control';
+import {
+  getPinScrubIndex,
+  PinScrubSelector,
+  type PinScrubState,
+} from '@/components/map/pin-scrub-selector';
 import { PlayerMarker } from '@/components/map/player-marker';
+import {
+  VisualMapTutorial,
+  type VisualTutorialTargetName,
+  type VisualTutorialTargetRect,
+} from '@/components/map/visual-map-tutorial';
 import { BottomTabInset } from '@/constants/theme';
 import { useAppTabBar } from '@/contexts/app-tab-bar-context';
 import type { Place } from '@/data/places';
@@ -70,6 +90,7 @@ const LOOK_AROUND_PITCH = 55;
 const LOOK_AROUND_ZOOM = 17.7;
 const MINIMUM_MAP_ZOOM = 15;
 const MAXIMUM_MAP_ZOOM = 19.5;
+const COMPACT_PLAYER_MARKER_MAX_ZOOM = 16.25;
 const MAP_CONTROL_SIZE = 52;
 const MAP_CONTROL_GAP = 10;
 const MAP_CONTROL_STEP =
@@ -82,9 +103,15 @@ const WHEEL_ROTATION_MULTIPLIER = 1;
 const MINIMUM_WHEEL_RADIUS = 44;
 const SIMULATOR_STEP_METERS = 10;
 const EARTH_RADIUS_METERS = 6_371_000;
+const PLAYER_FOLLOW_DURATION_MS = 300;
 const RECENTER_MINIMUM_DURATION_MS = 450;
 const RECENTER_MAXIMUM_DURATION_MS = 1_600;
 const RECENTER_MILLISECONDS_PER_METER = 1.4;
+const LORCAL_MAP_LIGHT: NonNullable<MapProps['light']> = {
+  color: '#FFF4DD',
+  intensity: 0.58,
+  position: [1.5, 210, 35],
+};
 
 function getPlayerCameraPadding(viewportHeight: number) {
   return {
@@ -190,6 +217,24 @@ function getWheelAngle(
   return Math.atan2(verticalDistance, horizontalDistance);
 }
 
+function getWheelAngleFromScreenPoint(
+  point: { x: number; y: number },
+  center: { x: number; y: number },
+) {
+  const horizontalDistance = point.x - center.x;
+  const verticalDistance = point.y - center.y;
+  const radius = Math.hypot(
+    horizontalDistance,
+    verticalDistance,
+  );
+
+  if (radius < MINIMUM_WHEEL_RADIUS) {
+    return null;
+  }
+
+  return Math.atan2(verticalDistance, horizontalDistance);
+}
+
 function unwrapAngleDelta(delta: number) {
   if (delta > Math.PI) {
     return delta - Math.PI * 2;
@@ -243,13 +288,32 @@ export default function MapScreen() {
   const lookBearingRef = useRef(0);
   const wheelAngleRef = useRef<number | null>(null);
   const wheelBearingRef = useRef(0);
+  const wheelCenterRef = useRef<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const lookRotationActiveRef = useRef(false);
   const mapViewportRef = useRef({ width: 0, height: 0 });
   const pendingBearingRef = useRef<number | null>(null);
   const rotationFrameRef = useRef<number | null>(null);
+  const rotationCommandInFlightRef = useRef(false);
+  const rotationMountedRef = useRef(true);
   const recenterFrameRef = useRef<number | null>(null);
   const mapZoomRef = useRef(LOOK_AROUND_ZOOM);
   const recenteringRef = useRef(false);
+  const initialPlayerCameraPositionedRef = useRef(false);
   const betaStarterRequestRef = useRef(false);
+  const lastTourRequestRef = useRef<string | null>(null);
+  const lastBetaTourRequestRef = useRef<string | null>(null);
+  const modeTutorialTargetRef = useRef<View>(null);
+  const zoomTutorialTargetRef = useRef<View>(null);
+  const locationsTutorialTargetRef = useRef<View>(null);
+  const recenterTutorialTargetRef = useRef<View>(null);
+  const betaTutorialTargetRef = useRef<View>(null);
+  const pinScrubRequestRef = useRef(0);
+  const pinScrubStateRef = useRef<PinScrubState | null>(null);
+  const pinScrubFingerRef = useRef({ x: 0, y: 0 });
+  const ignorePinPressUntilRef = useRef(0);
   const [northArrowRotation] = useState(
     () => new Animated.Value(0),
   );
@@ -259,12 +323,37 @@ export default function MapScreen() {
     pitch: LOOK_AROUND_PITCH,
   });
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const {
+    tour: tourRequest,
+    tourBeta: betaTourRequest,
+  } = useGlobalSearchParams<{
+    tour?: string;
+    tourBeta?: string;
+  }>();
+  const router = useRouter();
   const { setHidden: setTabBarHidden } = useAppTabBar();
 
   const { isAuthenticated } = useConvexAuth();
 
   const [selectedPlace, setSelectedPlace] =
     useState<Place | null>(null);
+
+  const [pinScrubState, setPinScrubState] =
+    useState<PinScrubState | null>(null);
+
+  const [visualTutorialVisible, setVisualTutorialVisible] =
+    useState(
+      () => tourRequest !== undefined || betaTourRequest !== undefined,
+    );
+  const [visualTutorialRunId, setVisualTutorialRunId] = useState(0);
+  const [betaFeedbackTourOnly, setBetaFeedbackTourOnly] =
+    useState(() => betaTourRequest !== undefined);
+
+  const [visualTutorialTargets, setVisualTutorialTargets] =
+    useState<
+      Partial<Record<VisualTutorialTargetName, VisualTutorialTargetRect>>
+    >({});
 
   const [mapMode, setMapMode] =
     useState<MapInteractionMode>('look');
@@ -274,6 +363,10 @@ export default function MapScreen() {
 
   const [mapZoom, setMapZoom] =
     useState(LOOK_AROUND_ZOOM);
+
+  const [mapViewportHeight, setMapViewportHeight] =
+    useState(0);
+  const [mapReady, setMapReady] = useState(false);
 
   const [locationListVisible, setLocationListVisible] =
     useState(false);
@@ -345,10 +438,7 @@ export default function MapScreen() {
     isAuthenticated ? {} : 'skip',
   );
 
-  const currentUser = useQuery(
-    api.users.getCurrentUser,
-    isAuthenticated ? {} : 'skip',
-  );
+  const currentUser = useRootCurrentUser();
 
   const wishlist = useQuery(
     api.wishlist.getMyWishlist,
@@ -382,6 +472,9 @@ export default function MapScreen() {
   const userCoordinates = simulationIsActive
     ? simulatedCoordinates
     : liveCoordinates ?? betaFallbackCoordinates;
+  const cameraTrackingCoordinates = simulationIsActive
+    ? simulatedCoordinates
+    : liveCoordinates;
   const displayedLocationMessage =
     liveCoordinates === null && betaFallbackCoordinates !== null
       ? 'Private beta tutorial mode is active.'
@@ -497,7 +590,78 @@ export default function MapScreen() {
     places.length === 0;
 
   const modalContentVisible =
-    selectedPlace !== null || locationListVisible || betaFeedbackVisible;
+    selectedPlace !== null ||
+    locationListVisible ||
+    betaFeedbackVisible;
+
+  const measureVisualTutorialTargets = useCallback(() => {
+    const refs: [
+      VisualTutorialTargetName,
+      RefObject<View | null>,
+    ][] = [
+      ['mode', modeTutorialTargetRef],
+      ['zoom', zoomTutorialTargetRef],
+      ['locations', locationsTutorialTargetRef],
+      ['recenter', recenterTutorialTargetRef],
+      ['betaFeedback', betaTutorialTargetRef],
+    ];
+
+    refs.forEach(([name, ref]) => {
+      ref.current?.measureInWindow((x, y, width, height) => {
+        if (width <= 0 || height <= 0) {
+          return;
+        }
+
+        setVisualTutorialTargets((current) => ({
+          ...current,
+          [name]: { x, y, width, height },
+        }));
+      });
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!visualTutorialVisible) {
+      return;
+    }
+
+    const timer = setTimeout(measureVisualTutorialTargets, 120);
+    return () => clearTimeout(timer);
+  }, [measureVisualTutorialTargets, visualTutorialVisible]);
+
+  useEffect(() => {
+    if (
+      tourRequest === undefined ||
+      tourRequest === lastTourRequestRef.current
+    ) {
+      return;
+    }
+
+    lastTourRequestRef.current = tourRequest;
+    setSelectedPlace(null);
+    setLocationListVisible(false);
+    setBetaFeedbackVisible(false);
+    setBetaFeedbackTourOnly(false);
+    setVisualTutorialRunId((current) => current + 1);
+    setVisualTutorialVisible(true);
+  }, [tourRequest]);
+
+  useEffect(() => {
+    if (
+      betaTourRequest === undefined ||
+      betaTourRequest === lastBetaTourRequestRef.current
+    ) {
+      return;
+    }
+
+    lastBetaTourRequestRef.current = betaTourRequest;
+    setSelectedPlace(null);
+    setLocationListVisible(false);
+    setBetaFeedbackVisible(false);
+    setBetaFeedbackTourOnly(true);
+    setVisualTutorialRunId((current) => current + 1);
+    setVisualTutorialVisible(true);
+  }, [betaTourRequest]);
 
   useFocusEffect(
     useCallback(() => {
@@ -512,7 +676,6 @@ export default function MapScreen() {
   useEffect(() => {
     if (!locationsAreLoading) {
       // Query completion intentionally resets the delayed-loading notice.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLocationsTakingLong(false);
       return;
     }
@@ -575,7 +738,7 @@ export default function MapScreen() {
     mapModeRef.current = mapMode;
   }, [mapMode]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     let isMounted = true;
     let locationSubscription: Location.LocationSubscription | null = null;
 
@@ -666,36 +829,58 @@ export default function MapScreen() {
       }
     }
 
-    loadCurrentLocation();
+    void loadCurrentLocation();
 
     return () => {
       isMounted = false;
       locationSubscription?.remove();
     };
-  }, []);
+  }, []));
 
   useEffect(() => {
     if (
-      userCoordinates === null ||
-      mapModeRef.current !== 'look'
+      cameraTrackingCoordinates === null ||
+      !mapReady ||
+      mapViewportHeight <= 0
     ) {
       return;
     }
 
-    cameraRef.current?.easeTo({
-      center: userCoordinates,
+    const camera = cameraRef.current;
+
+    if (camera === null) {
+      return;
+    }
+
+    const isInitialPosition =
+      !initialPlayerCameraPositionedRef.current;
+
+    if (!isInitialPosition && mapModeRef.current !== 'look') {
+      return;
+    }
+
+    const nextView = {
+      center: cameraTrackingCoordinates,
       zoom: cameraViewRef.current.zoom,
       bearing: lookBearingRef.current,
       pitch: LOOK_AROUND_PITCH,
-      padding: getPlayerCameraPadding(
-        mapViewportRef.current.height,
-      ),
-      duration: 650,
+      padding: getPlayerCameraPadding(mapViewportHeight),
+    };
+
+    if (isInitialPosition) {
+      initialPlayerCameraPositionedRef.current = true;
+      camera.jumpTo(nextView);
+      return;
+    }
+
+    camera.easeTo({
+      ...nextView,
+      duration: PLAYER_FOLLOW_DURATION_MS,
     });
-  }, [userCoordinates]);
+  }, [cameraTrackingCoordinates, mapReady, mapViewportHeight]);
 
   const startingCenter =
-    userCoordinates ?? HARVARD_YARD;
+    cameraTrackingCoordinates ?? HARVARD_YARD;
 
   const shouldStartLookRotation = useCallback(
     (
@@ -715,8 +900,13 @@ export default function MapScreen() {
     [],
   );
 
-  const applyPendingRotation = useCallback(() => {
+  const applyPendingRotation = useCallback(function applyRotationFrame() {
     rotationFrameRef.current = null;
+
+    if (rotationCommandInFlightRef.current) {
+      return;
+    }
+
     const nextBearing = pendingBearingRef.current;
 
     if (
@@ -730,26 +920,66 @@ export default function MapScreen() {
     lookBearingRef.current = nextBearing;
     cameraViewRef.current.bearing = nextBearing;
     cameraViewRef.current.pitch = LOOK_AROUND_PITCH;
-    northArrowRotation.setValue(-nextBearing);
+    northArrowRotation.setValue(
+      -normalizeBearing(nextBearing),
+    );
 
-    cameraRef.current?.jumpTo({
-      center: userCoordinates ?? HARVARD_YARD,
-      zoom: cameraViewRef.current.zoom,
+    const camera = cameraRef.current;
+
+    if (camera === null) {
+      return;
+    }
+
+    rotationCommandInFlightRef.current = true;
+
+    const finishCameraCommand = () => {
+      rotationCommandInFlightRef.current = false;
+
+      if (
+        rotationMountedRef.current &&
+        pendingBearingRef.current !== null &&
+        rotationFrameRef.current === null &&
+        mapModeRef.current === 'look'
+      ) {
+        rotationFrameRef.current = requestAnimationFrame(
+          applyRotationFrame,
+        );
+      }
+    };
+
+    void camera.setStop({
       bearing: nextBearing,
-      pitch: LOOK_AROUND_PITCH,
-      padding: getPlayerCameraPadding(
-        mapViewportRef.current.height,
-      ),
-    });
-  }, [northArrowRotation, userCoordinates]);
+      duration: 0,
+    }).then(finishCameraCommand, finishCameraCommand);
+  }, [northArrowRotation]);
 
   const startLookRotation = useCallback((
     event: GestureResponderEvent,
   ) => {
     setCompassActive(true);
-    wheelAngleRef.current = getWheelAngle(
-      event,
-      mapViewportRef.current,
+    lookRotationActiveRef.current = true;
+
+    const {
+      pageX,
+      pageY,
+      locationX,
+      locationY,
+    } = event.nativeEvent;
+    const center = {
+      x:
+        pageX -
+        locationX +
+        mapViewportRef.current.width / 2,
+      y:
+        pageY -
+        locationY +
+        mapViewportRef.current.height / 2,
+    };
+
+    wheelCenterRef.current = center;
+    wheelAngleRef.current = getWheelAngleFromScreenPoint(
+      { x: pageX, y: pageY },
+      center,
     );
     wheelBearingRef.current =
       pendingBearingRef.current ??
@@ -767,10 +997,16 @@ export default function MapScreen() {
       return;
     }
 
-    const nextAngle = getWheelAngle(
-      event,
-      mapViewportRef.current,
-    );
+    const center = wheelCenterRef.current;
+    const nextAngle = center === null
+      ? getWheelAngle(event, mapViewportRef.current)
+      : getWheelAngleFromScreenPoint(
+          {
+            x: gestureState.moveX,
+            y: gestureState.moveY,
+          },
+          center,
+        );
 
     if (nextAngle === null) {
       wheelAngleRef.current = null;
@@ -787,6 +1023,8 @@ export default function MapScreen() {
     const angleDelta = unwrapAngleDelta(
       nextAngle - previousAngle,
     );
+    // Keep both the gesture and native camera in iOS's circular 0-360 range.
+    // This avoids an ever-growing bearing without introducing a -180/180 seam.
     wheelBearingRef.current = normalizeBearing(
       wheelBearingRef.current -
         angleDelta *
@@ -804,10 +1042,11 @@ export default function MapScreen() {
 
   const finishLookRotation = useCallback(() => {
     wheelAngleRef.current = null;
+    wheelCenterRef.current = null;
+    lookRotationActiveRef.current = false;
     setCompassActive(false);
   }, []);
 
-  /* eslint-disable react-hooks/refs -- PanResponder stores callbacks for touch events; they do not read refs during render. */
   const lookAroundPanResponder = useMemo(
     () => PanResponder.create({
       onMoveShouldSetPanResponderCapture:
@@ -825,16 +1064,20 @@ export default function MapScreen() {
       startLookRotation,
     ],
   );
-  /* eslint-enable react-hooks/refs */
+  useEffect(() => {
+    rotationMountedRef.current = true;
 
-  useEffect(() => () => {
-    if (rotationFrameRef.current !== null) {
-      cancelAnimationFrame(rotationFrameRef.current);
-    }
+    return () => {
+      rotationMountedRef.current = false;
 
-    if (recenterFrameRef.current !== null) {
-      cancelAnimationFrame(recenterFrameRef.current);
-    }
+      if (rotationFrameRef.current !== null) {
+        cancelAnimationFrame(rotationFrameRef.current);
+      }
+
+      if (recenterFrameRef.current !== null) {
+        cancelAnimationFrame(recenterFrameRef.current);
+      }
+    };
   }, []);
 
   const changeSimulationEnabled = (enabled: boolean) => {
@@ -1201,7 +1444,7 @@ export default function MapScreen() {
     );
   };
 
-  const selectPlace = (
+  const selectPlace = useCallback((
     place: Place,
     openedFromList: boolean,
   ) => {
@@ -1212,12 +1455,217 @@ export default function MapScreen() {
     AccessibilityInfo.announceForAccessibility(
       `${place.title} selected.`,
     );
-  };
+  }, []);
 
+  const selectMapPin = useCallback((place: Place) => {
+    if (Date.now() >= ignorePinPressUntilRef.current) {
+      selectPlace(place, false);
+    }
+  }, [selectPlace]);
+
+  const handleRegionIsChanging = useCallback<
+    NonNullable<MapProps['onRegionIsChanging']>
+  >((event) => {
+    // Rotation already updates these refs and the compass in the animation
+    // frame. Ignoring the matching native camera callback avoids doing the
+    // same work twice for every finger movement on Android.
+    if (lookRotationActiveRef.current) {
+      return;
+    }
+
+    const { zoom, bearing, pitch } = event.nativeEvent;
+
+    cameraViewRef.current = {
+      zoom,
+      bearing,
+      pitch,
+    };
+
+    if (Math.abs(mapZoomRef.current - zoom) > 0.01) {
+      mapZoomRef.current = zoom;
+      setMapZoom(zoom);
+    }
+
+    if (mapModeRef.current === 'look') {
+      lookBearingRef.current = bearing;
+    }
+
+    northArrowRotation.setValue(
+      -normalizeBearing(bearing),
+    );
+  }, [northArrowRotation]);
+
+  const beginPinScrub = useCallback(async (x: number, y: number) => {
+    const map = mapRef.current;
+
+    if (!map || modalContentVisible || visualTutorialVisible) {
+      return;
+    }
+
+    const requestId = pinScrubRequestRef.current + 1;
+    pinScrubRequestRef.current = requestId;
+    pinScrubFingerRef.current = { x, y };
+
+    try {
+      const projectedPlaces = await Promise.all(
+        places.map(async (place) => ({
+          place,
+          point: await map.project(place.coordinates),
+        })),
+      );
+      const nearbyPlaces = projectedPlaces
+        .map(({ place, point }) => ({
+          place,
+          distance: Math.hypot(point[0] - x, point[1] - y),
+        }))
+        .filter(({ distance }) => distance <= 54)
+        .sort((first, second) => first.distance - second.distance)
+        .slice(0, 7)
+        .map(({ place }) => place);
+
+      if (
+        pinScrubRequestRef.current !== requestId ||
+        nearbyPlaces.length === 0
+      ) {
+        return;
+      }
+
+      const currentFinger = pinScrubFingerRef.current;
+      const initialIndex = getPinScrubIndex(
+        nearbyPlaces.length,
+        x,
+        currentFinger.x,
+        windowWidth,
+      );
+      const orderedPlaces = new Array<Place>(nearbyPlaces.length);
+      orderedPlaces[initialIndex] = nearbyPlaces[0];
+      const remainingIndexes = Array.from(
+        { length: nearbyPlaces.length },
+        (_, index) => index,
+      )
+        .filter((index) => index !== initialIndex)
+        .sort(
+          (first, second) =>
+            Math.abs(first - initialIndex) -
+            Math.abs(second - initialIndex),
+        );
+
+      nearbyPlaces.slice(1).forEach((place, index) => {
+        orderedPlaces[remainingIndexes[index]] = place;
+      });
+
+      const nextState: PinScrubState = {
+        anchorX: x,
+        anchorY: y,
+        places: orderedPlaces,
+        selectedIndex: initialIndex,
+      };
+      pinScrubStateRef.current = nextState;
+      setPinScrubState(nextState);
+
+      AccessibilityInfo.announceForAccessibility(
+        nearbyPlaces.length === 1
+          ? `${nearbyPlaces[0].title}. Keep holding, then release to open.`
+          : `${nearbyPlaces.length} nearby pins. Slide to choose, then release to open.`,
+      );
+    } catch {
+      // Hold-and-slide selection simply stays closed if map projection is unavailable.
+    }
+  }, [
+    modalContentVisible,
+    places,
+    visualTutorialVisible,
+    windowWidth,
+  ]);
+
+  const updatePinScrub = useCallback((x: number, y: number) => {
+    pinScrubFingerRef.current = { x, y };
+    const current = pinScrubStateRef.current;
+
+    if (current === null) {
+      return;
+    }
+
+    const selectedIndex = getPinScrubIndex(
+      current.places.length,
+      current.anchorX,
+      x,
+      windowWidth,
+    );
+
+    if (selectedIndex === current.selectedIndex) {
+      return;
+    }
+
+    const nextState = { ...current, selectedIndex };
+    pinScrubStateRef.current = nextState;
+    setPinScrubState(nextState);
+  }, [windowWidth]);
+
+  const finishPinScrub = useCallback(() => {
+    pinScrubRequestRef.current += 1;
+    const current = pinScrubStateRef.current;
+    pinScrubStateRef.current = null;
+    setPinScrubState(null);
+
+    const selected = current?.places[current.selectedIndex];
+
+    if (selected === undefined) {
+      return;
+    }
+
+    ignorePinPressUntilRef.current = Date.now() + 650;
+    setPlaceOpenedFromList(false);
+    setSelectedPlace(selected);
+    setLocationListVisible(false);
+    AccessibilityInfo.announceForAccessibility(
+      `${selected.title} selected.`,
+    );
+  }, []);
+
+  const cancelPinScrub = useCallback(() => {
+    pinScrubRequestRef.current += 1;
+    pinScrubStateRef.current = null;
+    setPinScrubState(null);
+  }, []);
+
+  const pinScrubGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .activateAfterLongPress(360)
+        .shouldCancelWhenOutside(false)
+        .runOnJS(true)
+        .onStart((event) => {
+          void beginPinScrub(event.x, event.y);
+        })
+        .onUpdate((event) => {
+          updatePinScrub(event.x, event.y);
+        })
+        .onEnd((_event, success) => {
+          if (success) {
+            finishPinScrub();
+          }
+        })
+        .onFinalize((_event, success) => {
+          if (!success) {
+            cancelPinScrub();
+          }
+        }),
+    [
+      beginPinScrub,
+      cancelPinScrub,
+      finishPinScrub,
+      updatePinScrub,
+    ],
+  );
   const selectPlaceBehindPlayerMarker = async () => {
     const map = mapRef.current;
 
-    if (!map || !userCoordinates) {
+    if (
+      !map ||
+      !userCoordinates ||
+      Date.now() < ignorePinPressUntilRef.current
+    ) {
       return;
     }
 
@@ -1284,6 +1732,27 @@ export default function MapScreen() {
     }
   };
 
+  const closeVisualTutorial = () => {
+    setVisualTutorialVisible(false);
+  };
+
+  const startFullVisualTutorial = () => {
+    setSelectedPlace(null);
+    setLocationListVisible(false);
+    setBetaFeedbackVisible(false);
+    setBetaFeedbackTourOnly(false);
+    setVisualTutorialRunId((current) => current + 1);
+    setVisualTutorialVisible(true);
+  };
+
+  const continueVisualTutorialInPassport = () => {
+    setVisualTutorialVisible(false);
+    router.replace({
+      pathname: '/collection',
+      params: { tourPassport: String(Date.now()) },
+    });
+  };
+
   return (
     <View style={styles.container}>
       <View
@@ -1300,88 +1769,77 @@ export default function MapScreen() {
             const { width, height } =
               event.nativeEvent.layout;
             mapViewportRef.current = { width, height };
+            setMapViewportHeight((currentHeight) =>
+              currentHeight === height ? currentHeight : height,
+            );
           }}
           style={styles.map}
           {...lookAroundPanResponder.panHandlers}>
-          <Map
-            ref={mapRef}
-            accessible={false}
-            androidView="texture"
-            attribution
-            compass={false}
-            doubleTapHoldZoom={false}
-            doubleTapZoom={false}
-            dragPan={mapMode === 'explore'}
-            light={{
-              color: '#FFF4DD',
-              intensity: 0.58,
-              position: [1.5, 210, 35],
-            }}
-            mapStyle={LORCAL_MAP_STYLE}
-            onRegionIsChanging={(event) => {
-              const { zoom, bearing, pitch } =
-                event.nativeEvent;
-
-              cameraViewRef.current = {
-                zoom,
-                bearing,
-                pitch,
-              };
-
-              if (
-                Math.abs(mapZoomRef.current - zoom) > 0.01
-              ) {
-                mapZoomRef.current = zoom;
-                setMapZoom(zoom);
-              }
-
-              if (mapModeRef.current === 'look') {
-                lookBearingRef.current = bearing;
-              }
-
-              northArrowRotation.setValue(
-                -normalizeBearing(bearing),
-              );
-            }}
-            style={styles.mapCanvas}
-            touchPitch={false}
-            touchRotate={false}>
-            <Camera
-              ref={cameraRef}
-              initialViewState={{
-                center: startingCenter,
-                zoom: LOOK_AROUND_ZOOM,
-                bearing: 0,
-                pitch: LOOK_AROUND_PITCH,
-              }}
-            />
-
-            <LocationPinLayer
-              onSelect={(place) =>
-                selectPlace(place, false)
-              }
-              places={places}
-              selectedPlaceId={selectedPlace?.id}
-              visitedLocationIds={visitedLocationIds}
-            />
-
-            {userCoordinates && (
-              <Marker
-                id="current-user-location"
-                lngLat={userCoordinates}
-                anchor="bottom"
-                onPress={() => {
-                  void selectPlaceBehindPlayerMarker();
+          <GestureDetector gesture={pinScrubGesture}>
+            <View collapsable={false} style={styles.mapCanvas}>
+              <Map
+                ref={mapRef}
+              accessible={false}
+              androidView="texture"
+              attribution
+              compass={false}
+              doubleTapHoldZoom={false}
+              doubleTapZoom={false}
+              dragPan={mapMode === 'explore'}
+              light={LORCAL_MAP_LIGHT}
+              mapStyle={LORCAL_MAP_STYLE}
+              onDidFinishLoadingMap={() => setMapReady(true)}
+              onRegionIsChanging={handleRegionIsChanging}
+                style={styles.mapCanvas}
+              touchPitch={false}
+              touchRotate={false}>
+              <Camera
+                ref={cameraRef}
+                initialViewState={{
+                  center: startingCenter,
+                  zoom: LOOK_AROUND_ZOOM,
+                  bearing: 0,
+                  pitch: LOOK_AROUND_PITCH,
                 }}
-                pointerEvents="none">
-                <PlayerMarker
-                  presetId={avatarProfile?.avatarPresetId}
-                  selection={avatarProfile?.selection}
-                />
-              </Marker>
-            )}
-          </Map>
+              />
+
+              <LocationPinLayer
+                onSelect={selectMapPin}
+                places={places}
+                selectedPlaceId={
+                  pinScrubState?.places[pinScrubState.selectedIndex]?.id ??
+                  selectedPlace?.id
+                }
+                visitedLocationIds={visitedLocationIds}
+              />
+
+              {userCoordinates && (
+                <Marker
+                  id="current-user-location"
+                  lngLat={userCoordinates}
+                  anchor="bottom"
+                  onPress={() => {
+                    void selectPlaceBehindPlayerMarker();
+                  }}
+                  pointerEvents="none">
+                  <PlayerMarker
+                    compact={mapZoom <= COMPACT_PLAYER_MARKER_MAX_ZOOM}
+                    presetId={avatarProfile?.avatarPresetId}
+                    selection={avatarProfile?.selection}
+                  />
+                </Marker>
+              )}
+              </Map>
+            </View>
+          </GestureDetector>
         </View>
+
+        {pinScrubState !== null ? (
+          <PinScrubSelector
+            {...pinScrubState}
+            visitedLocationIds={visitedLocationIds}
+          />
+        ) : null}
 
         {displayedLocationMessage !== '' && !simulationIsActive && (
           <View
@@ -1476,6 +1934,7 @@ export default function MapScreen() {
 
         {!modalContentVisible ? (
           <MapModeButton
+            ref={modeTutorialTargetRef}
             compassActive={compassActive}
             mode={mapMode}
             northArrowRotation={northArrowRotation}
@@ -1487,6 +1946,7 @@ export default function MapScreen() {
 
         {!modalContentVisible ? (
           <MapZoomControl
+            ref={zoomTutorialTargetRef}
             maximumValue={MAXIMUM_MAP_ZOOM}
             minimumValue={MINIMUM_MAP_ZOOM}
             onChange={changeMapZoom}
@@ -1497,6 +1957,7 @@ export default function MapScreen() {
 
         {canSubmitBetaFeedback && !modalContentVisible ? (
           <Pressable
+            ref={betaTutorialTargetRef}
             accessibilityRole="button"
             accessibilityLabel="Send beta feedback"
             accessibilityHint="Opens a private feedback form for the Lorcal team"
@@ -1515,6 +1976,7 @@ export default function MapScreen() {
           places.length > 0 &&
           !modalContentVisible ? (
             <Pressable
+              ref={locationsTutorialTargetRef}
               accessibilityRole="button"
               accessibilityLabel="Locations list"
               accessibilityHint="Opens an accessible list of locations on the map"
@@ -1564,12 +2026,13 @@ export default function MapScreen() {
                 ? undefined
                 : insets.top +
                   12 +
-                  MAP_CONTROL_STEP * 4
+                  MAP_CONTROL_STEP * 5
             }
           />
         )}
 
         <Pressable
+          ref={recenterTutorialTargetRef}
           accessibilityRole="button"
           accessibilityLabel={
             simulationIsActive
@@ -1604,6 +2067,31 @@ export default function MapScreen() {
             ◎
           </Text>
         </Pressable>
+
+        {(isBetaBuild || __DEV__) && !modalContentVisible ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Start visual app tour"
+            accessibilityHint="Opens a guided walkthrough of Lorcal's main features"
+            onPress={startFullVisualTutorial}
+            style={({ pressed }) => [
+              styles.mapControlButton,
+              styles.tutorialControlButton,
+              {
+                top:
+                  insets.top +
+                  12 +
+                  MAP_CONTROL_STEP * 4,
+              },
+              pressed && styles.mapControlButtonPressed,
+            ]}>
+            <Text
+              accessible={false}
+              style={styles.tutorialButtonText}>
+              Tutorial
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
 
       <View
@@ -1893,6 +2381,15 @@ export default function MapScreen() {
         onClose={() => setBetaFeedbackVisible(false)}
         visible={betaFeedbackVisible}
       />
+
+      <VisualMapTutorial
+        key={visualTutorialRunId}
+        betaFeedbackOnly={betaFeedbackTourOnly}
+        onClose={closeVisualTutorial}
+        onOpenPassport={continueVisualTutorialInPassport}
+        targets={visualTutorialTargets}
+        visible={visualTutorialVisible}
+      />
     </View>
   );
 }
@@ -2001,6 +2498,16 @@ const styles = StyleSheet.create({
   mapControlButtonPressed: {
     opacity: 0.75,
     transform: [{ scale: 0.96 }],
+  },
+  tutorialControlButton: {
+    width: 104,
+    paddingHorizontal: 14,
+  },
+  tutorialButtonText: {
+    color: '#24423F',
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
   betaFeedbackButton: {
     position: 'absolute',

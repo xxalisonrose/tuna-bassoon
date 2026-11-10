@@ -1,7 +1,8 @@
 import { ConvexError, v } from 'convex/values';
 
-import { mutation, query } from './_generated/server';
 import type { MutationCtx, QueryCtx } from './_generated/server';
+import { mutation, query } from './_generated/server';
+import { isAdminSubject } from './lib/auth';
 import {
   AVATAR_ITEM_LORCOIN_PRICE,
   BADGE_LORCOIN_REWARD,
@@ -10,11 +11,13 @@ import {
   isPurchasableAvatarItemId,
 } from './lib/avatarEconomy';
 
+const BETA_PROMO_CODE = 'TRAILBETA500';
+
 async function getWalletSnapshot(
   ctx: QueryCtx | MutationCtx,
   clerkUserId: string,
 ) {
-  const [visits, badgeAwards, purchases] = await Promise.all([
+  const [visits, badgeAwards, purchases, grants] = await Promise.all([
     ctx.db
       .query('visits')
       .withIndex('by_user', (queryBuilder) =>
@@ -33,17 +36,33 @@ async function getWalletSnapshot(
         queryBuilder.eq('clerkUserId', clerkUserId),
       )
       .collect(),
+    ctx.db
+      .query('lorcoinGrants')
+      .withIndex('by_user', (queryBuilder) =>
+        queryBuilder.eq('clerkUserId', clerkUserId),
+      )
+      .collect(),
   ]);
+
   const checkInEarnings = visits.length * CHECK_IN_LORCOIN_REWARD;
   const badgeEarnings = badgeAwards.length * BADGE_LORCOIN_REWARD;
+  const adminBonus = isAdminSubject(clerkUserId) ? 10_000 : 0;
+  const promoEarnings = grants.reduce(
+    (total, grant) => total + grant.amount,
+    0,
+  );
+  const lifetimeEarned =
+    checkInEarnings + badgeEarnings + adminBonus + promoEarnings;
+
   const spent = purchases.reduce(
     (total, purchase) => total + purchase.price,
     0,
   );
 
   return {
-    balance: Math.max(0, checkInEarnings + badgeEarnings - spent),
-    lifetimeEarned: checkInEarnings + badgeEarnings,
+    balance: Math.max(0, lifetimeEarned - spent),
+    lifetimeEarned,
+    adminBonus,
     spent,
     visitCount: visits.length,
     badgeAwardCount: badgeAwards.length,
@@ -66,12 +85,45 @@ export const getMyWallet = query({
     return {
       balance: snapshot.balance,
       lifetimeEarned: snapshot.lifetimeEarned,
+      adminBonus: snapshot.adminBonus,
       spent: snapshot.spent,
       visitCount: snapshot.visitCount,
       badgeAwardCount: snapshot.badgeAwardCount,
       checkInReward: CHECK_IN_LORCOIN_REWARD,
       badgeReward: BADGE_LORCOIN_REWARD,
       clothingPrice: AVATAR_ITEM_LORCOIN_PRICE,
+    };
+  },
+});
+
+export const redeemPromoCode = mutation({
+  args: {
+    code: v.string(),
+  },
+
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (identity === null) {
+      throw new ConvexError('Sign in before redeeming a promo code.');
+    }
+
+    if (args.code.trim().toUpperCase() !== BETA_PROMO_CODE) {
+      throw new ConvexError('That promo code is not valid.');
+    }
+
+    await ctx.db.insert('lorcoinGrants', {
+      clerkUserId: identity.subject,
+      amount: 500,
+      code: BETA_PROMO_CODE,
+      redeemedAt: Date.now(),
+    });
+
+    const snapshot = await getWalletSnapshot(ctx, identity.subject);
+
+    return {
+      amount: 500,
+      balance: snapshot.balance,
     };
   },
 });
@@ -103,6 +155,7 @@ export const purchaseAvatarItem = mutation({
 
     if (existingPurchase !== null) {
       const snapshot = await getWalletSnapshot(ctx, identity.subject);
+
       return {
         status: 'already_owned' as const,
         balance: snapshot.balance,
@@ -127,6 +180,7 @@ export const purchaseAvatarItem = mutation({
         acquisition: 'legacy',
         purchasedAt: Date.now(),
       });
+
       const snapshot = await getWalletSnapshot(ctx, identity.subject);
 
       return {

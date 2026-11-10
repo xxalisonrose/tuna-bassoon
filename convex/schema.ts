@@ -189,6 +189,13 @@ export default defineSchema({
     .index('by_user', ['clerkUserId'])
     .index('by_user_and_item', ['clerkUserId', 'itemId']),
 
+  lorcoinGrants: defineTable({
+    clerkUserId: v.string(),
+    amount: v.number(),
+    code: v.string(),
+    redeemedAt: v.number(),
+  }).index('by_user', ['clerkUserId']),
+
   locationWishlist: defineTable({
     clerkUserId: v.string(),
     locationId: v.id('locations'),

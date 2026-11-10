@@ -15,6 +15,10 @@ import {
   useMutation,
   useQuery,
 } from 'convex/react';
+import {
+  useGlobalSearchParams,
+  useRouter,
+} from 'expo-router';
 import { createRoot, type Root } from 'react-dom/client';
 import {
   useEffect,
@@ -39,7 +43,9 @@ import {
   type SimulatorDirection,
 } from '@/components/map/admin-location-simulator';
 import { PlayerMarker } from '@/components/map/player-marker';
+import { VisualMapTutorial } from '@/components/map/visual-map-tutorial';
 import { Palette, Spacing } from '@/constants/theme';
+import { useRootCurrentUser } from '@/contexts/root-convex-data-context';
 import type { Place } from '@/data/places';
 import { isBetaBuild } from '@/lib/build-profile';
 import {
@@ -54,6 +60,7 @@ import { api } from '../../convex/_generated/api';
 
 const HARVARD_YARD: [number, number] = [-71.1167, 42.377];
 const DEFAULT_ZOOM = 17.7;
+const COMPACT_PLAYER_MARKER_MAX_ZOOM = 16.25;
 const DEFAULT_PITCH = 55;
 const PLAYER_MARKER_WIDTH = 116;
 const PLAYER_MARKER_HEIGHT = 116;
@@ -329,6 +336,17 @@ export default function MapWebScreen() {
   const placesRef = useRef<Place[]>([]);
   const hasCenteredOnPlayerRef = useRef(false);
   const betaStarterRequestRef = useRef(false);
+  const lastTourRequestRef = useRef<string | null>(null);
+  const lastBetaTourRequestRef = useRef<string | null>(null);
+
+  const {
+    tour: tourRequest,
+    tourBeta: betaTourRequest,
+  } = useGlobalSearchParams<{
+    tour?: string;
+    tourBeta?: string;
+  }>();
+  const router = useRouter();
 
   const { isAuthenticated } = useConvexAuth();
   const locations = useQuery(api.locations.getLocations, {
@@ -338,10 +356,7 @@ export default function MapWebScreen() {
     api.visits.getMyVisits,
     isAuthenticated ? {} : 'skip',
   );
-  const currentUser = useQuery(
-    api.users.getCurrentUser,
-    isAuthenticated ? {} : 'skip',
-  );
+  const currentUser = useRootCurrentUser();
   const avatarProfile = useQuery(
     api.users.getMyAvatarProfile,
     isAuthenticated ? {} : 'skip',
@@ -364,10 +379,17 @@ export default function MapWebScreen() {
   );
 
   const [mapReady, setMapReady] = useState(false);
+  const [compactPlayerMarker, setCompactPlayerMarker] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [locationListVisible, setLocationListVisible] = useState(false);
   const [betaFeedbackVisible, setBetaFeedbackVisible] = useState(false);
+  const [visualTutorialVisible, setVisualTutorialVisible] =
+    useState(
+      () => tourRequest !== undefined || betaTourRequest !== undefined,
+    );
+  const [betaFeedbackTourOnly, setBetaFeedbackTourOnly] =
+    useState(() => betaTourRequest !== undefined);
   const [locationSearch, setLocationSearch] = useState('');
   const [wishlistOnly, setWishlistOnly] = useState(false);
   const [selectedState, setSelectedState] = useState('');
@@ -391,6 +413,38 @@ export default function MapWebScreen() {
   const [betaFallbackReady, setBetaFallbackReady] =
     useState(false);
 
+  useEffect(() => {
+    if (
+      tourRequest === undefined ||
+      tourRequest === lastTourRequestRef.current
+    ) {
+      return;
+    }
+
+    lastTourRequestRef.current = tourRequest;
+    setSelectedPlace(null);
+    setLocationListVisible(false);
+    setBetaFeedbackVisible(false);
+    setBetaFeedbackTourOnly(false);
+    setVisualTutorialVisible(true);
+  }, [tourRequest]);
+
+  useEffect(() => {
+    if (
+      betaTourRequest === undefined ||
+      betaTourRequest === lastBetaTourRequestRef.current
+    ) {
+      return;
+    }
+
+    lastBetaTourRequestRef.current = betaTourRequest;
+    setSelectedPlace(null);
+    setLocationListVisible(false);
+    setBetaFeedbackVisible(false);
+    setBetaFeedbackTourOnly(true);
+    setVisualTutorialVisible(true);
+  }, [betaTourRequest]);
+
   const isAdmin = currentUser?.isAdmin === true;
   const canSubmitBetaFeedback =
     isAuthenticated && (isBetaBuild || isAdmin);
@@ -412,6 +466,9 @@ export default function MapWebScreen() {
   const userCoordinates = simulationIsActive
     ? simulatedCoordinates
     : liveCoordinates ?? betaFallbackCoordinates;
+  const cameraTrackingCoordinates = simulationIsActive
+    ? simulatedCoordinates
+    : liveCoordinates;
   const displayedLocationMessage =
     liveCoordinates === null && betaFallbackCoordinates !== null
       ? 'Private beta tutorial mode is active.'
@@ -645,6 +702,12 @@ export default function MapWebScreen() {
       }
     });
 
+    map.on('zoom', () => {
+      setCompactPlayerMarker(
+        map.getZoom() <= COMPACT_PLAYER_MARKER_MAX_ZOOM,
+      );
+    });
+
     return () => {
       playerMarkerRef.current?.remove();
       playerMarkerRef.current = null;
@@ -751,15 +814,19 @@ export default function MapWebScreen() {
 
     playerRootRef.current?.render(
       <PlayerMarker
+        compact={compactPlayerMarker}
         presetId={avatarProfile?.avatarPresetId}
         selection={avatarProfile?.selection}
       />,
     );
 
-    if (!hasCenteredOnPlayerRef.current) {
+    if (
+      !hasCenteredOnPlayerRef.current &&
+      cameraTrackingCoordinates !== null
+    ) {
       hasCenteredOnPlayerRef.current = true;
       map.easeTo({
-        center: userCoordinates,
+        center: cameraTrackingCoordinates,
         offset: getPlayerCameraOffset(map),
         zoom: DEFAULT_ZOOM,
         pitch: DEFAULT_PITCH,
@@ -769,6 +836,8 @@ export default function MapWebScreen() {
   }, [
     avatarProfile?.avatarPresetId,
     avatarProfile?.selection,
+    cameraTrackingCoordinates,
+    compactPlayerMarker,
     mapReady,
     userCoordinates,
   ]);
@@ -788,6 +857,14 @@ export default function MapWebScreen() {
       zoom: Math.max(map.getZoom(), 16),
       pitch: DEFAULT_PITCH,
       duration: 900,
+    });
+  };
+
+  const continueVisualTutorialInPassport = () => {
+    setVisualTutorialVisible(false);
+    router.replace({
+      pathname: '/collection',
+      params: { tourPassport: String(Date.now()) },
     });
   };
 
@@ -1013,6 +1090,19 @@ export default function MapWebScreen() {
             pressed && styles.pressed,
           ]}>
           <Text accessible={false} style={styles.mapButtonIcon}>⌖</Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Start visual app tour"
+          accessibilityHint="Opens a guided walkthrough of Lorcal's main features"
+          onPress={() => setVisualTutorialVisible(true)}
+          style={({ pressed }) => [
+            styles.mapButton,
+            styles.tutorialMapButton,
+            pressed && styles.pressed,
+          ]}>
+          <Text style={styles.tutorialMapButtonText}>Tutorial</Text>
         </Pressable>
       </View>
 
@@ -1278,6 +1368,13 @@ export default function MapWebScreen() {
         onClose={() => setBetaFeedbackVisible(false)}
         visible={betaFeedbackVisible}
       />
+
+      <VisualMapTutorial
+        betaFeedbackOnly={betaFeedbackTourOnly}
+        onClose={() => setVisualTutorialVisible(false)}
+        onOpenPassport={continueVisualTutorialInPassport}
+        visible={visualTutorialVisible}
+      />
     </View>
   );
 }
@@ -1344,6 +1441,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 130,
     right: 14,
+    alignItems: 'flex-end',
     zIndex: 10,
     gap: Spacing.three,
   },
@@ -1366,6 +1464,16 @@ const styles = StyleSheet.create({
     fontSize: 25,
     fontWeight: '800',
     lineHeight: 28,
+  },
+  tutorialMapButton: {
+    width: 104,
+    paddingHorizontal: 14,
+  },
+  tutorialMapButtonText: {
+    color: Palette.ink,
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
   betaFeedbackButton: {
     position: 'absolute',

@@ -1,8 +1,9 @@
-import { useConvexAuth, useMutation, useQuery } from 'convex/react';
+import { useConvexAuth, useMutation } from 'convex/react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { UsernameEditorModal } from '@/components/username-editor-modal';
+import { useRootCurrentUser } from '@/contexts/root-convex-data-context';
 import { api } from '../../convex/_generated/api';
 
 export function UserProfileProvider({
@@ -11,10 +12,7 @@ export function UserProfileProvider({
   children: ReactNode;
 }) {
   const { isAuthenticated } = useConvexAuth();
-  const currentUser = useQuery(
-    api.users.getCurrentUser,
-    isAuthenticated ? {} : 'skip',
-  );
+  const currentUser = useRootCurrentUser();
   const syncMyUserProfile = useMutation(api.users.syncMyUserProfile);
   const syncStartedFor = useRef<string | null>(null);
   const [usernamePromptDismissedFor, setUsernamePromptDismissedFor] =

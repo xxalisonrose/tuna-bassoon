@@ -8,11 +8,66 @@ const BETA_BADGE_TAG = 'beta-trail';
 const STARTER_DISTANCE_METERS = 34;
 
 const starterStops = [
-  { key: 'base-camp', name: 'Beta Base Camp', east: 0, north: 0 },
-  { key: 'north', name: 'Beta North Trail', east: 0, north: 1 },
-  { key: 'east', name: 'Beta East Trail', east: 1, north: 0 },
-  { key: 'south', name: 'Beta South Trail', east: 0, north: -1 },
-  { key: 'west', name: 'Beta West Trail', east: -1, north: 0 },
+  {
+    key: 'base-camp',
+    name: 'Beta Eiffel Tower',
+    description:
+      'Paris’s Eiffel Tower was completed for the 1889 Exposition Universelle. This private beta stand-in is placed near you so you can test Lorcal’s location details and check-in flow.',
+    funFact:
+      'The tower was intended to stand for only 20 years, but its usefulness as a radio antenna helped preserve it.',
+    category: 'Monuments & Public Art',
+    mapPinType: 'monuments_public_art',
+    east: 0,
+    north: 0,
+  },
+  {
+    key: 'north',
+    name: 'Beta Louvre Museum',
+    description:
+      'The Louvre began as a medieval fortress, later became a royal palace, and opened as a public museum in 1793. This private beta stand-in stays close enough for testing.',
+    funFact:
+      'Remains of the Louvre’s original fortress can still be seen beneath the museum.',
+    category: 'Historic Sites',
+    mapPinType: 'historic_sites',
+    east: 0,
+    north: 1,
+  },
+  {
+    key: 'east',
+    name: 'Beta Stonehenge',
+    description:
+      'Stonehenge is a prehistoric stone circle in southern England, built in stages over many centuries. This nearby private version demonstrates Lorcal’s mystery and lore locations.',
+    funFact:
+      'Some of Stonehenge’s bluestones were transported from Wales, more than 150 miles away.',
+    category: 'Mystery & Lore',
+    mapPinType: 'mystery_lore',
+    east: 1,
+    north: 0,
+  },
+  {
+    key: 'south',
+    name: 'Beta Shakespeare’s Globe',
+    description:
+      'Shakespeare’s Globe in London is a reconstruction of the open-air theater associated with William Shakespeare’s company. This private beta stop showcases people-centered stories.',
+    funFact:
+      'The modern Globe opened in 1997 near the site of the original theater, which was built in 1599.',
+    category: 'Noteworthy People',
+    mapPinType: 'noteworthy_people',
+    east: 0,
+    north: -1,
+  },
+  {
+    key: 'west',
+    name: 'Beta Great Barrier Reef',
+    description:
+      'Australia’s Great Barrier Reef is the world’s largest coral reef system. This private nearby stand-in demonstrates the discoveries and natural-wonders side of Lorcal.',
+    funFact:
+      'The reef system stretches for more than 1,400 miles along the coast of Queensland.',
+    category: 'Other Discoveries',
+    mapPinType: 'other_discoveries',
+    east: -1,
+    north: 0,
+  },
 ] as const;
 
 function offsetCoordinates(
@@ -47,7 +102,8 @@ async function ensureBetaBadge(ctx: MutationCtx) {
     tag: BETA_BADGE_TAG,
     key: BETA_BADGE_KEY,
     description:
-      'Checked in at all five private Beta Trail stops during testing.',
+      'Checked in at all five private Beta Landmark stops during testing.',
+    imageKey: 'beta-pathfinder',
     requiredVisits: starterStops.length,
     classification: 'general' as const,
     rule: {
@@ -99,16 +155,45 @@ export const ensureMyStarterContent = mutation({
         queryBuilder.eq('ownerClerkUserId', identity.subject),
       )
       .collect();
-    const existingKeys = new Set(
+    const existingByKey = new Map(
       existingLocations
-        .map((location) => location.betaStarterKey)
-        .filter((key): key is string => key !== undefined),
+        .filter(
+          (location) => location.betaStarterKey !== undefined,
+        )
+        .map((location) => [location.betaStarterKey!, location]),
     );
     const now = Date.now();
     let createdLocationCount = 0;
+    let updatedLocationCount = 0;
 
     for (const stop of starterStops) {
-      if (existingKeys.has(stop.key)) {
+      const existingLocation = existingByKey.get(stop.key);
+
+      if (existingLocation !== undefined) {
+        const needsUpdate =
+          existingLocation.name !== stop.name ||
+          existingLocation.description !== stop.description ||
+          existingLocation.funFact !== stop.funFact ||
+          existingLocation.badges.length !== 1 ||
+          existingLocation.badges[0] !== BETA_BADGE_TAG ||
+          existingLocation.category !== stop.category ||
+          existingLocation.mapPinType !== stop.mapPinType ||
+          existingLocation.betaOnly !== true ||
+          existingLocation.retired !== false;
+
+        if (needsUpdate) {
+          await ctx.db.patch(existingLocation._id, {
+            name: stop.name,
+            description: stop.description,
+            funFact: stop.funFact,
+            badges: [BETA_BADGE_TAG],
+            category: stop.category,
+            mapPinType: stop.mapPinType,
+            betaOnly: true,
+            retired: false,
+          });
+          updatedLocationCount += 1;
+        }
         continue;
       }
 
@@ -121,13 +206,13 @@ export const ensureMyStarterContent = mutation({
 
       await ctx.db.insert('locations', {
         name: stop.name,
-        description:
-          'A private temporary stop created for your Lorcal beta tutorial. It is visible only to your account.',
+        description: stop.description,
+        funFact: stop.funFact,
         latitude: coordinates.latitude,
         longitude: coordinates.longitude,
         badges: [BETA_BADGE_TAG],
-        category: 'Beta Testing',
-        mapPinType: 'other_discoveries',
+        category: stop.category,
+        mapPinType: stop.mapPinType,
         ownerClerkUserId: identity.subject,
         betaStarterKey: stop.key,
         betaOnly: true,
@@ -167,7 +252,8 @@ export const ensureMyStarterContent = mutation({
 
     return {
       createdLocationCount,
-      totalLocationCount: existingKeys.size + createdLocationCount,
+      updatedLocationCount,
+      totalLocationCount: existingByKey.size + createdLocationCount,
     };
   },
 });

@@ -6,7 +6,7 @@ import {
   usePathname,
   useRouter,
 } from 'expo-router';
-import { useConvexAuth, useQuery } from 'convex/react';
+import { useConvexAuth } from 'convex/react';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -15,8 +15,8 @@ import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
 import { PortalContentWidth, Spacing } from '@/constants/theme';
+import { useRootCurrentUser } from '@/contexts/root-convex-data-context';
 import { useTheme } from '@/hooks/use-theme';
-import { api } from '../../convex/_generated/api';
 
 const settingsRoute = '/settings' as Href;
 
@@ -79,10 +79,7 @@ export default function AppTabsWeb() {
     isSignedIn === true &&
     !isConvexLoading &&
     isAuthenticated;
-  const currentUser = useQuery(
-    api.users.getCurrentUser,
-    authenticationReady ? {} : 'skip',
-  );
+  const currentUser = useRootCurrentUser();
 
   const theme = useTheme();
 

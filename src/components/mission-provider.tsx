@@ -4,23 +4,21 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { MissionIntroModal } from '@/components/mission-intro-modal';
+import {
+  useRootCurrentUser,
+  useRootUnannouncedAwards,
+} from '@/contexts/root-convex-data-context';
 import { api } from '../../convex/_generated/api';
 
 export function MissionProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { isAuthenticated } = useConvexAuth();
-  const currentUser = useQuery(
-    api.users.getCurrentUser,
-    isAuthenticated ? {} : 'skip',
-  );
+  const currentUser = useRootCurrentUser();
   const missions = useQuery(
     api.missions.getMyMissions,
     isAuthenticated ? {} : 'skip',
   );
-  const unannouncedAwards = useQuery(
-    api.badges.getUnannouncedAwards,
-    isAuthenticated ? {} : 'skip',
-  );
+  const unannouncedAwards = useRootUnannouncedAwards();
   const acknowledgeMissionIntro = useMutation(
     api.missions.acknowledgeMissionIntro,
   );

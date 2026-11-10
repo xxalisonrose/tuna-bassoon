@@ -1,10 +1,14 @@
-import { useConvexAuth, useMutation, useQuery } from 'convex/react';
+import { useMutation } from 'convex/react';
 import { useState, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import {
   CommunitySubmissionInfoModal,
 } from '@/components/community-submission-info-modal';
+import {
+  useRootCurrentUser,
+  useRootUnannouncedAwards,
+} from '@/contexts/root-convex-data-context';
 import { api } from '../../convex/_generated/api';
 
 export function CommunityContributorProvider({
@@ -12,15 +16,8 @@ export function CommunityContributorProvider({
 }: {
   children: ReactNode;
 }) {
-  const { isAuthenticated } = useConvexAuth();
-  const currentUser = useQuery(
-    api.users.getCurrentUser,
-    isAuthenticated ? {} : 'skip',
-  );
-  const unannouncedAwards = useQuery(
-    api.badges.getUnannouncedAwards,
-    isAuthenticated ? {} : 'skip',
-  );
+  const currentUser = useRootCurrentUser();
+  const unannouncedAwards = useRootUnannouncedAwards();
   const acknowledgeIntro = useMutation(
     api.users.acknowledgeCommunitySubmissionIntro,
   );

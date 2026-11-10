@@ -44,6 +44,7 @@ import {
 import { useFormUndoShortcuts } from '@/hooks/use-form-undo-shortcuts';
 import { useTheme } from '@/hooks/use-theme';
 import { useUndoableState } from '@/hooks/use-undoable-state';
+import { useRootCurrentUser } from '@/contexts/root-convex-data-context';
 import {
   getCanonicalLocationMapPinType,
   getLocationMapPinTypeOption,
@@ -159,10 +160,7 @@ export default function AdminPortalScreen() {
   const { isAuthenticated, isLoading: isAuthLoading } =
     useConvexAuth();
 
-  const currentUser = useQuery(
-    api.users.getCurrentUser,
-    isAuthenticated ? {} : 'skip',
-  );
+  const currentUser = useRootCurrentUser();
 
   const communitySubmissionActivity = useQuery(
     api.adminIngest.getCommunitySubmissionActivity,

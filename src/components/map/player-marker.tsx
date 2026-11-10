@@ -1,16 +1,42 @@
+import { memo } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AvatarPreview } from '@/components/avatar-preview';
 import { Palette } from '@/constants/theme';
 import type { AvatarSelection } from '@/lib/avatar';
 
-export function PlayerMarker({
+export const PlayerMarker = memo(function PlayerMarker({
+  compact = false,
   presetId,
   selection,
 }: {
+  compact?: boolean;
   presetId?: string;
   selection?: Partial<AvatarSelection>;
 }) {
+  if (compact) {
+    return (
+      <View accessible={false} pointerEvents="none" style={styles.playerMarker}>
+        <View style={styles.compactGlow} />
+        <View style={styles.compactLocationPoint} />
+        <View style={styles.compactSaucer}>
+          <View style={styles.compactSaucerLightLeft} />
+          <View style={styles.compactSaucerLightCenter} />
+          <View style={styles.compactSaucerLightRight} />
+        </View>
+        <View style={styles.compactCockpit}>
+          <AvatarPreview
+            imageResolution="map"
+            presetId={presetId}
+            selection={selection}
+            size={66}
+            style={styles.compactAvatar}
+          />
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View accessible={false} pointerEvents="none" style={styles.playerMarker}>
       <View
@@ -63,6 +89,7 @@ export function PlayerMarker({
         </View>
       </View>
       <AvatarPreview
+        imageResolution="map"
         presetId={presetId}
         selection={selection}
         size={92}
@@ -70,7 +97,7 @@ export function PlayerMarker({
       />
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   playerMarker: {
@@ -177,5 +204,79 @@ const styles = StyleSheet.create({
     top: 4,
     backgroundColor: 'transparent',
     borderRadius: 0,
+  },
+  compactGlow: {
+    position: 'absolute',
+    bottom: 1,
+    width: 58,
+    height: 18,
+    backgroundColor: 'rgba(204, 245, 183, 0.38)',
+    borderColor: 'rgba(248, 255, 233, 0.9)',
+    borderRadius: 29,
+    borderWidth: 2,
+    shadowColor: '#DFFFC3',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 8,
+    transform: [{ scaleY: 0.52 }],
+  },
+  compactLocationPoint: {
+    position: 'absolute',
+    bottom: 0,
+    width: 8,
+    height: 8,
+    backgroundColor: Palette.bronzeDeep,
+    transform: [{ rotate: '45deg' }],
+  },
+  compactSaucer: {
+    position: 'absolute',
+    bottom: 8,
+    width: 62,
+    height: 21,
+    alignItems: 'center',
+    backgroundColor: Palette.teaGreen,
+    borderColor: Palette.bronzeDeep,
+    borderRadius: 31,
+    borderWidth: 2,
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    paddingHorizontal: 9,
+  },
+  compactCockpit: {
+    position: 'absolute',
+    bottom: 20,
+    width: 36,
+    height: 29,
+    alignItems: 'center',
+    backgroundColor: Palette.cornsilk,
+    borderColor: Palette.bronzeDeep,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 2,
+    overflow: 'hidden',
+  },
+  compactAvatar: {
+    position: 'absolute',
+    top: -1,
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+  },
+  compactSaucerLightLeft: {
+    width: 5,
+    height: 5,
+    backgroundColor: Palette.cornsilk,
+    borderRadius: 3,
+  },
+  compactSaucerLightCenter: {
+    width: 6,
+    height: 6,
+    backgroundColor: Palette.lightBronze,
+    borderRadius: 3,
+  },
+  compactSaucerLightRight: {
+    width: 5,
+    height: 5,
+    backgroundColor: Palette.cornsilk,
+    borderRadius: 3,
   },
 });

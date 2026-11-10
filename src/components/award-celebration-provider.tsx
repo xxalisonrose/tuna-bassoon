@@ -1,4 +1,4 @@
-import { useConvexAuth, useMutation, useQuery } from 'convex/react';
+import { useConvexAuth, useMutation } from 'convex/react';
 import {
   useCallback,
   useEffect,
@@ -13,6 +13,7 @@ import {
   AwardEarnedBanner,
   AwardEarnedPopup,
 } from '@/components/award-earned-popup';
+import { useRootUnannouncedAwards } from '@/contexts/root-convex-data-context';
 
 type AwardCelebrationProviderProps = {
   children: ReactNode;
@@ -24,10 +25,7 @@ export function AwardCelebrationProvider({
   const { isAuthenticated } = useConvexAuth();
   const syncMyAwards = useMutation(api.badges.syncMyAwards);
   const acknowledgeAward = useMutation(api.badges.acknowledgeAward);
-  const unannouncedAwards = useQuery(
-    api.badges.getUnannouncedAwards,
-    isAuthenticated ? {} : 'skip',
-  );
+  const unannouncedAwards = useRootUnannouncedAwards();
   const hasSynced = useRef(false);
   const [isAcknowledging, setIsAcknowledging] = useState(false);
   const [acknowledgementError, setAcknowledgementError] =

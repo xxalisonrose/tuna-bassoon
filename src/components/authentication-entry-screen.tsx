@@ -104,7 +104,7 @@ export default function AuthenticationEntryScreen() {
               accessible={false}
               importantForAccessibility="no"
               style={styles.brandMark}>
-              <ThemedText style={styles.brandMarkText}>TB</ThemedText>
+              <ThemedText style={styles.brandMarkText}>L</ThemedText>
             </View>
 
             <ThemedText
