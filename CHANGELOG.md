@@ -2,6 +2,7 @@
 
 ## Beta 5 — November 16, 2026
 
+- Align Expo SDK 57 packages with the current recommended patch versions and register the splash-screen plugin for native builds.
 - Request navigation-grade foreground location updates about every meter and second, then ease the map between updates so walking feels more accurate and less jerky.
 - Let explorers preview a complete outfit and buy only the missing pieces in one confirmed Lorcoin purchase.
 - Keep the Android keyboard from covering the beta feedback field and scroll the active field into view while typing.
