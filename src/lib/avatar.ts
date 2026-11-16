@@ -1,51 +1,49 @@
-export const avatarPresetIds = [
-  'explorer',
-  'trail_basics',
-  'cozy_winter',
-  'classic_cowboy',
-  'rodeo_cowboy',
-  'pink_princess',
-] as const;
+export const avatarPresetIds = ['standard', 'pretty_pretty_princess'] as const;
 
 export type AvatarPresetId = (typeof avatarPresetIds)[number];
 
 export const avatarTopIds = [
-  'trail_tank',
-  'explorer_field',
-  'new_explorer_tee',
-  'winter_polka_sweater',
-  'cowboy_sheriff_shirt',
-  'princess_puff_bodice',
+  'white_tee',
+  'brown_tee',
+  'color_splash_tee',
+  'purple_tee',
+  'crimson_tee',
+  'pink_tee',
+  'black_tee',
+  'fire_tee',
+  'noah_kahan_tee',
+  'beta_tester_tee',
+  'pink_gown_top',
 ] as const;
 export const avatarBottomIds = [
-  'trail_shorts',
-  'explorer_cargo',
-  'winter_charcoal_pants',
-  'cowboy_western_pants',
-  'cowboy_western_shorts',
-  'princess_ballgown_skirt',
+  'classic_pants',
+  'blue_pants',
+  'grey_pants',
+  'brown_pants',
+  'purple_pants',
+  'pink_gown_bottom',
 ] as const;
 export const avatarShoesIds = [
   'bare_hooves',
-  'explorer_boots',
-  'winter_snow_boots',
-  'cowboy_brown_boots',
-  'cowboy_red_boots',
+  'scout_boots',
+  'pink_heels',
 ] as const;
-export const avatarNeckIds = [
-  'none',
-  'rust_neckerchief',
-  'winter_cream_scarf',
-  'cowboy_red_bandana',
-] as const;
-export const avatarFaceIds = ['none', 'explorer_goggles'] as const;
+export const avatarNeckIds = ['none'] as const;
+export const avatarFaceIds = ['none', 'goggles', 'glasses'] as const;
 export const avatarHeadwearIds = [
   'none',
-  'winter_knit_beanie',
-  'cowboy_sheriff_hat',
+  'beanie',
+  'beanie_blue',
+  'beanie_green',
+  'beanie_pink',
+  'beanie_purple',
+  'beanie_red',
+  'cowboy_hat',
+  'cowboy_hat_brown',
+  'cowboy_hat_red',
   'princess_crown',
 ] as const;
-export const avatarHandheldIds = ['none', 'princess_star_wand'] as const;
+export const avatarHandheldIds = ['none', 'heart_wand'] as const;
 
 export type AvatarTopId = (typeof avatarTopIds)[number];
 export type AvatarBottomId = (typeof avatarBottomIds)[number];
@@ -66,7 +64,13 @@ export type AvatarSelection = {
 };
 
 export type AvatarItemSlot =
-  'top' | 'bottom' | 'shoes' | 'neck' | 'face' | 'headwear' | 'handheld';
+  | 'top'
+  | 'bottom'
+  | 'shoes'
+  | 'neck'
+  | 'face'
+  | 'headwear'
+  | 'handheld';
 
 export type AvatarCategoryId = 'outfits' | AvatarItemSlot;
 
@@ -87,119 +91,46 @@ export type AvatarItemOption = {
   unlockMessage?: string;
 };
 
-export const trailBasicsSelection: AvatarSelection = {
-  topId: 'trail_tank',
-  bottomId: 'trail_shorts',
-  shoesId: 'bare_hooves',
+export const standardAvatarSelection: AvatarSelection = {
+  topId: 'white_tee',
+  bottomId: 'blue_pants',
+  shoesId: 'scout_boots',
   neckId: 'none',
   faceId: 'none',
   headwearId: 'none',
   handheldId: 'none',
 };
 
-export const explorerSelection: AvatarSelection = {
-  topId: 'explorer_field',
-  bottomId: 'explorer_cargo',
-  shoesId: 'explorer_boots',
-  neckId: 'rust_neckerchief',
-  faceId: 'explorer_goggles',
-  headwearId: 'none',
-  handheldId: 'none',
-};
-
-export const cozyWinterSelection: AvatarSelection = {
-  topId: 'winter_polka_sweater',
-  bottomId: 'winter_charcoal_pants',
-  shoesId: 'winter_snow_boots',
-  neckId: 'winter_cream_scarf',
-  faceId: 'none',
-  headwearId: 'winter_knit_beanie',
-  handheldId: 'none',
-};
-
-export const classicCowboySelection: AvatarSelection = {
-  topId: 'cowboy_sheriff_shirt',
-  bottomId: 'cowboy_western_pants',
-  shoesId: 'cowboy_brown_boots',
-  neckId: 'cowboy_red_bandana',
-  faceId: 'none',
-  headwearId: 'cowboy_sheriff_hat',
-  handheldId: 'none',
-};
-
-export const rodeoCowboySelection: AvatarSelection = {
-  topId: 'cowboy_sheriff_shirt',
-  bottomId: 'cowboy_western_shorts',
-  shoesId: 'cowboy_red_boots',
-  neckId: 'cowboy_red_bandana',
-  faceId: 'none',
-  headwearId: 'cowboy_sheriff_hat',
-  handheldId: 'none',
-};
-
-export const pinkPrincessSelection: AvatarSelection = {
-  topId: 'princess_puff_bodice',
-  bottomId: 'princess_ballgown_skirt',
-  shoesId: 'bare_hooves',
+export const prettyPrettyPrincessSelection: AvatarSelection = {
+  topId: 'pink_gown_top',
+  bottomId: 'pink_gown_bottom',
+  shoesId: 'pink_heels',
   neckId: 'none',
   faceId: 'none',
   headwearId: 'princess_crown',
-  handheldId: 'princess_star_wand',
+  handheldId: 'heart_wand',
 };
 
-export const defaultAvatarPresetId: AvatarPresetId = 'explorer';
-export const defaultAvatarSelection = explorerSelection;
+// Retain the export name used by the editor while the old themed presets are removed.
+export const trailBasicsSelection = standardAvatarSelection;
+export const defaultAvatarPresetId: AvatarPresetId = 'standard';
+export const defaultAvatarSelection = standardAvatarSelection;
 
 export const avatarPresets: readonly AvatarPreset[] = [
   {
-    id: 'explorer',
-    name: 'Traditional Explorer',
-    description:
-      'Field shirt, utility vest, cargo shorts, boots, neckerchief, and goggles.',
+    id: 'standard',
+    name: 'Standard',
+    description: 'White tee, blue pants, and Scout’s boots.',
+    accessibilityLabel: 'Scout wearing a white tee, blue pants, and boots.',
+    selection: standardAvatarSelection,
+  },
+  {
+    id: 'pretty_pretty_princess',
+    name: 'Pretty Pretty Princess',
+    description: 'Pink lace gown, crown, heels, and heart wand.',
     accessibilityLabel:
-      'Cow avatar wearing the complete traditional explorer outfit.',
-    selection: explorerSelection,
-  },
-  {
-    id: 'trail_basics',
-    name: 'Trail Basics',
-    description:
-      'A cream trail tank, neutral shorts, bare hooves, and no accessories.',
-    accessibilityLabel:
-      'Cow avatar wearing a cream trail tank and neutral shorts.',
-    selection: trailBasicsSelection,
-  },
-  {
-    id: 'cozy_winter',
-    name: 'Cozy Winter',
-    description:
-      'Polka-dot sweater, charcoal pants, snow boots, cream scarf, and a knit beanie.',
-    accessibilityLabel: 'Cow avatar wearing the complete cozy winter outfit.',
-    selection: cozyWinterSelection,
-  },
-  {
-    id: 'classic_cowboy',
-    name: 'Classic Cowboy',
-    description:
-      'Sheriff shirt and vest, long western pants, brown boots, red bandana, and sheriff hat.',
-    accessibilityLabel: 'Cow avatar wearing the classic cowboy outfit.',
-    selection: classicCowboySelection,
-  },
-  {
-    id: 'rodeo_cowboy',
-    name: 'Rodeo Cowboy',
-    description:
-      'Sheriff shirt and vest, western shorts, red boots, red bandana, and sheriff hat.',
-    accessibilityLabel: 'Cow avatar wearing the rodeo cowboy outfit.',
-    selection: rodeoCowboySelection,
-  },
-  {
-    id: 'pink_princess',
-    name: 'Pink Princess',
-    description:
-      'Sparkling pink bodice and ball gown, jeweled crown, and star wand.',
-    accessibilityLabel: 'Cow avatar wearing the pink princess outfit.',
-    selection: pinkPrincessSelection,
+      'Scout wearing a pink lace princess gown, crown, heels, and carrying a heart wand.',
+    selection: prettyPrettyPrincessSelection,
   },
 ] as const;
 
@@ -207,14 +138,13 @@ export const avatarCategories: readonly {
   id: AvatarCategoryId;
   label: string;
 }[] = [
-  { id: 'top', label: 'Tops' },
-  { id: 'bottom', label: 'Bottoms' },
-  { id: 'shoes', label: 'Shoes' },
-  { id: 'neck', label: 'Neck' },
-  { id: 'face', label: 'Face' },
-  { id: 'headwear', label: 'Headwear' },
-  { id: 'handheld', label: 'Handheld' },
   { id: 'outfits', label: 'Complete Looks' },
+  { id: 'top', label: 'Tops' },
+  { id: 'bottom', label: 'Pants' },
+  { id: 'shoes', label: 'Shoes' },
+  { id: 'face', label: 'Glasses & Goggles' },
+  { id: 'headwear', label: 'Hats & Crowns' },
+  { id: 'handheld', label: 'Accessories' },
 ];
 
 export const avatarItemLorcoinPrice = 100;
@@ -225,74 +155,105 @@ export const avatarItemOptions: Record<
 > = {
   top: [
     {
-      id: 'trail_tank',
-      name: 'Trail Tank',
-      description: 'A simple cream top for casual exploring.',
+      id: 'white_tee',
+      name: 'White Tee',
+      description: 'Scout’s standard white shirt.',
     },
     {
-      id: 'explorer_field',
-      name: 'Explorer Field Set',
-      description: 'A rolled-sleeve field shirt with an olive utility vest.',
+      id: 'brown_tee',
+      name: 'Brown Tee',
+      description: 'A warm brown everyday shirt.',
+      price: avatarItemLorcoinPrice,
     },
     {
-      id: 'new_explorer_tee',
-      name: 'New Explorer Shirt',
-      description: 'A cow-print shirt awarded for completing the tutorial.',
+      id: 'color_splash_tee',
+      name: 'Color Splash Tee',
+      description: 'A colorful everyday shirt.',
+    },
+    {
+      id: 'beta_tester_tee',
+      name: 'Beta Tester Tee',
+      description: 'A special shirt awarded for completing the tutorial.',
       unlockMissionKey: 'welcome-to-lorcal',
       unlockMessage: 'Complete the Welcome to Lorcal mission.',
     },
     {
-      id: 'winter_polka_sweater',
-      name: 'Polka-Dot Sweater',
-      description: 'A warm mustard sweater with cheerful orange dots.',
+      id: 'purple_tee',
+      name: 'Purple Tee',
+      description: 'A rich purple shirt.',
       price: avatarItemLorcoinPrice,
     },
     {
-      id: 'cowboy_sheriff_shirt',
-      name: 'Sheriff Shirt & Vest',
-      description: 'A blue western shirt with a fringed brown sheriff vest.',
+      id: 'crimson_tee',
+      name: 'Crimson Tee',
+      description: 'A bold crimson shirt.',
       price: avatarItemLorcoinPrice,
     },
     {
-      id: 'princess_puff_bodice',
-      name: 'Princess Bodice',
-      description: 'A sparkling pink bodice with soft puff sleeves.',
+      id: 'pink_tee',
+      name: 'Pink Tee',
+      description: 'A bright pink shirt.',
+      price: avatarItemLorcoinPrice,
+    },
+    {
+      id: 'black_tee',
+      name: 'Black Tee',
+      description: 'A classic black shirt.',
+      price: avatarItemLorcoinPrice,
+    },
+    {
+      id: 'fire_tee',
+      name: 'Fire Tee',
+      description: 'A graphic shirt ready for fitting in the clothing editor.',
+      price: avatarItemLorcoinPrice,
+    },
+    {
+      id: 'noah_kahan_tee',
+      name: 'Noah Kahan Tee',
+      description: 'A music-inspired graphic shirt.',
+      price: avatarItemLorcoinPrice,
+    },
+    {
+      id: 'pink_gown_top',
+      name: 'Princess Gown Top',
+      description: 'The lace bodice and puff sleeves for the princess gown.',
       price: avatarItemLorcoinPrice,
     },
   ],
   bottom: [
     {
-      id: 'trail_shorts',
-      name: 'Trail Shorts',
-      description: 'Comfortable neutral drawstring shorts.',
-    },
-    {
-      id: 'explorer_cargo',
-      name: 'Explorer Cargo Shorts',
-      description: 'Tan belted shorts with roomy field pockets.',
-    },
-    {
-      id: 'winter_charcoal_pants',
-      name: 'Winter Pants',
-      description: 'Relaxed charcoal pants with softly rolled cuffs.',
+      id: 'classic_pants',
+      name: 'Classic Pants',
+      description: 'Scout’s simple everyday pants.',
       price: avatarItemLorcoinPrice,
     },
     {
-      id: 'cowboy_western_pants',
-      name: 'Western Pants',
-      description: 'Long tan western pants with a star-buckle belt.',
+      id: 'blue_pants',
+      name: 'Blue Pants',
+      description: 'Scout’s standard blue pants.',
+    },
+    {
+      id: 'grey_pants',
+      name: 'Grey Pants',
+      description: 'Neutral grey pants.',
       price: avatarItemLorcoinPrice,
     },
     {
-      id: 'cowboy_western_shorts',
-      name: 'Western Shorts',
-      description: 'Tan western shorts with a star-buckle belt.',
+      id: 'brown_pants',
+      name: 'Brown Pants',
+      description: 'Earthy brown pants.',
       price: avatarItemLorcoinPrice,
     },
     {
-      id: 'princess_ballgown_skirt',
-      name: 'Princess Ball Gown',
-      description: 'A full sparkling pink skirt with layered petals.',
+      id: 'purple_pants',
+      name: 'Purple Pants',
+      description: 'Bright purple pants.',
+      price: avatarItemLorcoinPrice,
+    },
+    {
+      id: 'pink_gown_bottom',
+      name: 'Princess Gown Skirt',
+      description: 'The sweeping pink lace skirt for the princess gown.',
       price: avatarItemLorcoinPrice,
     },
   ],
@@ -300,29 +261,17 @@ export const avatarItemOptions: Record<
     {
       id: 'bare_hooves',
       name: 'Bare Hooves',
-      description: 'The natural choice for a quick walk around the Yard.',
+      description: 'No shoes selected.',
     },
     {
-      id: 'explorer_boots',
-      name: 'Explorer Boots',
-      description: 'Brown lace-up walking boots with warm sock cuffs.',
+      id: 'scout_boots',
+      name: 'Scout’s Boots',
+      description: 'Scout’s standard adventure boots.',
     },
     {
-      id: 'winter_snow_boots',
-      name: 'Snow Boots',
-      description: 'Fleece-lined boots with sturdy weather-ready soles.',
-      price: avatarItemLorcoinPrice,
-    },
-    {
-      id: 'cowboy_brown_boots',
-      name: 'Brown Cowboy Boots',
-      description: 'Classic brown leather boots with western stitching.',
-      price: avatarItemLorcoinPrice,
-    },
-    {
-      id: 'cowboy_red_boots',
-      name: 'Red Sheriff Boots',
-      description: 'Bright red cowboy boots with gold sheriff stars.',
+      id: 'pink_heels',
+      name: 'Pink Heels',
+      description: 'Pink princess heels drawn to fit Scout.',
       price: avatarItemLorcoinPrice,
     },
   ],
@@ -330,60 +279,91 @@ export const avatarItemOptions: Record<
     {
       id: 'none',
       name: 'No Neck Accessory',
-      description: 'Keep the neckline simple.',
-    },
-    {
-      id: 'rust_neckerchief',
-      name: 'Rust Neckerchief',
-      description: 'A warm rust-red explorer scarf.',
-    },
-    {
-      id: 'winter_cream_scarf',
-      name: 'Cream Knit Scarf',
-      description: 'A chunky braided scarf for cold-weather exploring.',
-      price: avatarItemLorcoinPrice,
-    },
-    {
-      id: 'cowboy_red_bandana',
-      name: 'Red Bandana',
-      description: 'A bright red paisley bandana tied for the trail.',
-      price: avatarItemLorcoinPrice,
+      description: 'No neck accessory selected.',
     },
   ],
   face: [
     {
       id: 'none',
-      name: 'No Face Accessory',
-      description: 'Keep the face clear.',
+      name: 'No Glasses',
+      description: 'Keep Scout’s face clear.',
     },
     {
-      id: 'explorer_goggles',
-      name: 'Explorer Goggles',
-      description: 'Round bronze goggles worn above the forehead.',
+      id: 'goggles',
+      name: 'Goggles',
+      description: 'Adventure goggles drawn to align with Scout.',
+    },
+    {
+      id: 'glasses',
+      name: 'Glasses',
+      description: 'Everyday glasses drawn to align with Scout.',
+      price: avatarItemLorcoinPrice,
     },
   ],
   headwear: [
     {
       id: 'none',
-      name: 'No Headwear',
-      description: 'Keep the horns and hair uncovered.',
+      name: 'No Hat',
+      description: 'Keep Scout’s horns and hair uncovered.',
     },
     {
-      id: 'winter_knit_beanie',
-      name: 'Winter Knit Beanie',
-      description: 'A teal cable-knit hat with a fluffy pom-pom.',
+      id: 'beanie',
+      name: 'Beanie',
+      description: 'Scout’s original beanie.',
       price: avatarItemLorcoinPrice,
     },
     {
-      id: 'cowboy_sheriff_hat',
-      name: 'Sheriff Hat',
-      description: 'A brown cowboy hat finished with a gold sheriff star.',
+      id: 'beanie_blue',
+      name: 'Blue Beanie',
+      description: 'A bright blue beanie.',
+      price: avatarItemLorcoinPrice,
+    },
+    {
+      id: 'beanie_green',
+      name: 'Green Beanie',
+      description: 'A bright green beanie.',
+      price: avatarItemLorcoinPrice,
+    },
+    {
+      id: 'beanie_pink',
+      name: 'Pink Beanie',
+      description: 'A bright pink beanie.',
+      price: avatarItemLorcoinPrice,
+    },
+    {
+      id: 'beanie_purple',
+      name: 'Purple Beanie',
+      description: 'A bright purple beanie.',
+      price: avatarItemLorcoinPrice,
+    },
+    {
+      id: 'beanie_red',
+      name: 'Red Beanie',
+      description: 'A bright red beanie.',
+      price: avatarItemLorcoinPrice,
+    },
+    {
+      id: 'cowboy_hat',
+      name: 'Cowboy Hat',
+      description: 'A classic cowboy hat.',
+      price: avatarItemLorcoinPrice,
+    },
+    {
+      id: 'cowboy_hat_brown',
+      name: 'Brown Cowboy Hat',
+      description: 'A warm brown cowboy hat.',
+      price: avatarItemLorcoinPrice,
+    },
+    {
+      id: 'cowboy_hat_red',
+      name: 'Red Cowboy Hat',
+      description: 'A bold red cowboy hat.',
       price: avatarItemLorcoinPrice,
     },
     {
       id: 'princess_crown',
       name: 'Princess Crown',
-      description: 'A bright gold crown set with sparkling pink jewels.',
+      description: 'A golden crown topped with a red heart.',
       price: avatarItemLorcoinPrice,
     },
   ],
@@ -391,12 +371,12 @@ export const avatarItemOptions: Record<
     {
       id: 'none',
       name: 'No Handheld Item',
-      description: 'Keep both hooves free for exploring.',
+      description: 'No handheld item selected.',
     },
     {
-      id: 'princess_star_wand',
-      name: 'Star Wand',
-      description: 'A magical pink wand topped with a shining star.',
+      id: 'heart_wand',
+      name: 'Heart Wand',
+      description: 'A heart-tipped wand for the princess look.',
       price: avatarItemLorcoinPrice,
     },
   ],
@@ -459,7 +439,7 @@ export function normalizeAvatarSelection(
       fallback.bottomId,
     ),
     shoesId: normalizeValue(value?.shoesId, avatarShoesIds, fallback.shoesId),
-    neckId: normalizeValue(value?.neckId, avatarNeckIds, fallback.neckId),
+    neckId: 'none',
     faceId: normalizeValue(value?.faceId, avatarFaceIds, fallback.faceId),
     headwearId: normalizeValue(
       value?.headwearId,
@@ -496,10 +476,7 @@ export function applyAvatarItem(
         shoesId: normalizeValue(itemId, avatarShoesIds, selection.shoesId),
       };
     case 'neck':
-      return {
-        ...selection,
-        neckId: normalizeValue(itemId, avatarNeckIds, selection.neckId),
-      };
+      return { ...selection, neckId: 'none' };
     case 'face':
       return {
         ...selection,
@@ -551,11 +528,11 @@ export function getAvatarSlotValue(
 export function getMatchingAvatarPresetId(
   selection: AvatarSelection,
 ): AvatarPresetId | 'custom' {
-  const match = avatarPresets.find((preset) =>
+  const matchingPreset = avatarPresets.find((preset) =>
     Object.entries(preset.selection).every(
       ([key, value]) => selection[key as keyof AvatarSelection] === value,
     ),
   );
 
-  return match?.id ?? 'custom';
+  return matchingPreset?.id ?? 'custom';
 }

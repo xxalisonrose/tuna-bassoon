@@ -67,6 +67,27 @@ type WardrobePreview = {
   price: number;
 };
 
+type OutfitPurchasePreview = {
+  outfitId: string;
+  outfitName: string;
+  selection: AvatarSelection;
+  missingItemIds: string[];
+  missingItemNames: string[];
+  price: number;
+};
+
+function getAvatarItemName(itemId: string) {
+  for (const options of Object.values(avatarItemOptions)) {
+    const item = options.find((option) => option.id === itemId);
+
+    if (item !== undefined) {
+      return item.name;
+    }
+  }
+
+  return itemId;
+}
+
 export default function CustomizeAvatarScreen() {
   const router = useRouter();
   const theme = useTheme();
@@ -83,6 +104,7 @@ export default function CustomizeAvatarScreen() {
   );
   const saveMyAvatarProfile = useMutation(api.users.saveMyAvatarProfile);
   const purchaseAvatarItem = useMutation(api.lorcoins.purchaseAvatarItem);
+  const purchaseAvatarItems = useMutation(api.lorcoins.purchaseAvatarItems);
   const [draftSelection, setDraftSelection] = useState<AvatarSelection | null>(
     null,
   );
@@ -90,8 +112,13 @@ export default function CustomizeAvatarScreen() {
   const [saving, setSaving] = useState(false);
   const [previewPurchase, setPreviewPurchase] =
     useState<WardrobePreview | null>(null);
+  const [previewOutfitPurchase, setPreviewOutfitPurchase] =
+    useState<OutfitPurchasePreview | null>(null);
   const [confirmingPurchase, setConfirmingPurchase] = useState(false);
   const [purchasingItemId, setPurchasingItemId] = useState<string | null>(null);
+  const [purchasingOutfitId, setPurchasingOutfitId] = useState<string | null>(
+    null,
+  );
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -100,13 +127,15 @@ export default function CustomizeAvatarScreen() {
     avatarProfile?.avatarPresetId,
   );
   const editableSelection = draftSelection ?? savedSelection;
-  const activeSelection = previewPurchase
-    ? applyAvatarItem(
-        editableSelection,
-        previewPurchase.slot,
-        previewPurchase.itemId,
-      )
-    : editableSelection;
+  const activeSelection = previewOutfitPurchase
+    ? previewOutfitPurchase.selection
+    : previewPurchase
+      ? applyAvatarItem(
+          editableSelection,
+          previewPurchase.slot,
+          previewPurchase.itemId,
+        )
+      : editableSelection;
   const matchingPresetId = getMatchingAvatarPresetId(activeSelection);
   const hasUnsavedChanges = !selectionsMatch(
     editableSelection,
@@ -127,6 +156,7 @@ export default function CustomizeAvatarScreen() {
   const updateSelection = (selection: AvatarSelection) => {
     setDraftSelection(selection);
     setPreviewPurchase(null);
+    setPreviewOutfitPurchase(null);
     setConfirmingPurchase(false);
     setStatusMessage(null);
     setErrorMessage(null);
@@ -142,6 +172,7 @@ export default function CustomizeAvatarScreen() {
 
     setStatusMessage(null);
     setErrorMessage(null);
+    setPreviewOutfitPurchase(null);
 
     if (owned) {
       updateSelection(applyAvatarItem(editableSelection, slot, itemId));
@@ -150,6 +181,43 @@ export default function CustomizeAvatarScreen() {
 
     setPreviewPurchase({ itemId, itemName, price, slot });
     setConfirmingPurchase(false);
+  };
+
+  const previewOrChooseOutfit = (
+    outfitId: string,
+    outfitName: string,
+    selection: AvatarSelection,
+  ) => {
+    const missingItemIds = Array.from(
+      new Set(
+        Object.values(selection).filter(
+          (itemId) =>
+            getAvatarItemPrice(itemId) > 0 &&
+            !purchasedAvatarItemIds.has(itemId),
+        ),
+      ),
+    );
+
+    if (missingItemIds.length === 0) {
+      updateSelection({ ...selection });
+      return;
+    }
+
+    setPreviewPurchase(null);
+    setPreviewOutfitPurchase({
+      outfitId,
+      outfitName,
+      selection: { ...selection },
+      missingItemIds,
+      missingItemNames: missingItemIds.map(getAvatarItemName),
+      price: missingItemIds.reduce(
+        (total, itemId) => total + getAvatarItemPrice(itemId),
+        0,
+      ),
+    });
+    setConfirmingPurchase(false);
+    setStatusMessage(null);
+    setErrorMessage(null);
   };
 
   const openPurchaseConfirmation = () => {
@@ -200,6 +268,63 @@ export default function CustomizeAvatarScreen() {
       setErrorMessage(getErrorMessage(error));
     } finally {
       setPurchasingItemId(null);
+    }
+  };
+
+  const openOutfitPurchaseConfirmation = () => {
+    if (
+      previewOutfitPurchase === null ||
+      wallet === undefined ||
+      wallet === null
+    ) {
+      return;
+    }
+
+    if (wallet.balance < previewOutfitPurchase.price) {
+      setErrorMessage(
+        `You need ${previewOutfitPurchase.price - wallet.balance} more Lorcoins to complete ${previewOutfitPurchase.outfitName}.`,
+      );
+      return;
+    }
+
+    setErrorMessage(null);
+    setConfirmingPurchase(true);
+  };
+
+  const confirmOutfitPurchase = async () => {
+    if (previewOutfitPurchase === null) {
+      return;
+    }
+
+    const purchase = previewOutfitPurchase;
+    setPurchasingOutfitId(purchase.outfitId);
+    setStatusMessage(null);
+    setErrorMessage(null);
+
+    try {
+      const result = await purchaseAvatarItems({
+        itemIds: purchase.missingItemIds,
+      });
+
+      if (result.status === 'insufficient_funds') {
+        setConfirmingPurchase(false);
+        setErrorMessage(
+          `You need ${result.needed} more Lorcoins to complete ${purchase.outfitName}.`,
+        );
+        return;
+      }
+
+      setDraftSelection({ ...purchase.selection });
+      setPreviewOutfitPurchase(null);
+      setConfirmingPurchase(false);
+      setStatusMessage(
+        `${purchase.outfitName} is complete. Choose Save Avatar to wear it on the map.`,
+      );
+    } catch (error) {
+      setConfirmingPurchase(false);
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setPurchasingOutfitId(null);
     }
   };
 
@@ -319,8 +444,10 @@ export default function CustomizeAvatarScreen() {
                     ?.name}
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              {previewPurchase
-                ? `Previewing ${previewPurchase.itemName}`
+              {previewOutfitPurchase
+                ? `Previewing ${previewOutfitPurchase.outfitName}`
+                : previewPurchase
+                  ? `Previewing ${previewPurchase.itemName}`
                 : hasUnsavedChanges
                   ? 'Unsaved Changes'
                   : 'Saved Look'}
@@ -412,6 +539,95 @@ export default function CustomizeAvatarScreen() {
             </ThemedView>
           ) : null}
 
+          {previewOutfitPurchase ? (
+            <ThemedView
+              type="backgroundElement"
+              style={styles.purchasePreviewCard}
+            >
+              <ThemedText accessibilityRole="header" type="subtitle">
+                Complete {previewOutfitPurchase.outfitName}
+              </ThemedText>
+              <ThemedText themeColor="textSecondary">
+                You already own part of this look. Buy the remaining{' '}
+                {previewOutfitPurchase.missingItemIds.length}{' '}
+                {previewOutfitPurchase.missingItemIds.length === 1
+                  ? 'piece'
+                  : 'pieces'}
+                : {previewOutfitPurchase.missingItemNames.join(', ')}.
+              </ThemedText>
+              <View style={styles.purchaseDetailsRow}>
+                <View style={styles.coinAmountRow}>
+                  <LorcoinIcon />
+                  <ThemedText type="smallBold">
+                    {previewOutfitPurchase.price} Lorcoins
+                  </ThemedText>
+                </View>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Balance: {wallet?.balance ?? 0}
+                </ThemedText>
+              </View>
+              {wallet !== undefined &&
+              wallet !== null &&
+              wallet.balance < previewOutfitPurchase.price ? (
+                <ThemedText
+                  accessibilityLiveRegion="polite"
+                  style={styles.errorMessage}
+                >
+                  You need {previewOutfitPurchase.price - wallet.balance} more
+                  Lorcoins to complete this outfit.
+                </ThemedText>
+              ) : null}
+              <View style={styles.purchaseActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{
+                    disabled:
+                      wallet === undefined ||
+                      wallet === null ||
+                      wallet.balance < previewOutfitPurchase.price,
+                  }}
+                  disabled={
+                    wallet === undefined ||
+                    wallet === null ||
+                    wallet.balance < previewOutfitPurchase.price
+                  }
+                  onPress={openOutfitPurchaseConfirmation}
+                  style={({ pressed }) => [
+                    styles.primaryButton,
+                    (wallet === undefined ||
+                      wallet === null ||
+                      wallet.balance < previewOutfitPurchase.price) &&
+                      styles.disabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <View style={styles.coinButtonCopy}>
+                    <LorcoinIcon size={20} />
+                    <ThemedText
+                      style={styles.primaryButtonText}
+                      type="smallBold"
+                    >
+                      Buy the Rest for {previewOutfitPurchase.price}
+                    </ThemedText>
+                  </View>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setPreviewOutfitPurchase(null);
+                    setErrorMessage(null);
+                  }}
+                  style={({ pressed }) => [
+                    styles.secondaryButton,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <ThemedText type="smallBold">Cancel Preview</ThemedText>
+                </Pressable>
+              </View>
+            </ThemedView>
+          ) : null}
+
           <View style={styles.section}>
             <ThemedText accessibilityRole="header" type="subtitle">
               Wardrobe
@@ -432,6 +648,7 @@ export default function CustomizeAvatarScreen() {
                     onPress={() => {
                       setActiveCategory(category.id);
                       setPreviewPurchase(null);
+                      setPreviewOutfitPurchase(null);
                       setConfirmingPurchase(false);
                       setErrorMessage(null);
                     }}
@@ -472,21 +689,37 @@ export default function CustomizeAvatarScreen() {
             <View style={styles.choiceGrid}>
               {avatarPresets.map((preset) => {
                 const selected = matchingPresetId === preset.id;
-                const missingItemCount = Object.values(preset.selection).filter(
-                  (itemId) =>
-                    getAvatarItemPrice(itemId) > 0 &&
-                    !purchasedAvatarItemIds.has(itemId),
-                ).length;
-                const locked = missingItemCount > 0;
+                const missingItemIds = Array.from(
+                  new Set(
+                    Object.values(preset.selection).filter(
+                      (itemId) =>
+                        getAvatarItemPrice(itemId) > 0 &&
+                        !purchasedAvatarItemIds.has(itemId),
+                    ),
+                  ),
+                );
+                const missingItemCount = missingItemIds.length;
+                const missingPrice = missingItemIds.reduce(
+                  (total, itemId) =>
+                    total + getAvatarItemPrice(itemId),
+                  0,
+                );
+                const isPurchasing = purchasingOutfitId === preset.id;
 
                 return (
                   <Pressable
                     key={preset.id}
                     accessibilityLabel={`${preset.name}. ${preset.description}`}
                     accessibilityRole="radio"
-                    accessibilityState={{ disabled: locked, selected }}
-                    disabled={locked}
-                    onPress={() => updateSelection({ ...preset.selection })}
+                    accessibilityState={{ busy: isPurchasing, selected }}
+                    disabled={isPurchasing}
+                    onPress={() =>
+                      previewOrChooseOutfit(
+                        preset.id,
+                        preset.name,
+                        preset.selection,
+                      )
+                    }
                     style={({ pressed }) => [
                       styles.choiceCard,
                       {
@@ -497,7 +730,7 @@ export default function CustomizeAvatarScreen() {
                           ? theme.borderStrong
                           : theme.border,
                       },
-                      locked && styles.lockedChoiceCard,
+                      isPurchasing && styles.lockedChoiceCard,
                       pressed && styles.pressed,
                     ]}
                   >
@@ -511,8 +744,10 @@ export default function CustomizeAvatarScreen() {
                         type="smallBold"
                         style={selected ? { color: theme.link } : undefined}
                       >
-                        {locked
-                          ? `Own ${missingItemCount} more ${missingItemCount === 1 ? 'piece' : 'pieces'} to equip`
+                        {isPurchasing
+                          ? 'Buying missing pieces...'
+                          : missingItemCount > 0
+                            ? `Buy remaining ${missingItemCount} ${missingItemCount === 1 ? 'piece' : 'pieces'} — ${missingPrice} Lorcoins`
                           : selected
                             ? 'Equipped'
                             : 'Equip Complete Look'}
@@ -655,13 +890,23 @@ export default function CustomizeAvatarScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityState={{
-                disabled: saving || previewPurchase !== null,
+                disabled:
+                  saving ||
+                  previewPurchase !== null ||
+                  previewOutfitPurchase !== null,
               }}
-              disabled={saving || previewPurchase !== null}
+              disabled={
+                saving ||
+                previewPurchase !== null ||
+                previewOutfitPurchase !== null
+              }
               onPress={saveAvatar}
               style={({ pressed }) => [
                 styles.primaryButton,
-                (saving || previewPurchase !== null) && styles.disabled,
+                (saving ||
+                  previewPurchase !== null ||
+                  previewOutfitPurchase !== null) &&
+                  styles.disabled,
                 pressed && styles.pressed,
               ]}
             >
@@ -673,7 +918,9 @@ export default function CustomizeAvatarScreen() {
                 />
               ) : (
                 <ThemedText style={styles.primaryButtonText} type="smallBold">
-                  {previewPurchase ? 'Finish Preview First' : 'Save Avatar'}
+                  {previewPurchase || previewOutfitPurchase
+                    ? 'Finish Preview First'
+                    : 'Save Avatar'}
                 </ThemedText>
               )}
             </Pressable>
@@ -785,6 +1032,96 @@ export default function CustomizeAvatarScreen() {
                   ]}
                 >
                   <ThemedText type="smallBold">No, Keep Previewing</ThemedText>
+                </Pressable>
+              </View>
+            </ThemedView>
+          ) : null}
+        </SafeAreaView>
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setConfirmingPurchase(false)}
+        transparent
+        visible={confirmingPurchase && previewOutfitPurchase !== null}
+      >
+        <SafeAreaView style={styles.confirmationLayer}>
+          {previewOutfitPurchase ? (
+            <ThemedView
+              accessibilityLabel={`Confirm purchase of the missing ${previewOutfitPurchase.outfitName} pieces for ${previewOutfitPurchase.price} Lorcoins.`}
+              accessibilityViewIsModal
+              type="backgroundElement"
+              style={styles.confirmationCard}
+            >
+              <ThemedText accessibilityRole="header" type="subtitle">
+                Complete {previewOutfitPurchase.outfitName}?
+              </ThemedText>
+              <ThemedText themeColor="textSecondary">
+                This buys only the pieces you do not already own:{' '}
+                {previewOutfitPurchase.missingItemNames.join(', ')}.
+              </ThemedText>
+              <View style={styles.confirmationBalance}>
+                <View style={styles.coinAmountRow}>
+                  <LorcoinIcon size={28} />
+                  <ThemedText type="smallBold">
+                    Cost: {previewOutfitPurchase.price} Lorcoins
+                  </ThemedText>
+                </View>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Your balance after purchase:{' '}
+                  {Math.max(
+                    0,
+                    (wallet?.balance ?? 0) - previewOutfitPurchase.price,
+                  )}
+                </ThemedText>
+              </View>
+              <View style={styles.purchaseActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{
+                    busy:
+                      purchasingOutfitId === previewOutfitPurchase.outfitId,
+                    disabled: purchasingOutfitId !== null,
+                  }}
+                  disabled={purchasingOutfitId !== null}
+                  onPress={() => void confirmOutfitPurchase()}
+                  style={({ pressed }) => [
+                    styles.primaryButton,
+                    purchasingOutfitId !== null && styles.disabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  {purchasingOutfitId === previewOutfitPurchase.outfitId ? (
+                    <ActivityIndicator
+                      accessibilityLabel="Buying missing outfit pieces"
+                      color={Palette.ink}
+                      size="small"
+                    />
+                  ) : (
+                    <View style={styles.coinButtonCopy}>
+                      <LorcoinIcon size={20} />
+                      <ThemedText
+                        style={styles.primaryButtonText}
+                        type="smallBold"
+                      >
+                        Yes, Spend {previewOutfitPurchase.price}
+                      </ThemedText>
+                    </View>
+                  )}
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={purchasingOutfitId !== null}
+                  onPress={() => setConfirmingPurchase(false)}
+                  style={({ pressed }) => [
+                    styles.secondaryButton,
+                    purchasingOutfitId !== null && styles.disabled,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <ThemedText type="smallBold">
+                    No, Keep Previewing
+                  </ThemedText>
                 </Pressable>
               </View>
             </ThemedView>

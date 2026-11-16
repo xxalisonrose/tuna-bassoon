@@ -103,7 +103,9 @@ const WHEEL_ROTATION_MULTIPLIER = 1;
 const MINIMUM_WHEEL_RADIUS = 44;
 const SIMULATOR_STEP_METERS = 10;
 const EARTH_RADIUS_METERS = 6_371_000;
-const PLAYER_FOLLOW_DURATION_MS = 300;
+const LIVE_LOCATION_DISTANCE_INTERVAL_METERS = 1;
+const LIVE_LOCATION_TIME_INTERVAL_MS = 1_000;
+const PLAYER_FOLLOW_DURATION_MS = 950;
 const RECENTER_MINIMUM_DURATION_MS = 450;
 const RECENTER_MAXIMUM_DURATION_MS = 1_600;
 const RECENTER_MILLISECONDS_PER_METER = 1.4;
@@ -775,7 +777,8 @@ export default function MapScreen() {
 
         const currentLocation =
           await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
+            accuracy: Location.Accuracy.BestForNavigation,
+            mayShowUserSettingsDialog: true,
           });
 
         if (isMounted) {
@@ -790,9 +793,10 @@ export default function MapScreen() {
         try {
           const subscription = await Location.watchPositionAsync(
             {
-              accuracy: Location.Accuracy.Balanced,
-              distanceInterval: 4,
-              timeInterval: 5000,
+              accuracy: Location.Accuracy.BestForNavigation,
+              distanceInterval: LIVE_LOCATION_DISTANCE_INTERVAL_METERS,
+              mayShowUserSettingsDialog: true,
+              timeInterval: LIVE_LOCATION_TIME_INTERVAL_MS,
             },
             (nextLocation) => {
               if (!isMounted) {

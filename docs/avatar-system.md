@@ -2,99 +2,62 @@
 
 ## Passport
 
-The user-facing Collection tab is presented as Passport. The existing `/collection` route remains in place for compatibility, but its screen serves as the visitor's broader exploration record.
+The user-facing Collection tab is presented as Passport. Its explorer card shows the signed-in user's saved avatar and a Customize Avatar action. The same saved look appears as the player's marker on the native map.
 
-Passport begins with an explorer card showing the signed-in user's saved avatar and a Customize Avatar action. It summarizes visited places, earned badges, and total earned badge levels before preserving the existing badge filters, progress cards, and visited-place history.
+## Current avatar catalog
 
-The same saved look appears as the player's marker on the native map. The marker immediately falls back to the Traditional Explorer while profile data is unavailable, so customization never blocks the map.
+The production catalog contains only Dan's hand-drawn 1254 × 1254 artwork:
 
-The visible navigation label is Passport on native and web. Existing links and bookmarks to `/collection` continue working.
+- eleven tops
+- six pants and skirts
+- Scout's boots and pink heels
+- goggles and glasses
+- six beanies, three cowboy hats, and a princess crown
+- a heart wand
 
-## Layered avatar selection
+The previous Explorer, Winter, Cowboy, and Princess prototype catalogs and their generated-art defaults have been removed. The hand-drawn Pretty Pretty Princess set is now available as both individual pieces and a Complete Look.
 
-Avatar customization is stored per signed-in Clerk user in the `userProfiles` table. The first working wardrobe stores stable IDs for:
+Every account starts the current catalog with the same standard selection: White Tee, Blue Pants, Scout's Boots, and no hat or face accessory. Profiles from an earlier catalog are reset to this standard the next time the account syncs. The avatarCatalogVersion field prevents that reset from repeating after the player saves a new look.
 
-- top
-- bottom
-- shoes
-- neck accessory
-- face accessory
-- headwear
-- handheld item
+The Beta Tester Tee is visible but locked until the Welcome to Lorcal tutorial is complete. People who earned the earlier shirt reward retain access to the new reward. All other purchase rules continue to use Lorcoins.
 
-Every saved selection renders by stacking full-canvas transparent assets over the neutral cow reference. The neutral reference currently contains the Trail Tank and Trail Shorts. Explorer clothing is supplied as separate overlay layers. This is a prototype constraint; final art should eventually move every base garment into a dedicated layer.
+## Layering
 
-Existing profiles remain compatible. A saved `explorer` preset becomes the complete Explorer item selection, while `trail_basics` becomes the Trail Basics selection. Profiles created before headwear or handheld support default those slots to `none`. Older clients may still submit `avatarPresetId`; the mutation translates that preset into item-level fields. New clients submit a full `selection` object.
+Every item keeps the complete square canvas and stacks over the neutral Scout body. Runtime order is:
 
-The Cozy Winter preset adds a mustard polka-dot sweater, charcoal pants,
-fleece-lined snow boots, a cream knit scarf, and a teal pom-pom beanie. Its
-artwork was fitted from Ali's supplied winter concept sheet and remains
-prototype artwork under the same replacement policy as the Explorer layers.
+1. body
+2. shoes
+3. pants
+4. top
+5. hat
+6. glasses or goggles
+7. handheld accessory
 
-Ali's two Cowboy sheets support two related presets. Classic Cowboy combines
-the sheriff shirt and vest with long tan pants and brown boots. Rodeo Cowboy
-uses the same shirt, red bandana, and sheriff hat with tan shorts and red
-sheriff boots. Every piece remains independently selectable.
-
-The Pink Princess preset adds a sparkling bodice and ball-gown skirt, jeweled
-crown, and star wand. The wand introduces the handheld slot and can be mixed
-with any other outfit.
-
-The wardrobe also supports mission-locked items. The New Explorer Shirt is
-visible but locked until the Welcome to Lorcal tutorial is complete.
-Mission completion records the unlock on the user profile, and the server
-rejects attempts to save a locked item even if an older client bypasses the
-wardrobe interface.
-
-The schema retains `avatarPresetId` as a derived convenience value. It matches
-one of the registered outfit IDs when every equipped item matches that preset,
-and becomes `custom` for mixed looks.
+Face accessories intentionally render after hats so goggles remain visible. Handheld accessories render last so the wand remains visible.
 
 ## Customization screen
 
-`/collection/avatar` is a screen in the Passport tab's nested stack. It opens
-on individual Tops rather than complete outfits and provides:
+The avatar customization screen provides:
 
 - a live layered preview
-- Tops, Bottoms, Shoes, Neck, Face, Headwear, and Handheld categories, followed
-  by Complete Looks as the final category
+- Complete Looks, Tops, Pants, Shoes, Glasses & Goggles, Hats & Crowns, and Accessories
 - accessible single-selection item cards
-- quick application of Traditional Explorer, Trail Basics, Cozy Winter,
-  Classic Cowboy, Rodeo Cowboy, or Pink Princess after all included paid pieces
-  are owned
-- a cow-coin balance, item preview, and confirmed purchase flow for each paid
-  individual item
+- Lorcoin purchase confirmation for paid pieces
 - a visible unsaved-state label and Undo Changes action
 - persistent saving to Convex
 - error handling and a return action
 
-Coat patterns and backpacks remain planned categories. Their stable IDs and
-aligned artwork can be added without changing the existing saved slot names.
+## Clothing fit editor
 
-## Lorcoins and item ownership
+The administrator Avatar workspace starts every item at the same 100% full-canvas fit. Correctly exported 1254 × 1254 files therefore appear at exactly the same size in the editor and app.
 
-The starter and Explorer items remain free. New Winter, Cowboy, and Princess
-pieces cost 100 Lorcoins each. First-time location check-ins earn 5 Lorcoins,
-and each badge award or badge level earns 50. Balances are derived from saved
-visits, badge awards, and wardrobe purchases, which makes rewards idempotent
-and credits earlier beta progress automatically.
+An incorrectly exported item can be moved, resized, or rotated. **Save Fit** writes that item's values directly to Convex, and every avatar preview uses the saved adjustment immediately. **Reset to 1254 Template** removes the exception and restores the full-canvas default.
 
-Paid items must be owned before the server accepts them in a saved avatar.
-Items already saved before the economy launch are grandfathered at no cost.
-See `docs/lorcoin-economy.md` for the complete beta rules and tuning notes.
-
-## Placeholder artwork
-
-The Explorer, Cozy Winter, Cowboy, and Princess item overlays are registered
-AI-assisted placeholders. They use the same 1254 × 1254 transparent prototype
-canvas as the current neutral reference. Production replacements should use
-the canonical art template, preserve the stable item IDs, and be tested
-together at Passport and map-preview sizes.
+There is no ZIP export, local fitting batch, or hidden-area mask workflow.
 
 ## Future expansion
 
-- Move the baked-in Trail Tank and Trail Shorts out of the neutral body reference and into independent layers.
-- Add coat patterns and backpack categories.
-- Add unlock requirements without hiding or deleting a user's currently equipped item.
-- Add additional Passport sections for saved stories, favorites, themed trails, and personal notes.
+- Add the 1254 × 1254 clothing uploader for administrators.
+- Add more Complete Looks as finished themed artwork becomes available.
+- Add coat patterns and backpack categories when final artwork exists.
 - Test avatar presentation and selection on physical iOS and Android devices.

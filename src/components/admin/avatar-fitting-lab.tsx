@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useMutation, useQuery } from 'convex/react';
+import { useRef, useState } from 'react';
 import {
-  Platform,
+  ActivityIndicator,
   Pressable,
   StyleSheet,
   View,
@@ -12,7 +13,6 @@ import { AvatarPreview } from '@/components/avatar-preview';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
-  MaxContentWidth,
   Palette,
   PortalContentWidth,
   Spacing,
@@ -22,7 +22,7 @@ import {
   applyAvatarItem,
   avatarCategories,
   avatarItemOptions,
-  trailBasicsSelection,
+  standardAvatarSelection,
   type AvatarItemOption,
   type AvatarItemSlot,
 } from '@/lib/avatar';
@@ -31,12 +31,7 @@ import {
   type AvatarFit,
   type AvatarFitOverrides,
 } from '@/lib/avatar-fit';
-import { exportAvatarFitBatch } from '@/lib/avatar-fit-export';
-import {
-  isAvatarMaskStamp,
-  type AvatarMaskOverrides,
-  type AvatarMaskStamp,
-} from '@/lib/avatar-mask';
+import { api } from '../../../convex/_generated/api';
 
 type FitItem = AvatarItemOption & {
   slot: AvatarItemSlot;
@@ -76,156 +71,7 @@ const fitItems: FitItem[] = Object.entries(avatarItemOptions).flatMap(
 );
 
 const initialItem =
-  fitItems.find((item) => item.id === 'winter_polka_sweater') ?? fitItems[0];
-
-const fitBatchStorageKey = 'lorcal.avatar-fitting-batch.v1';
-const maskBatchStorageKey = 'lorcal.avatar-fitting-masks.v1';
-const avatarFitKeys: readonly (keyof AvatarFit)[] = [
-  'left',
-  'top',
-  'width',
-  'height',
-  'rotation',
-];
-
-function readStoredFitOverrides(): AvatarFitOverrides {
-  if (Platform.OS !== 'web' || typeof window === 'undefined') {
-    return {};
-  }
-
-  try {
-    const storedValue = window.localStorage.getItem(fitBatchStorageKey);
-
-    if (!storedValue) {
-      return {};
-    }
-
-    const parsedValue: unknown = JSON.parse(storedValue);
-
-    if (
-      !parsedValue ||
-      typeof parsedValue !== 'object' ||
-      Array.isArray(parsedValue)
-    ) {
-      return {};
-    }
-
-    const storedOverrides: AvatarFitOverrides = {};
-
-    for (const [itemId, storedFit] of Object.entries(parsedValue)) {
-      const defaultFit = getAvatarItemFit(itemId);
-
-      if (
-        !defaultFit ||
-        !storedFit ||
-        typeof storedFit !== 'object' ||
-        Array.isArray(storedFit)
-      ) {
-        continue;
-      }
-
-      const fitRecord = storedFit as Record<string, unknown>;
-      const restoredFit = { ...defaultFit };
-      const isCompleteFit = avatarFitKeys.every((key) => {
-        const value = fitRecord[key];
-
-        if (typeof value !== 'number' || !Number.isFinite(value)) {
-          return false;
-        }
-
-        restoredFit[key] = value;
-        return true;
-      });
-
-      if (isCompleteFit) {
-        storedOverrides[itemId] = restoredFit;
-      }
-    }
-
-    return storedOverrides;
-  } catch {
-    return {};
-  }
-}
-
-function storeFitOverrides(fitOverrides: AvatarFitOverrides) {
-  if (Platform.OS !== 'web' || typeof window === 'undefined') {
-    return;
-  }
-
-  try {
-    if (Object.keys(fitOverrides).length === 0) {
-      window.localStorage.removeItem(fitBatchStorageKey);
-      return;
-    }
-
-    window.localStorage.setItem(
-      fitBatchStorageKey,
-      JSON.stringify(fitOverrides),
-    );
-  } catch {
-    // The fitting lab still works in memory when browser storage is disabled.
-  }
-}
-
-function readStoredMaskOverrides(): AvatarMaskOverrides {
-  if (Platform.OS !== 'web' || typeof window === 'undefined') {
-    return {};
-  }
-
-  try {
-    const storedValue = window.localStorage.getItem(maskBatchStorageKey);
-
-    if (!storedValue) {
-      return {};
-    }
-
-    const parsedValue: unknown = JSON.parse(storedValue);
-
-    if (
-      !parsedValue ||
-      typeof parsedValue !== 'object' ||
-      Array.isArray(parsedValue)
-    ) {
-      return {};
-    }
-
-    return Object.fromEntries(
-      Object.entries(parsedValue)
-        .filter(
-          ([itemId, stamps]) =>
-            getAvatarItemFit(itemId) !== undefined && Array.isArray(stamps),
-        )
-        .map(([itemId, stamps]) => [
-          itemId,
-          (stamps as unknown[]).filter(isAvatarMaskStamp),
-        ])
-        .filter(([, stamps]) => stamps.length > 0),
-    );
-  } catch {
-    return {};
-  }
-}
-
-function storeMaskOverrides(maskOverrides: AvatarMaskOverrides) {
-  if (Platform.OS !== 'web' || typeof window === 'undefined') {
-    return;
-  }
-
-  try {
-    if (Object.keys(maskOverrides).length === 0) {
-      window.localStorage.removeItem(maskBatchStorageKey);
-      return;
-    }
-
-    window.localStorage.setItem(
-      maskBatchStorageKey,
-      JSON.stringify(maskOverrides),
-    );
-  } catch {
-    // Mask painting still works in memory when browser storage is disabled.
-  }
-}
+  fitItems.find((item) => item.id === 'fire_tee') ?? fitItems[0];
 
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(maximum, Math.max(minimum, value));
@@ -258,8 +104,7 @@ function FitControl({
         style={({ pressed }) => [
           styles.adjustButton,
           pressed && styles.pressed,
-        ]}
-      >
+        ]}>
         <ThemedText style={styles.adjustButtonText}>−</ThemedText>
       </Pressable>
       <ThemedText type="code" style={styles.controlValue}>
@@ -272,8 +117,7 @@ function FitControl({
         style={({ pressed }) => [
           styles.adjustButton,
           pressed && styles.pressed,
-        ]}
-      >
+        ]}>
         <ThemedText style={styles.adjustButtonText}>+</ThemedText>
       </Pressable>
     </View>
@@ -315,7 +159,6 @@ function resizeAvatarFit({
   } else if (movesWest) {
     width = startFit.width - deltaX;
   }
-
   if (movesSouth) {
     height = startFit.height + deltaY;
   } else if (movesNorth) {
@@ -329,9 +172,11 @@ function resizeAvatarFit({
       Math.abs(widthScale - 1) >= Math.abs(heightScale - 1)
         ? widthScale
         : heightScale;
-    const minimumScale = Math.max(4 / startFit.width, 4 / startFit.height);
-    const maximumScale = Math.min(150 / startFit.width, 150 / startFit.height);
-    const safeScale = clamp(scale, minimumScale, maximumScale);
+    const safeScale = clamp(
+      scale,
+      Math.max(4 / startFit.width, 4 / startFit.height),
+      Math.min(150 / startFit.width, 150 / startFit.height),
+    );
     width = startFit.width * safeScale;
     height = startFit.height * safeScale;
   } else {
@@ -449,10 +294,9 @@ function AvatarFitTransformBox({
           transform: [{ rotate: `${fit.rotation}deg` }],
           width: `${fit.width}%`,
         },
-      ]}
-    >
+      ]}>
       <View
-        accessibilityHint="Drag to move this clothing item over the avatar."
+        accessibilityHint="Drag to move this clothing item over Scout."
         accessibilityLabel={`Move ${itemName}`}
         accessible
         onMoveShouldSetResponder={() => true}
@@ -482,331 +326,189 @@ function AvatarFitTransformBox({
   );
 }
 
-function AvatarMaskCanvas({
-  brushSize,
-  fit,
-  itemName,
-  onStamp,
-  previewSize,
-  stamps,
-}: {
-  brushSize: number;
-  fit: AvatarFit;
-  itemName: string;
-  onStamp: (stamp: AvatarMaskStamp) => void;
-  previewSize: number;
-  stamps: AvatarMaskStamp[];
-}) {
-  const lastPointRef = useRef<{ pageX: number; pageY: number } | null>(null);
-  const fittedWidth = (fit.width / 100) * previewSize;
-  const fittedHeight = (fit.height / 100) * previewSize;
-
-  const paintStamp = (event: GestureResponderEvent) => {
-    const { locationX, locationY, pageX, pageY } = event.nativeEvent;
-    const lastPoint = lastPointRef.current;
-
-    if (
-      lastPoint &&
-      Math.hypot(pageX - lastPoint.pageX, pageY - lastPoint.pageY) <
-        brushSize * 0.3
-    ) {
-      return;
-    }
-
-    lastPointRef.current = { pageX, pageY };
-    onStamp({
-      radiusX: (brushSize / 2 / fittedWidth) * 100,
-      radiusY: (brushSize / 2 / fittedHeight) * 100,
-      x: clamp((locationX / fittedWidth) * 100, 0, 100),
-      y: clamp((locationY / fittedHeight) * 100, 0, 100),
-    });
-  };
-
-  const finishPainting = () => {
-    lastPointRef.current = null;
-  };
-
-  return (
-    <View
-      style={[
-        styles.transformBox,
-        styles.maskBox,
-        {
-          height: `${fit.height}%`,
-          left: `${fit.left}%`,
-          top: `${fit.top}%`,
-          transform: [{ rotate: `${fit.rotation}deg` }],
-          width: `${fit.width}%`,
-        },
-      ]}
-    >
-      <View
-        accessibilityHint="Drag over garment areas that should become transparent."
-        accessibilityLabel={`Paint hidden areas on ${itemName}`}
-        accessible
-        onMoveShouldSetResponder={() => true}
-        onResponderGrant={paintStamp}
-        onResponderMove={paintStamp}
-        onResponderRelease={finishPainting}
-        onResponderTerminate={finishPainting}
-        onStartShouldSetResponder={() => true}
-        style={styles.maskPaintArea}
-      />
-      {stamps.map((stamp, index) => (
-        <View
-          key={`${stamp.x}-${stamp.y}-${index}`}
-          pointerEvents="none"
-          style={[
-            styles.maskStamp,
-            {
-              height: `${stamp.radiusY * 2}%`,
-              left: `${stamp.x - stamp.radiusX}%`,
-              top: `${stamp.y - stamp.radiusY}%`,
-              width: `${stamp.radiusX * 2}%`,
-            },
-          ]}
-        />
-      ))}
-    </View>
-  );
-}
-
 export function AvatarFittingLab() {
   const theme = useTheme();
   const { width: windowWidth } = useWindowDimensions();
   const previewSize = Math.min(520, Math.max(280, windowWidth - 96));
+  const savedFits = useQuery(api.avatarArt.getAvatarItemFits) ?? {};
+  const saveAvatarItemFit = useMutation(api.avatarArt.saveAvatarItemFit);
+  const resetAvatarItemFit = useMutation(api.avatarArt.resetAvatarItemFit);
+  const [optimisticSavedFits, setOptimisticSavedFits] =
+    useState<AvatarFitOverrides>({});
+  const [draftFits, setDraftFits] = useState<AvatarFitOverrides>({});
   const [activeSlot, setActiveSlot] = useState<AvatarItemSlot>(
     initialItem.slot,
   );
   const [selectedItemId, setSelectedItemId] = useState(initialItem.id);
-  const [fitOverrides, setFitOverrides] = useState<AvatarFitOverrides>(
-    readStoredFitOverrides,
-  );
-  const [maskOverrides, setMaskOverrides] = useState<AvatarMaskOverrides>(
-    readStoredMaskOverrides,
-  );
-  const [workspaceMode, setWorkspaceMode] = useState<'fit' | 'mask'>('fit');
-  const [brushSize, setBrushSize] = useState(28);
   const [showGrid, setShowGrid] = useState(true);
   const [lockProportions, setLockProportions] = useState(true);
-  const [isExporting, setIsExporting] = useState(false);
-  const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const selectedItem =
     fitItems.find((item) => item.id === selectedItemId) ?? initialItem;
-  const selectedFit = getAvatarItemFit(selectedItem.id, fitOverrides);
+  const effectiveSavedFits = {
+    ...savedFits,
+    ...optimisticSavedFits,
+  };
+  const allFitOverrides = {
+    ...effectiveSavedFits,
+    ...draftFits,
+  };
+  const selectedFit = getAvatarItemFit(selectedItem.id, allFitOverrides);
   const visibleItems = fitItems.filter((item) => item.slot === activeSlot);
   const previewSelection = applyAvatarItem(
-    trailBasicsSelection,
+    standardAvatarSelection,
     selectedItem.slot,
     selectedItem.id,
   );
-  const selectedMaskStamps = maskOverrides[selectedItem.id] ?? [];
-  const changedItemIds = [
-    ...new Set([
-      ...Object.keys(fitOverrides),
-      ...Object.entries(maskOverrides)
-        .filter(([, stamps]) => (stamps?.length ?? 0) > 0)
-        .map(([itemId]) => itemId),
-    ]),
-  ];
-
-  useEffect(() => {
-    storeFitOverrides(fitOverrides);
-  }, [fitOverrides]);
-
-  useEffect(() => {
-    storeMaskOverrides(maskOverrides);
-  }, [maskOverrides]);
-
-  const updateCurrentFit = (updater: (currentFit: AvatarFit) => AvatarFit) => {
-    setExportStatus(null);
-    setFitOverrides((currentOverrides) => {
-      const currentFit = getAvatarItemFit(selectedItem.id, currentOverrides);
-
-      if (!currentFit) {
-        return currentOverrides;
-      }
-
-      return {
-        ...currentOverrides,
-        [selectedItem.id]: updater(currentFit),
-      };
-    });
-  };
-
-  const adjustFit = (key: AdjustableFitKey, amount: number) => {
-    updateCurrentFit((currentFit) => {
-      const minimum = key === 'width' || key === 'height' ? 4 : -100;
-      const maximum = key === 'rotation' ? 180 : 150;
-
-      return {
-        ...currentFit,
-        [key]: roundFitValue(clamp(currentFit[key] + amount, minimum, maximum)),
-      };
-    });
-  };
-
-  const selectItem = (item: FitItem) => {
-    setActiveSlot(item.slot);
-    setSelectedItemId(item.id);
-  };
-
-  const resetCurrentFit = () => {
-    setFitOverrides((currentOverrides) => {
-      const nextOverrides = { ...currentOverrides };
-      delete nextOverrides[selectedItem.id];
-      return nextOverrides;
-    });
-    setExportStatus(null);
-  };
-
-  const updateSelectedFit = (fit: AvatarFit) => {
-    setFitOverrides((currentOverrides) => ({
-      ...currentOverrides,
-      [selectedItem.id]: fit,
-    }));
-    setExportStatus(null);
-  };
-
-  const addMaskStamp = (stamp: AvatarMaskStamp) => {
-    setMaskOverrides((currentOverrides) => ({
-      ...currentOverrides,
-      [selectedItem.id]: [...(currentOverrides[selectedItem.id] ?? []), stamp],
-    }));
-    setExportStatus(null);
-  };
-
-  const undoMaskStamp = () => {
-    setMaskOverrides((currentOverrides) => {
-      const nextStamps = (currentOverrides[selectedItem.id] ?? []).slice(0, -1);
-      const nextOverrides = { ...currentOverrides };
-
-      if (nextStamps.length > 0) {
-        nextOverrides[selectedItem.id] = nextStamps;
-      } else {
-        delete nextOverrides[selectedItem.id];
-      }
-
-      return nextOverrides;
-    });
-    setExportStatus(null);
-  };
-
-  const clearCurrentMask = () => {
-    setMaskOverrides((currentOverrides) => {
-      const nextOverrides = { ...currentOverrides };
-      delete nextOverrides[selectedItem.id];
-      return nextOverrides;
-    });
-    setExportStatus(null);
-  };
-
-  const exportBatch = async () => {
-    setIsExporting(true);
-    setExportStatus('Preparing export...');
-
-    try {
-      const result = await exportAvatarFitBatch({
-        changedItemIds,
-        fitOverrides,
-        maskOverrides,
-        onProgress: setExportStatus,
-      });
-      setExportStatus(
-        `Downloaded ${result.fileName} with ${result.itemCount} adjusted ${result.itemCount === 1 ? 'item' : 'items'}.`,
-      );
-    } catch (error) {
-      setExportStatus(
-        error instanceof Error
-          ? error.message
-          : 'The avatar fitting batch could not be exported.',
-      );
-    } finally {
-      setIsExporting(false);
-    }
-  };
+  const selectedHasDraft = draftFits[selectedItem.id] !== undefined;
 
   if (!selectedFit) {
     return null;
   }
 
-  const fitSnippet = `${selectedItem.id}: { left: ${selectedFit.left}, top: ${selectedFit.top}, width: ${selectedFit.width}, height: ${selectedFit.height}, rotation: ${selectedFit.rotation} }`;
+  const updateSelectedFit = (fit: AvatarFit) => {
+    setDraftFits((current) => ({ ...current, [selectedItem.id]: fit }));
+    setStatus(null);
+    setError(null);
+  };
+
+  const adjustFit = (key: AdjustableFitKey, amount: number) => {
+    const minimum = key === 'width' || key === 'height' ? 4 : -100;
+    const maximum = key === 'rotation' ? 180 : 150;
+
+    updateSelectedFit({
+      ...selectedFit,
+      [key]: roundFitValue(
+        clamp(selectedFit[key] + amount, minimum, maximum),
+      ),
+    });
+  };
+
+  const saveCurrentFit = async () => {
+    setSaving(true);
+    setStatus(null);
+    setError(null);
+
+    try {
+      const result = await saveAvatarItemFit({
+        itemId: selectedItem.id,
+        ...selectedFit,
+      });
+      setOptimisticSavedFits((current) => ({
+        ...current,
+        [selectedItem.id]: result.fit,
+      }));
+      setDraftFits((current) => {
+        const next = { ...current };
+        delete next[selectedItem.id];
+        return next;
+      });
+      setStatus(`${selectedItem.name} saved. The app now uses this fit.`);
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : 'The clothing fit could not be saved.',
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetCurrentFit = async () => {
+    setSaving(true);
+    setStatus(null);
+    setError(null);
+
+    try {
+      await resetAvatarItemFit({ itemId: selectedItem.id });
+      setOptimisticSavedFits((current) => {
+        const next = { ...current };
+        delete next[selectedItem.id];
+        return next;
+      });
+      setDraftFits((current) => {
+        const next = { ...current };
+        delete next[selectedItem.id];
+        return next;
+      });
+      setStatus(
+        `${selectedItem.name} reset to the full 1254 × 1254 template.`,
+      );
+    } catch (resetError) {
+      setError(
+        resetError instanceof Error
+          ? resetError.message
+          : 'The clothing fit could not be reset.',
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <ThemedView
       type="backgroundElement"
-      style={[styles.container, { borderColor: theme.border }]}
-    >
+      style={[styles.container, { borderColor: theme.border }]}>
       <View style={styles.headingRow}>
         <View style={styles.headingCopy}>
           <ThemedText type="subtitle" style={styles.title}>
-            Avatar Fitting Lab
+            Clothing Fit Editor
           </ThemedText>
           <ThemedText themeColor="textSecondary">
-            Choose an item, drag its outlined box to move it, and drag the
-            square handles to resize it. Your edits stay in a batch while you
-            work through other items.
+            Correct 1254 × 1254 artwork starts at full size. Move or resize only
+            an item that was exported incorrectly, then press Save Fit.
           </ThemedText>
         </View>
         <Pressable
-          accessibilityLabel={
-            showGrid ? 'Hide fitting grid' : 'Show fitting grid'
-          }
           accessibilityRole="button"
-          onPress={() => setShowGrid((currentValue) => !currentValue)}
+          onPress={() => setShowGrid((current) => !current)}
           style={({ pressed }) => [
             styles.secondaryButton,
             pressed && styles.pressed,
-          ]}
-        >
+          ]}>
           <ThemedText style={styles.buttonText}>
             {showGrid ? 'Hide Grid' : 'Show Grid'}
           </ThemedText>
         </Pressable>
       </View>
 
-      <View
-        accessibilityLabel="Avatar fitting categories"
-        accessibilityRole="tablist"
-        style={styles.categoryTabs}
-      >
+      <View style={styles.categoryTabs}>
         {avatarCategories
-          .filter(
-            (category) =>
-              category.id !== 'outfits' &&
-              fitItems.some((item) => item.slot === category.id),
+          .filter((category) =>
+            fitItems.some((item) => item.slot === category.id),
           )
           .map((category) => (
             <Pressable
               key={category.id}
               accessibilityRole="tab"
-              accessibilityState={{
-                selected: activeSlot === category.id,
-              }}
+              accessibilityState={{ selected: activeSlot === category.id }}
               onPress={() => {
-                const nextItem = fitItems.find(
-                  (item) => item.slot === category.id,
+                const item = fitItems.find(
+                  (candidate) => candidate.slot === category.id,
                 );
-
-                if (nextItem) {
-                  selectItem(nextItem);
+                if (item) {
+                  setActiveSlot(item.slot);
+                  setSelectedItemId(item.id);
+                  setStatus(null);
+                  setError(null);
                 }
               }}
               style={({ pressed }) => [
                 styles.categoryTab,
                 activeSlot === category.id && styles.categoryTabSelected,
                 pressed && styles.pressed,
-              ]}
-            >
+              ]}>
               <ThemedText
                 type="smallBold"
                 style={
                   activeSlot === category.id
                     ? styles.selectedButtonText
                     : undefined
-                }
-              >
+                }>
                 {category.label}
               </ThemedText>
             </Pressable>
@@ -814,376 +516,178 @@ export function AvatarFittingLab() {
       </View>
 
       <View style={styles.itemList}>
-        {visibleItems.map((item) => (
-          <Pressable
-            key={item.id}
-            accessibilityRole="button"
-            accessibilityState={{
-              selected: selectedItem.id === item.id,
-            }}
-            onPress={() => selectItem(item)}
-            style={({ pressed }) => [
-              styles.itemButton,
-              { borderColor: theme.border },
-              selectedItem.id === item.id && styles.itemButtonSelected,
-              pressed && styles.pressed,
-            ]}
-          >
-            <ThemedText
-              type="smallBold"
-              style={
-                selectedItem.id === item.id
-                  ? styles.selectedButtonText
-                  : undefined
-              }
-            >
-              {item.name}
-            </ThemedText>
-            {fitOverrides[item.id] ||
-            (maskOverrides[item.id]?.length ?? 0) > 0 ? (
-              <View
-                accessibilityLabel="Edited in this batch"
-                style={styles.adjustedDot}
-              />
-            ) : null}
-          </Pressable>
-        ))}
-      </View>
+        {visibleItems.map((item) => {
+          const adjusted =
+            draftFits[item.id] !== undefined ||
+            effectiveSavedFits[item.id] !== undefined;
 
-      <View
-        accessibilityLabel="Avatar editing mode"
-        accessibilityRole="tablist"
-        style={styles.modeTabs}
-      >
-        <Pressable
-          accessibilityRole="tab"
-          accessibilityState={{ selected: workspaceMode === 'fit' }}
-          onPress={() => setWorkspaceMode('fit')}
-          style={({ pressed }) => [
-            styles.modeTab,
-            workspaceMode === 'fit' && styles.modeTabSelected,
-            pressed && styles.pressed,
-          ]}
-        >
-          <ThemedText
-            type="smallBold"
-            style={
-              workspaceMode === 'fit' ? styles.selectedButtonText : undefined
-            }
-          >
-            Fit & Resize
-          </ThemedText>
-        </Pressable>
-        <Pressable
-          accessibilityRole="tab"
-          accessibilityState={{ selected: workspaceMode === 'mask' }}
-          onPress={() => setWorkspaceMode('mask')}
-          style={({ pressed }) => [
-            styles.modeTab,
-            workspaceMode === 'mask' && styles.modeTabSelected,
-            pressed && styles.pressed,
-          ]}
-        >
-          <ThemedText
-            type="smallBold"
-            style={
-              workspaceMode === 'mask' ? styles.selectedButtonText : undefined
-            }
-          >
-            Mask Hidden Areas
-          </ThemedText>
-        </Pressable>
+          return (
+            <Pressable
+              key={item.id}
+              accessibilityRole="button"
+              accessibilityState={{ selected: selectedItem.id === item.id }}
+              onPress={() => {
+                setSelectedItemId(item.id);
+                setStatus(null);
+                setError(null);
+              }}
+              style={({ pressed }) => [
+                styles.itemButton,
+                { borderColor: theme.border },
+                selectedItem.id === item.id && styles.itemButtonSelected,
+                pressed && styles.pressed,
+              ]}>
+              <ThemedText
+                type="smallBold"
+                style={
+                  selectedItem.id === item.id
+                    ? styles.selectedButtonText
+                    : undefined
+                }>
+                {item.name}
+              </ThemedText>
+              {adjusted ? <View style={styles.adjustedDot} /> : null}
+            </Pressable>
+          );
+        })}
       </View>
-
-      <ThemedView type="background" style={styles.batchBar}>
-        <View style={styles.batchCopy}>
-          <ThemedText type="smallBold">
-            Working batch: {changedItemIds.length} edited{' '}
-            {changedItemIds.length === 1 ? 'item' : 'items'}
-          </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            {Platform.OS === 'web'
-              ? 'Auto-saved in this browser. Switch items, sections, or refresh without losing the batch.'
-              : 'Switch categories freely. The batch remains available during this session.'}
-          </ThemedText>
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{
-            disabled:
-              changedItemIds.length === 0 ||
-              isExporting ||
-              Platform.OS !== 'web',
-          }}
-          disabled={
-            changedItemIds.length === 0 || isExporting || Platform.OS !== 'web'
-          }
-          onPress={() => void exportBatch()}
-          style={({ pressed }) => [
-            styles.primaryButton,
-            (changedItemIds.length === 0 ||
-              isExporting ||
-              Platform.OS !== 'web') &&
-              styles.disabledButton,
-            pressed && styles.pressed,
-          ]}
-        >
-          <ThemedText style={styles.buttonText}>
-            {isExporting
-              ? 'Building Export...'
-              : Platform.OS === 'web'
-                ? 'Export Batch ZIP'
-                : 'Export on Web'}
-          </ThemedText>
-        </Pressable>
-        {exportStatus ? (
-          <ThemedText
-            accessibilityLiveRegion="polite"
-            style={styles.exportStatus}
-            type="small"
-            themeColor="textSecondary"
-          >
-            {exportStatus}
-          </ThemedText>
-        ) : null}
-      </ThemedView>
 
       <View style={styles.workspace}>
         <View style={styles.previewColumn}>
-          <View
-            style={{
-              height: previewSize,
-              width: previewSize,
-            }}
-          >
+          <View style={{ height: previewSize, width: previewSize }}>
             <AvatarPreview
-              fitOverrides={fitOverrides}
+              fitOverrides={allFitOverrides}
               selection={previewSelection}
               showFitGuides={showGrid}
               size={previewSize}
             />
-            {workspaceMode === 'fit' ? (
-              <AvatarFitTransformBox
-                key={selectedItem.id}
-                fit={selectedFit}
-                itemName={selectedItem.name}
-                lockProportions={lockProportions}
-                onFitChange={updateSelectedFit}
-                previewSize={previewSize}
-              />
-            ) : (
-              <AvatarMaskCanvas
-                key={selectedItem.id}
-                brushSize={brushSize}
-                fit={selectedFit}
-                itemName={selectedItem.name}
-                onStamp={addMaskStamp}
-                previewSize={previewSize}
-                stamps={selectedMaskStamps}
-              />
-            )}
+            <AvatarFitTransformBox
+              key={selectedItem.id}
+              fit={selectedFit}
+              itemName={selectedItem.name}
+              lockProportions={lockProportions}
+              onFitChange={updateSelectedFit}
+              previewSize={previewSize}
+            />
           </View>
           <ThemedText type="small" themeColor="textSecondary">
-            {workspaceMode === 'fit'
-              ? 'Drag inside the box to move. Drag its corners or edges to resize.'
-              : 'Paint red over garment pixels that should disappear behind the cow. The ZIP preview applies the real transparency.'}
+            Drag inside the outline to move. Drag its handles to resize.
           </ThemedText>
-          {workspaceMode === 'fit' ? (
-            <Pressable
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: lockProportions }}
-              onPress={() =>
-                setLockProportions((currentValue) => !currentValue)
-              }
-              style={({ pressed }) => [
-                styles.proportionToggle,
-                lockProportions && styles.proportionToggleSelected,
-                pressed && styles.pressed,
-              ]}
-            >
-              <ThemedText
-                type="smallBold"
-                style={lockProportions ? styles.selectedButtonText : undefined}
-              >
-                {lockProportions ? '✓ ' : ''}Keep corner proportions
-              </ThemedText>
-            </Pressable>
-          ) : null}
+          <Pressable
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: lockProportions }}
+            onPress={() => setLockProportions((current) => !current)}
+            style={({ pressed }) => [
+              styles.proportionToggle,
+              lockProportions && styles.proportionToggleSelected,
+              pressed && styles.pressed,
+            ]}>
+            <ThemedText
+              type="smallBold"
+              style={lockProportions ? styles.selectedButtonText : undefined}>
+              {lockProportions ? '✓ ' : ''}Keep proportions
+            </ThemedText>
+          </Pressable>
         </View>
 
         <View style={styles.controlColumn}>
-          <ThemedText type="subtitle" style={styles.itemTitle}>
-            {selectedItem.name}
-          </ThemedText>
-          {workspaceMode === 'fit' ? (
-            <>
-              <FitControl
-                label="Horizontal"
-                onDecrease={() => adjustFit('left', -1)}
-                onIncrease={() => adjustFit('left', 1)}
-                value={`${selectedFit.left.toFixed(1)}%`}
-              />
-              <FitControl
-                label="Vertical"
-                onDecrease={() => adjustFit('top', -1)}
-                onIncrease={() => adjustFit('top', 1)}
-                value={`${selectedFit.top.toFixed(1)}%`}
-              />
-              <FitControl
-                label="Width"
-                onDecrease={() => adjustFit('width', -1)}
-                onIncrease={() => adjustFit('width', 1)}
-                value={`${selectedFit.width.toFixed(1)}%`}
-              />
-              <FitControl
-                label="Height"
-                onDecrease={() => adjustFit('height', -1)}
-                onIncrease={() => adjustFit('height', 1)}
-                value={`${selectedFit.height.toFixed(1)}%`}
-              />
-              <FitControl
-                label="Rotation"
-                onDecrease={() => adjustFit('rotation', -1)}
-                onIncrease={() => adjustFit('rotation', 1)}
-                value={`${selectedFit.rotation.toFixed(1)}°`}
-              />
-            </>
-          ) : (
-            <>
-              <ThemedText themeColor="textSecondary">
-                Use a small brush around necklines and cuffs. Paint only the
-                garment areas that should sit behind the body.
-              </ThemedText>
-              <FitControl
-                label="Brush"
-                onDecrease={() =>
-                  setBrushSize((currentSize) => clamp(currentSize - 4, 8, 80))
-                }
-                onIncrease={() =>
-                  setBrushSize((currentSize) => clamp(currentSize + 4, 8, 80))
-                }
-                value={`${brushSize}px`}
-              />
-              <ThemedView type="background" style={styles.valueCard}>
-                <ThemedText type="smallBold">Mask stamps</ThemedText>
-                <ThemedText type="code">
-                  {selectedMaskStamps.length} on this item
-                </ThemedText>
-              </ThemedView>
-            </>
-          )}
+          <ThemedText type="subtitle">{selectedItem.name}</ThemedText>
+          <FitControl
+            label="Horizontal"
+            onDecrease={() => adjustFit('left', -1)}
+            onIncrease={() => adjustFit('left', 1)}
+            value={`${selectedFit.left.toFixed(1)}%`}
+          />
+          <FitControl
+            label="Vertical"
+            onDecrease={() => adjustFit('top', -1)}
+            onIncrease={() => adjustFit('top', 1)}
+            value={`${selectedFit.top.toFixed(1)}%`}
+          />
+          <FitControl
+            label="Width"
+            onDecrease={() => adjustFit('width', -1)}
+            onIncrease={() => adjustFit('width', 1)}
+            value={`${selectedFit.width.toFixed(1)}%`}
+          />
+          <FitControl
+            label="Height"
+            onDecrease={() => adjustFit('height', -1)}
+            onIncrease={() => adjustFit('height', 1)}
+            value={`${selectedFit.height.toFixed(1)}%`}
+          />
+          <FitControl
+            label="Rotation"
+            onDecrease={() => adjustFit('rotation', -1)}
+            onIncrease={() => adjustFit('rotation', 1)}
+            value={`${selectedFit.rotation.toFixed(1)}°`}
+          />
 
           <View style={styles.actionRow}>
-            {workspaceMode === 'fit' ? (
-              <Pressable
-                accessibilityRole="button"
-                onPress={resetCurrentFit}
-                style={({ pressed }) => [
-                  styles.secondaryButton,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <ThemedText style={styles.buttonText}>
-                  Reset This Fit
-                </ThemedText>
-              </Pressable>
-            ) : (
-              <>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityState={{
-                    disabled: selectedMaskStamps.length === 0,
-                  }}
-                  disabled={selectedMaskStamps.length === 0}
-                  onPress={undoMaskStamp}
-                  style={({ pressed }) => [
-                    styles.secondaryButton,
-                    selectedMaskStamps.length === 0 && styles.disabledButton,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <ThemedText style={styles.buttonText}>
-                    Undo Mask Stroke
-                  </ThemedText>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityState={{
-                    disabled: selectedMaskStamps.length === 0,
-                  }}
-                  disabled={selectedMaskStamps.length === 0}
-                  onPress={clearCurrentMask}
-                  style={({ pressed }) => [
-                    styles.secondaryButton,
-                    selectedMaskStamps.length === 0 && styles.disabledButton,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <ThemedText style={styles.buttonText}>
-                    Clear This Mask
-                  </ThemedText>
-                </Pressable>
-              </>
-            )}
             <Pressable
               accessibilityRole="button"
-              onPress={() => {
-                setFitOverrides({});
-                setMaskOverrides({});
-                setExportStatus(null);
-              }}
+              accessibilityState={{ busy: saving, disabled: saving }}
+              disabled={saving}
+              onPress={() => void saveCurrentFit()}
+              style={({ pressed }) => [
+                styles.primaryButton,
+                saving && styles.disabledButton,
+                pressed && styles.pressed,
+              ]}>
+              {saving ? (
+                <ActivityIndicator color={Palette.ink} />
+              ) : (
+                <ThemedText style={styles.buttonText}>
+                  {selectedHasDraft ? 'Save Fit' : 'Save Fit'}
+                </ThemedText>
+              )}
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ disabled: saving }}
+              disabled={saving}
+              onPress={() => void resetCurrentFit()}
               style={({ pressed }) => [
                 styles.secondaryButton,
+                saving && styles.disabledButton,
                 pressed && styles.pressed,
-              ]}
-            >
+              ]}>
               <ThemedText style={styles.buttonText}>
-                Reset Entire Batch
+                Reset to 1254 Template
               </ThemedText>
             </Pressable>
           </View>
 
-          {workspaceMode === 'fit' ? (
-            <ThemedView type="background" style={styles.valueCard}>
-              <ThemedText type="smallBold">Fit values</ThemedText>
-              <ThemedText selectable type="code" style={styles.fitSnippet}>
-                {fitSnippet}
-              </ThemedText>
-            </ThemedView>
-          ) : (
-            <ThemedView type="background" style={styles.valueCard}>
-              <ThemedText type="smallBold">What the export keeps</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                Every brush stamp is saved for later editing, and the ZIP also
-                includes a transparent garment layer with the mask already
-                applied.
-              </ThemedText>
-            </ThemedView>
-          )}
-
-          {workspaceMode === 'fit' ? (
-            <View style={styles.mapPreviewRow}>
-              <View>
-                <ThemedText type="smallBold">Map-size check</ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
-                  Confirms the silhouette at the size explorers see.
-                </ThemedText>
-              </View>
-              <AvatarPreview
-                fitOverrides={fitOverrides}
-                selection={previewSelection}
-                size={92}
-              />
-            </View>
+          {status ? (
+            <ThemedText accessibilityLiveRegion="polite" style={styles.success}>
+              {status}
+            </ThemedText>
           ) : null}
+          {error ? (
+            <ThemedText accessibilityLiveRegion="assertive" style={styles.error}>
+              {error}
+            </ThemedText>
+          ) : null}
+
+          <View style={styles.mapPreviewRow}>
+            <View style={styles.mapPreviewCopy}>
+              <ThemedText type="smallBold">Map-size check</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                Saved adjustments apply here and everywhere Scout appears.
+              </ThemedText>
+            </View>
+            <AvatarPreview
+              fitOverrides={allFitOverrides}
+              selection={previewSelection}
+              size={92}
+            />
+          </View>
         </View>
       </View>
 
-      <ThemedText themeColor="textSecondary" style={styles.note}>
-        This lab previews fits and hidden-area masks only; it does not spend
-        Lorcoins or change any tester&apos;s saved avatar. Exporting creates one
-        ZIP with the batch data, masked garment layers, composed previews, and
-        original prototype layers needed to apply the approved edits.
+      <ThemedText themeColor="textSecondary">
+        There is no export step and no masking step. Save Fit publishes the
+        selected item’s position and size directly to the app.
       </ThemedText>
     </ThemedView>
   );
@@ -1229,21 +733,8 @@ const styles = StyleSheet.create({
   categoryTabSelected: {
     backgroundColor: Palette.lightBronze,
   },
-  modeTabs: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.one,
-  },
-  modeTab: {
-    borderColor: Palette.borderStrong,
-    borderRadius: 999,
-    borderWidth: 1,
-    minHeight: 44,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-  },
-  modeTabSelected: {
-    backgroundColor: Palette.lightBronze,
+  selectedButtonText: {
+    color: Palette.ink,
   },
   itemList: {
     flexDirection: 'row',
@@ -1264,31 +755,11 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.teaGreen,
     borderColor: Palette.borderStrong,
   },
-  selectedButtonText: {
-    color: Palette.ink,
-  },
   adjustedDot: {
     backgroundColor: Palette.lightBronze,
     borderRadius: 5,
     height: 10,
     width: 10,
-  },
-  batchBar: {
-    alignItems: 'center',
-    borderRadius: Spacing.two,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.three,
-    justifyContent: 'space-between',
-    padding: Spacing.three,
-  },
-  batchCopy: {
-    flex: 1,
-    gap: Spacing.half,
-    minWidth: 240,
-  },
-  exportStatus: {
-    flexBasis: '100%',
   },
   workspace: {
     alignItems: 'flex-start',
@@ -1306,29 +777,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     position: 'absolute',
   },
-  maskBox: {
-    borderColor: '#ff7a6b',
-    overflow: 'hidden',
-  },
-  maskPaintArea: {
-    backgroundColor: 'rgba(255, 122, 107, 0.08)',
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    zIndex: 3,
-  },
-  maskStamp: {
-    backgroundColor: 'rgba(220, 66, 60, 0.55)',
-    borderColor: '#fff3d8',
-    borderRadius: 999,
-    borderWidth: 1,
-    position: 'absolute',
-    zIndex: 4,
-  },
   moveIndicator: {
-    backgroundColor: 'rgba(254, 250, 224, 0.16)',
+    backgroundColor: 'rgba(254, 250, 224, 0.12)',
     bottom: 0,
     left: 0,
     position: 'absolute',
@@ -1346,62 +796,29 @@ const styles = StyleSheet.create({
     width: 18,
     zIndex: 2,
   },
-  handleNorth: {
-    left: '50%',
-    marginLeft: -9,
-    top: -10,
-  },
-  handleNorthEast: {
-    right: -10,
-    top: -10,
-  },
-  handleEast: {
-    marginTop: -9,
-    right: -10,
-    top: '50%',
-  },
-  handleSouthEast: {
-    bottom: -10,
-    right: -10,
-  },
-  handleSouth: {
-    bottom: -10,
-    left: '50%',
-    marginLeft: -9,
-  },
-  handleSouthWest: {
-    bottom: -10,
-    left: -10,
-  },
-  handleWest: {
-    left: -10,
-    marginTop: -9,
-    top: '50%',
-  },
-  handleNorthWest: {
-    left: -10,
-    top: -10,
-  },
+  handleNorth: { left: '50%', marginLeft: -9, top: -10 },
+  handleNorthEast: { right: -10, top: -10 },
+  handleEast: { marginTop: -9, right: -10, top: '50%' },
+  handleSouthEast: { bottom: -10, right: -10 },
+  handleSouth: { bottom: -10, left: '50%', marginLeft: -9 },
+  handleSouthWest: { bottom: -10, left: -10 },
+  handleWest: { left: -10, marginTop: -9, top: '50%' },
+  handleNorthWest: { left: -10, top: -10 },
   proportionToggle: {
     borderColor: Palette.borderStrong,
     borderRadius: 999,
     borderWidth: 1,
-    minHeight: 40,
+    minHeight: 44,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
   },
   proportionToggleSelected: {
-    backgroundColor: Palette.teaGreen,
+    backgroundColor: Palette.lightBronze,
   },
   controlColumn: {
     flex: 1,
     gap: Spacing.two,
-    maxWidth: MaxContentWidth,
     minWidth: 280,
-  },
-  itemTitle: {
-    fontSize: 24,
-    lineHeight: 32,
   },
   controlRow: {
     alignItems: 'center',
@@ -1410,7 +827,6 @@ const styles = StyleSheet.create({
   },
   controlLabel: {
     flex: 1,
-    minWidth: 92,
   },
   adjustButton: {
     alignItems: 'center',
@@ -1434,6 +850,14 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: Spacing.two,
   },
+  primaryButton: {
+    alignItems: 'center',
+    backgroundColor: Palette.lightBronze,
+    borderRadius: Spacing.two,
+    justifyContent: 'center',
+    minHeight: 48,
+    paddingHorizontal: Spacing.four,
+  },
   secondaryButton: {
     alignItems: 'center',
     backgroundColor: Palette.teaGreen,
@@ -1441,43 +865,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 44,
     paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
   },
-  primaryButton: {
-    alignItems: 'center',
-    backgroundColor: Palette.lightBronze,
-    borderRadius: Spacing.two,
-    justifyContent: 'center',
-    minHeight: 44,
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.two,
+  buttonText: {
+    color: Palette.ink,
+    fontWeight: '700',
   },
   disabledButton: {
     opacity: 0.5,
   },
-  buttonText: {
-    color: Palette.ink,
-    textAlign: 'center',
+  pressed: {
+    opacity: 0.75,
   },
-  valueCard: {
-    borderRadius: Spacing.two,
-    gap: Spacing.one,
-    padding: Spacing.three,
+  success: {
+    color: '#2E7D32',
   },
-  fitSnippet: {
-    lineHeight: 18,
+  error: {
+    color: '#B42318',
   },
   mapPreviewRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: Spacing.three,
-    justifyContent: 'space-between',
   },
-  note: {
-    maxWidth: MaxContentWidth,
-  },
-  pressed: {
-    opacity: 0.8,
+  mapPreviewCopy: {
+    flex: 1,
+    gap: Spacing.half,
   },
 });

@@ -23,7 +23,8 @@ The server calculates these goals from actual visits, badge awards, and the
 saved avatar profile. Pressing through mission text cannot complete a goal.
 Goals can be finished in any order, and progress updates automatically.
 Finishing all three awards the **New Explorer** Mission badge and unlocks the
-**New Explorer Shirt** in the avatar wardrobe.
+**Beta Tester Shirt** in the avatar wardrobe. Accounts that earned the earlier
+shirt reward retain access to the replacement.
 
 The version-two mission migration replaces progress from the original
 read-and-continue prototype. A prototype completion that does not satisfy the
@@ -45,11 +46,8 @@ and the avatar save mutation rejects attempts to equip a locked item.
 
 ## Artwork
 
-The reward clothing concept sheet supplied by Dan is stored at
-`assets/images/avatar/concepts/reward-clothing-concepts.svg`. The tutorial shirt
-was extracted and aligned to the existing 1254 × 1254 avatar canvas as
-`assets/images/avatar/items/top/avatar-top-new-explorer-tee.png`. The other
-concept-sheet pieces remain source material for future fitted rewards.
+The tutorial reward uses Dan's hand-drawn 1254 × 1254 Beta Tester Tee at
+`assets/images/avatar/items/top/avatar-top-beta-tester-tee.png`.
 
 ## Acceptance checks
 
@@ -63,7 +61,7 @@ concept-sheet pieces remain source material for future fitted rewards.
    that can satisfy the three goals.
 7. Completing the tutorial removes it from the active Mission section.
 8. The New Explorer badge appears under the Mission badge type.
-9. The New Explorer Shirt becomes selectable only after completion.
+9. The Beta Tester Shirt becomes selectable only after completion.
 10. The completed badge uses the normal award popup and acknowledgement flow.
 11. Existing prototype progress migrates to the Lorcal mission key without
     leaving duplicate mission records or rewards.

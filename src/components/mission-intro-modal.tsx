@@ -67,7 +67,7 @@ export function MissionIntroModal({
               </ThemedText>
               <ThemedText themeColor="textSecondary">
                 Finish all three goals to earn the New Explorer badge and
-                unlock the cow-print New Explorer Shirt.
+                unlock the Beta Tester Shirt.
               </ThemedText>
             </View>
 

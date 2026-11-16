@@ -2,6 +2,17 @@ import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
 
 export default defineSchema({
+  avatarItemFits: defineTable({
+    height: v.number(),
+    itemId: v.string(),
+    left: v.number(),
+    rotation: v.number(),
+    top: v.number(),
+    updatedAt: v.number(),
+    updatedByClerkUserId: v.string(),
+    width: v.number(),
+  }).index('by_item', ['itemId']),
+
   locations: defineTable({
     name: v.string(),
     key: v.optional(v.string()),
@@ -60,66 +71,17 @@ export default defineSchema({
     manualRoleGrantedAt: v.optional(v.number()),
     manualRoleGrantedByClerkUserId: v.optional(v.string()),
     manualRoleReason: v.optional(v.string()),
-    avatarPresetId: v.union(
-      v.literal('explorer'),
-      v.literal('trail_basics'),
-      v.literal('cozy_winter'),
-      v.literal('classic_cowboy'),
-      v.literal('rodeo_cowboy'),
-      v.literal('pink_princess'),
-      v.literal('custom'),
-    ),
-    avatarTopId: v.optional(
-      v.union(
-        v.literal('trail_tank'),
-        v.literal('explorer_field'),
-        v.literal('new_explorer_tee'),
-        v.literal('winter_polka_sweater'),
-        v.literal('cowboy_sheriff_shirt'),
-        v.literal('princess_puff_bodice'),
-      ),
-    ),
-    avatarBottomId: v.optional(
-      v.union(
-        v.literal('trail_shorts'),
-        v.literal('explorer_cargo'),
-        v.literal('winter_charcoal_pants'),
-        v.literal('cowboy_western_pants'),
-        v.literal('cowboy_western_shorts'),
-        v.literal('princess_ballgown_skirt'),
-      ),
-    ),
-    avatarShoesId: v.optional(
-      v.union(
-        v.literal('bare_hooves'),
-        v.literal('explorer_boots'),
-        v.literal('winter_snow_boots'),
-        v.literal('cowboy_brown_boots'),
-        v.literal('cowboy_red_boots'),
-      ),
-    ),
-    avatarNeckId: v.optional(
-      v.union(
-        v.literal('none'),
-        v.literal('rust_neckerchief'),
-        v.literal('winter_cream_scarf'),
-        v.literal('cowboy_red_bandana'),
-      ),
-    ),
-    avatarFaceId: v.optional(
-      v.union(v.literal('none'), v.literal('explorer_goggles')),
-    ),
-    avatarHeadwearId: v.optional(
-      v.union(
-        v.literal('none'),
-        v.literal('winter_knit_beanie'),
-        v.literal('cowboy_sheriff_hat'),
-        v.literal('princess_crown'),
-      ),
-    ),
-    avatarHandheldId: v.optional(
-      v.union(v.literal('none'), v.literal('princess_star_wand')),
-    ),
+    // Stored as strings during the one-time catalog transition so existing
+    // profiles remain readable until they next sync to the standard look.
+    avatarPresetId: v.string(),
+    avatarTopId: v.optional(v.string()),
+    avatarBottomId: v.optional(v.string()),
+    avatarShoesId: v.optional(v.string()),
+    avatarNeckId: v.optional(v.string()),
+    avatarFaceId: v.optional(v.string()),
+    avatarHeadwearId: v.optional(v.string()),
+    avatarHandheldId: v.optional(v.string()),
+    avatarCatalogVersion: v.optional(v.number()),
     unlockedAvatarItemIds: v.optional(v.array(v.string())),
     avatarCustomizedAt: v.optional(v.number()),
     communitySubmissionIntroSeenAt: v.optional(v.number()),
@@ -167,6 +129,7 @@ export default defineSchema({
   betaFeedback: defineTable({
     clerkUserId: v.string(),
     message: v.string(),
+    imageStorageIds: v.optional(v.array(v.id('_storage'))),
     sourceRoute: v.literal('map'),
     sourcePlatform: v.string(),
     buildProfile: v.string(),

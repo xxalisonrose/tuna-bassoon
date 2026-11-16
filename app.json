@@ -35,9 +35,18 @@
       ],
       "@maplibre/maplibre-react-native",
       "expo-image",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": false,
+          "microphonePermission": false,
+          "photosPermission": "Lorcal lets you choose screenshots to attach to beta feedback."
+        }
+      ],
       "expo-web-browser",
       "expo-secure-store",
-      "@clerk/expo"
+      "@clerk/expo",
+      "@clerk/expo-google-signin"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -261,14 +261,15 @@ export const resetMyTestingProgress = mutation({
         ? []
         : [
             ctx.db.patch(userProfile._id, {
-              avatarPresetId: 'explorer',
-              avatarTopId: 'explorer_field',
-              avatarBottomId: 'explorer_cargo',
-              avatarShoesId: 'explorer_boots',
-              avatarNeckId: 'rust_neckerchief',
-              avatarFaceId: 'explorer_goggles',
+              avatarPresetId: 'standard',
+              avatarTopId: 'white_tee',
+              avatarBottomId: 'blue_pants',
+              avatarShoesId: 'scout_boots',
+              avatarNeckId: 'none',
+              avatarFaceId: 'none',
               avatarHeadwearId: 'none',
               avatarHandheldId: 'none',
+              avatarCatalogVersion: 2,
               updatedAt: Date.now(),
             }),
           ]),

@@ -5,12 +5,15 @@ import { requireAdmin, requireAuthenticatedIdentity } from './lib/auth';
 
 const MINIMUM_MESSAGE_LENGTH = 5;
 const MAXIMUM_MESSAGE_LENGTH = 2_000;
+const MAXIMUM_SCREENSHOTS = 3;
+const MAXIMUM_SCREENSHOT_BYTES = 8 * 1_024 * 1_024;
 const MAXIMUM_SUBMISSIONS_PER_HOUR = 10;
 const ONE_HOUR_MS = 60 * 60 * 1_000;
 
 export const submit = mutation({
   args: {
     message: v.string(),
+    imageStorageIds: v.optional(v.array(v.id('_storage'))),
     sourceRoute: v.literal('map'),
     sourcePlatform: v.string(),
     buildProfile: v.string(),
@@ -19,6 +22,7 @@ export const submit = mutation({
   handler: async (ctx, args) => {
     const identity = await requireAuthenticatedIdentity(ctx);
     const message = args.message.trim();
+    const imageStorageIds = Array.from(new Set(args.imageStorageIds ?? []));
 
     if (message.length < MINIMUM_MESSAGE_LENGTH) {
       throw new ConvexError(
@@ -29,6 +33,29 @@ export const submit = mutation({
     if (message.length > MAXIMUM_MESSAGE_LENGTH) {
       throw new ConvexError(
         `Feedback must be ${MAXIMUM_MESSAGE_LENGTH.toLocaleString()} characters or fewer.`,
+      );
+    }
+
+    if (imageStorageIds.length > MAXIMUM_SCREENSHOTS) {
+      throw new ConvexError(
+        `Attach no more than ${MAXIMUM_SCREENSHOTS} screenshots.`,
+      );
+    }
+
+    const imageMetadata = await Promise.all(
+      imageStorageIds.map((storageId) => ctx.storage.getMetadata(storageId)),
+    );
+
+    if (
+      imageMetadata.some(
+        (metadata) =>
+          metadata === null ||
+          metadata.size > MAXIMUM_SCREENSHOT_BYTES ||
+          !metadata.contentType?.startsWith('image/'),
+      )
+    ) {
+      throw new ConvexError(
+        'Each attachment must be an image that is 8 MB or smaller.',
       );
     }
 
@@ -56,6 +83,7 @@ export const submit = mutation({
     const feedbackId = await ctx.db.insert('betaFeedback', {
       clerkUserId: identity.subject,
       message,
+      imageStorageIds,
       sourceRoute: args.sourceRoute,
       sourcePlatform: args.sourcePlatform.trim().slice(0, 40) || 'unknown',
       buildProfile: args.buildProfile.trim().slice(0, 40) || 'unknown',
@@ -64,6 +92,15 @@ export const submit = mutation({
     });
 
     return { feedbackId, submittedAt };
+  },
+});
+
+export const generateUploadUrl = mutation({
+  args: {},
+
+  handler: async (ctx) => {
+    await requireAuthenticatedIdentity(ctx);
+    return await ctx.storage.generateUploadUrl();
   },
 });
 
@@ -111,15 +148,25 @@ export const listForAdmin = query({
     );
     const profilesByUserId = new Map(profileEntries);
 
-    return feedback.map((entry) => {
-      const profile = profilesByUserId.get(entry.clerkUserId);
+    return await Promise.all(
+      feedback.map(async (entry) => {
+        const profile = profilesByUserId.get(entry.clerkUserId);
+        const imageUrls = (
+          await Promise.all(
+            (entry.imageStorageIds ?? []).map((storageId) =>
+              ctx.storage.getUrl(storageId),
+            ),
+          )
+        ).filter((url): url is string => url !== null);
 
-      return {
-        ...entry,
-        testerName: profile?.username ?? profile?.displayName ?? null,
-        testerEmail: profile?.email ?? null,
-      };
-    });
+        return {
+          ...entry,
+          imageUrls,
+          testerName: profile?.username ?? profile?.displayName ?? null,
+          testerEmail: profile?.email ?? null,
+        };
+      }),
+    );
   },
 });
 

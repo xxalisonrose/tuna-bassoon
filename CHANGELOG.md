@@ -1,5 +1,19 @@
 # Lorcal changelog
 
+## Beta 5 — November 16, 2026
+
+- Request navigation-grade foreground location updates about every meter and second, then ease the map between updates so walking feels more accurate and less jerky.
+- Let explorers preview a complete outfit and buy only the missing pieces in one confirmed Lorcoin purchase.
+- Keep the Android keyboard from covering the beta feedback field and scroll the active field into view while typing.
+- Let beta testers attach up to three screenshots to Lorcal feedback and show those images with the report in the admin panel.
+- Keep older beta binaries from crashing when the new screenshot picker is unavailable; text feedback and sign-in remain usable until the next native build is installed.
+- Open Clerk's native sign-in and account-creation screens inside Lorcal instead of relying on the hosted browser page that could appear blank on Android.
+- Replace the generated avatar wardrobe and tutorial Scout images with Dan's aligned hand-drawn artwork, and start every avatar in the standard white shirt, blue pants, and boots.
+- Add the Pretty Pretty Princess gown, heels, crown, and wand as individual pieces and a Complete Look.
+- Replace the tutorial clothing reward with the Beta Tester Shirt while preserving access for people who earned the earlier reward.
+- Keep glasses and goggles visible above hats, and render handheld accessories above the complete outfit.
+- Simplify the clothing-fit editor to save adjustments directly, remove ZIP and hidden-mask tools, and display correctly exported 1254-pixel art at its true size.
+
 ## Beta 4 — November 10, 2026
 
 - Rewrote the visual tutorial with Scout artwork, clearer map controls, separate tap/hold/check-in demonstrations, an expanded Passport walkthrough, and a replay option in Settings.

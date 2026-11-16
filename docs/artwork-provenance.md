@@ -4,6 +4,16 @@ This register tracks temporary artwork created with generative tools or other pl
 
 Only assets with confirmed provenance belong in a specific section. Do not guess how older artwork was created; record it as unknown until its source is confirmed.
 
+## Human-created production replacements
+
+On November 13, 2026, Dan supplied a coordinated 1254 × 1254 Photoshop art set. The set includes Scout's neutral body, nine tops, five pants, boots, goggles, glasses, nine hats, and two tutorial close-ups. Every exported PNG uses the same complete square canvas and origin, so the runtime now stacks these files without per-item fitting.
+
+On November 16, 2026, Dan added a hand-drawn pink lace gown top and skirt, pink heels, princess crown, heart wand, and Beta Tester Tee on the same 1254 × 1254 canvas. These replace the generated princess prototype at runtime and the Beta Tester Tee replaces the earlier generated tutorial-shirt reward.
+
+The current production files under `assets/images/avatar/references`, `assets/images/avatar/items`, and `assets/images/tutorial/scout` were copied from that set. The 384 × 384 files under `assets/images/avatar/map` are deterministic downsampled copies for map performance. Historical rows below that name a replaced runtime path describe the superseded pixels, not the current human-created file contents.
+
+The editable PSD sources remain in the owner's `New Avatar Assets/Photoshop Files` working folder. They are not bundled into the application.
+
 ## Confirmed AI-generated placeholders
 
 | Asset | Current use | How it was created | Replacement plan |

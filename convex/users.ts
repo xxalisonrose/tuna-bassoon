@@ -2,10 +2,7 @@ import { ConvexError, v } from 'convex/values';
 
 import { mutation, query } from './_generated/server';
 import { isAdminSubject } from './lib/auth';
-import {
-  getStoredAvatarItemIds,
-  isPurchasableAvatarItemId,
-} from './lib/avatarEconomy';
+import { isPurchasableAvatarItemId } from './lib/avatarEconomy';
 import { getCommunityContributorStatus } from './lib/communityContributor';
 import {
   USERNAME_CHANGE_COOLDOWN_DAYS,
@@ -70,56 +67,58 @@ export const getCurrentUser = query({
 });
 
 const avatarPresetValidator = v.union(
-  v.literal('explorer'),
-  v.literal('trail_basics'),
-  v.literal('cozy_winter'),
-  v.literal('classic_cowboy'),
-  v.literal('rodeo_cowboy'),
-  v.literal('pink_princess'),
+  v.literal('standard'),
+  v.literal('pretty_pretty_princess'),
   v.literal('custom'),
 );
 const avatarTopValidator = v.union(
-  v.literal('trail_tank'),
-  v.literal('explorer_field'),
-  v.literal('new_explorer_tee'),
-  v.literal('winter_polka_sweater'),
-  v.literal('cowboy_sheriff_shirt'),
-  v.literal('princess_puff_bodice'),
+  v.literal('white_tee'),
+  v.literal('brown_tee'),
+  v.literal('color_splash_tee'),
+  v.literal('purple_tee'),
+  v.literal('crimson_tee'),
+  v.literal('pink_tee'),
+  v.literal('black_tee'),
+  v.literal('fire_tee'),
+  v.literal('noah_kahan_tee'),
+  v.literal('beta_tester_tee'),
+  v.literal('pink_gown_top'),
 );
 const avatarBottomValidator = v.union(
-  v.literal('trail_shorts'),
-  v.literal('explorer_cargo'),
-  v.literal('winter_charcoal_pants'),
-  v.literal('cowboy_western_pants'),
-  v.literal('cowboy_western_shorts'),
-  v.literal('princess_ballgown_skirt'),
+  v.literal('classic_pants'),
+  v.literal('blue_pants'),
+  v.literal('grey_pants'),
+  v.literal('brown_pants'),
+  v.literal('purple_pants'),
+  v.literal('pink_gown_bottom'),
 );
 const avatarShoesValidator = v.union(
   v.literal('bare_hooves'),
-  v.literal('explorer_boots'),
-  v.literal('winter_snow_boots'),
-  v.literal('cowboy_brown_boots'),
-  v.literal('cowboy_red_boots'),
+  v.literal('scout_boots'),
+  v.literal('pink_heels'),
 );
-const avatarNeckValidator = v.union(
-  v.literal('none'),
-  v.literal('rust_neckerchief'),
-  v.literal('winter_cream_scarf'),
-  v.literal('cowboy_red_bandana'),
-);
+const avatarNeckValidator = v.literal('none');
 const avatarFaceValidator = v.union(
   v.literal('none'),
-  v.literal('explorer_goggles'),
+  v.literal('goggles'),
+  v.literal('glasses'),
 );
 const avatarHeadwearValidator = v.union(
   v.literal('none'),
-  v.literal('winter_knit_beanie'),
-  v.literal('cowboy_sheriff_hat'),
+  v.literal('beanie'),
+  v.literal('beanie_blue'),
+  v.literal('beanie_green'),
+  v.literal('beanie_pink'),
+  v.literal('beanie_purple'),
+  v.literal('beanie_red'),
+  v.literal('cowboy_hat'),
+  v.literal('cowboy_hat_brown'),
+  v.literal('cowboy_hat_red'),
   v.literal('princess_crown'),
 );
 const avatarHandheldValidator = v.union(
   v.literal('none'),
-  v.literal('princess_star_wand'),
+  v.literal('heart_wand'),
 );
 const avatarSelectionValidator = v.object({
   topId: avatarTopValidator,
@@ -133,86 +132,61 @@ const avatarSelectionValidator = v.object({
 
 type AvatarSelection = {
   topId:
-    | 'trail_tank'
-    | 'explorer_field'
-    | 'new_explorer_tee'
-    | 'winter_polka_sweater'
-    | 'cowboy_sheriff_shirt'
-    | 'princess_puff_bodice';
+    | 'white_tee'
+    | 'brown_tee'
+    | 'color_splash_tee'
+    | 'purple_tee'
+    | 'crimson_tee'
+    | 'pink_tee'
+    | 'black_tee'
+    | 'fire_tee'
+    | 'noah_kahan_tee'
+    | 'beta_tester_tee'
+    | 'pink_gown_top';
   bottomId:
-    | 'trail_shorts'
-    | 'explorer_cargo'
-    | 'winter_charcoal_pants'
-    | 'cowboy_western_pants'
-    | 'cowboy_western_shorts'
-    | 'princess_ballgown_skirt';
-  shoesId:
-    | 'bare_hooves'
-    | 'explorer_boots'
-    | 'winter_snow_boots'
-    | 'cowboy_brown_boots'
-    | 'cowboy_red_boots';
-  neckId:
-    'none' | 'rust_neckerchief' | 'winter_cream_scarf' | 'cowboy_red_bandana';
-  faceId: 'none' | 'explorer_goggles';
+    | 'classic_pants'
+    | 'blue_pants'
+    | 'grey_pants'
+    | 'brown_pants'
+    | 'purple_pants'
+    | 'pink_gown_bottom';
+  shoesId: 'bare_hooves' | 'scout_boots' | 'pink_heels';
+  neckId: 'none';
+  faceId: 'none' | 'goggles' | 'glasses';
   headwearId:
-    'none' | 'winter_knit_beanie' | 'cowboy_sheriff_hat' | 'princess_crown';
-  handheldId: 'none' | 'princess_star_wand';
+    | 'none'
+    | 'beanie'
+    | 'beanie_blue'
+    | 'beanie_green'
+    | 'beanie_pink'
+    | 'beanie_purple'
+    | 'beanie_red'
+    | 'cowboy_hat'
+    | 'cowboy_hat_brown'
+    | 'cowboy_hat_red'
+    | 'princess_crown';
+  handheldId: 'none' | 'heart_wand';
 };
 
-const explorerSelection: AvatarSelection = {
-  topId: 'explorer_field',
-  bottomId: 'explorer_cargo',
-  shoesId: 'explorer_boots',
-  neckId: 'rust_neckerchief',
-  faceId: 'explorer_goggles',
-  headwearId: 'none',
-  handheldId: 'none',
-};
-const trailBasicsSelection: AvatarSelection = {
-  topId: 'trail_tank',
-  bottomId: 'trail_shorts',
-  shoesId: 'bare_hooves',
+const currentAvatarCatalogVersion = 2;
+const standardSelection: AvatarSelection = {
+  topId: 'white_tee',
+  bottomId: 'blue_pants',
+  shoesId: 'scout_boots',
   neckId: 'none',
   faceId: 'none',
   headwearId: 'none',
   handheldId: 'none',
 };
-const cozyWinterSelection: AvatarSelection = {
-  topId: 'winter_polka_sweater',
-  bottomId: 'winter_charcoal_pants',
-  shoesId: 'winter_snow_boots',
-  neckId: 'winter_cream_scarf',
-  faceId: 'none',
-  headwearId: 'winter_knit_beanie',
-  handheldId: 'none',
-};
-const classicCowboySelection: AvatarSelection = {
-  topId: 'cowboy_sheriff_shirt',
-  bottomId: 'cowboy_western_pants',
-  shoesId: 'cowboy_brown_boots',
-  neckId: 'cowboy_red_bandana',
-  faceId: 'none',
-  headwearId: 'cowboy_sheriff_hat',
-  handheldId: 'none',
-};
-const rodeoCowboySelection: AvatarSelection = {
-  topId: 'cowboy_sheriff_shirt',
-  bottomId: 'cowboy_western_shorts',
-  shoesId: 'cowboy_red_boots',
-  neckId: 'cowboy_red_bandana',
-  faceId: 'none',
-  headwearId: 'cowboy_sheriff_hat',
-  handheldId: 'none',
-};
-const pinkPrincessSelection: AvatarSelection = {
-  topId: 'princess_puff_bodice',
-  bottomId: 'princess_ballgown_skirt',
-  shoesId: 'bare_hooves',
+
+const prettyPrettyPrincessSelection: AvatarSelection = {
+  topId: 'pink_gown_top',
+  bottomId: 'pink_gown_bottom',
+  shoesId: 'pink_heels',
   neckId: 'none',
   faceId: 'none',
   headwearId: 'princess_crown',
-  handheldId: 'princess_star_wand',
+  handheldId: 'heart_wand',
 };
 
 function getIdentityProfileFields(identity: { name?: string; email?: string }) {
@@ -252,20 +226,34 @@ export const syncMyUserProfile = mutation({
     if (existingProfile === null) {
       await ctx.db.insert('userProfiles', {
         clerkUserId: identity.subject,
-        avatarPresetId: 'explorer',
-        avatarTopId: explorerSelection.topId,
-        avatarBottomId: explorerSelection.bottomId,
-        avatarShoesId: explorerSelection.shoesId,
-        avatarNeckId: explorerSelection.neckId,
-        avatarFaceId: explorerSelection.faceId,
-        avatarHeadwearId: explorerSelection.headwearId,
-        avatarHandheldId: explorerSelection.handheldId,
+        avatarPresetId: 'standard',
+        avatarTopId: standardSelection.topId,
+        avatarBottomId: standardSelection.bottomId,
+        avatarShoesId: standardSelection.shoesId,
+        avatarNeckId: standardSelection.neckId,
+        avatarFaceId: standardSelection.faceId,
+        avatarHeadwearId: standardSelection.headwearId,
+        avatarHandheldId: standardSelection.handheldId,
+        avatarCatalogVersion: currentAvatarCatalogVersion,
         ...identityFields,
         createdAt: now,
         updatedAt: now,
       });
     } else {
       await ctx.db.patch(existingProfile._id, {
+        ...(existingProfile.avatarCatalogVersion === currentAvatarCatalogVersion
+          ? {}
+          : {
+              avatarPresetId: 'standard',
+              avatarTopId: standardSelection.topId,
+              avatarBottomId: standardSelection.bottomId,
+              avatarShoesId: standardSelection.shoesId,
+              avatarNeckId: standardSelection.neckId,
+              avatarFaceId: standardSelection.faceId,
+              avatarHeadwearId: standardSelection.headwearId,
+              avatarHandheldId: standardSelection.handheldId,
+              avatarCatalogVersion: currentAvatarCatalogVersion,
+            }),
         ...identityFields,
         updatedAt: now,
       });
@@ -339,14 +327,15 @@ export const setMyUsername = mutation({
     if (existingProfile === null) {
       await ctx.db.insert('userProfiles', {
         clerkUserId: identity.subject,
-        avatarPresetId: 'explorer',
-        avatarTopId: explorerSelection.topId,
-        avatarBottomId: explorerSelection.bottomId,
-        avatarShoesId: explorerSelection.shoesId,
-        avatarNeckId: explorerSelection.neckId,
-        avatarFaceId: explorerSelection.faceId,
-        avatarHeadwearId: explorerSelection.headwearId,
-        avatarHandheldId: explorerSelection.handheldId,
+        avatarPresetId: 'standard',
+        avatarTopId: standardSelection.topId,
+        avatarBottomId: standardSelection.bottomId,
+        avatarShoesId: standardSelection.shoesId,
+        avatarNeckId: standardSelection.neckId,
+        avatarFaceId: standardSelection.faceId,
+        avatarHeadwearId: standardSelection.headwearId,
+        avatarHandheldId: standardSelection.handheldId,
+        avatarCatalogVersion: currentAvatarCatalogVersion,
         ...usernameFields,
         createdAt: now,
       });
@@ -391,14 +380,15 @@ export const acknowledgeCommunitySubmissionIntro = mutation({
     if (existingProfile === null) {
       await ctx.db.insert('userProfiles', {
         clerkUserId: identity.subject,
-        avatarPresetId: 'explorer',
-        avatarTopId: explorerSelection.topId,
-        avatarBottomId: explorerSelection.bottomId,
-        avatarShoesId: explorerSelection.shoesId,
-        avatarNeckId: explorerSelection.neckId,
-        avatarFaceId: explorerSelection.faceId,
-        avatarHeadwearId: explorerSelection.headwearId,
-        avatarHandheldId: explorerSelection.handheldId,
+        avatarPresetId: 'standard',
+        avatarTopId: standardSelection.topId,
+        avatarBottomId: standardSelection.bottomId,
+        avatarShoesId: standardSelection.shoesId,
+        avatarNeckId: standardSelection.neckId,
+        avatarFaceId: standardSelection.faceId,
+        avatarHeadwearId: standardSelection.headwearId,
+        avatarHandheldId: standardSelection.handheldId,
+        avatarCatalogVersion: currentAvatarCatalogVersion,
         communitySubmissionIntroSeenAt: now,
         createdAt: now,
         updatedAt: now,
@@ -415,44 +405,50 @@ export const acknowledgeCommunitySubmissionIntro = mutation({
 });
 
 function selectionForPreset(presetId: string | undefined) {
-  if (presetId === 'pink_princess') {
-    return pinkPrincessSelection;
-  }
-  if (presetId === 'classic_cowboy') {
-    return classicCowboySelection;
-  }
-  if (presetId === 'rodeo_cowboy') {
-    return rodeoCowboySelection;
-  }
-  if (presetId === 'cozy_winter') {
-    return cozyWinterSelection;
-  }
-
-  return presetId === 'trail_basics' ? trailBasicsSelection : explorerSelection;
+  return presetId === 'pretty_pretty_princess'
+    ? prettyPrettyPrincessSelection
+    : standardSelection;
 }
 
 function getStoredSelection(
   profile: {
     avatarPresetId: string;
-    avatarTopId?: AvatarSelection['topId'];
-    avatarBottomId?: AvatarSelection['bottomId'];
-    avatarShoesId?: AvatarSelection['shoesId'];
-    avatarNeckId?: AvatarSelection['neckId'];
-    avatarFaceId?: AvatarSelection['faceId'];
-    avatarHeadwearId?: AvatarSelection['headwearId'];
-    avatarHandheldId?: AvatarSelection['handheldId'];
+    avatarTopId?: string;
+    avatarBottomId?: string;
+    avatarShoesId?: string;
+    avatarNeckId?: string;
+    avatarFaceId?: string;
+    avatarHeadwearId?: string;
+    avatarHandheldId?: string;
+    avatarCatalogVersion?: number;
   } | null,
 ): AvatarSelection {
+  if (
+    profile === null ||
+    profile.avatarCatalogVersion !== currentAvatarCatalogVersion
+  ) {
+    return { ...standardSelection };
+  }
+
   const fallback = selectionForPreset(profile?.avatarPresetId);
 
   return {
-    topId: profile?.avatarTopId ?? fallback.topId,
-    bottomId: profile?.avatarBottomId ?? fallback.bottomId,
-    shoesId: profile?.avatarShoesId ?? fallback.shoesId,
-    neckId: profile?.avatarNeckId ?? fallback.neckId,
-    faceId: profile?.avatarFaceId ?? fallback.faceId,
-    headwearId: profile?.avatarHeadwearId ?? fallback.headwearId,
-    handheldId: profile?.avatarHandheldId ?? fallback.handheldId,
+    topId: (profile.avatarTopId as AvatarSelection['topId']) ?? fallback.topId,
+    bottomId:
+      (profile.avatarBottomId as AvatarSelection['bottomId']) ??
+      fallback.bottomId,
+    shoesId:
+      (profile.avatarShoesId as AvatarSelection['shoesId']) ??
+      fallback.shoesId,
+    neckId: 'none',
+    faceId:
+      (profile.avatarFaceId as AvatarSelection['faceId']) ?? fallback.faceId,
+    headwearId:
+      (profile.avatarHeadwearId as AvatarSelection['headwearId']) ??
+      fallback.headwearId,
+    handheldId:
+      (profile.avatarHandheldId as AvatarSelection['handheldId']) ??
+      fallback.handheldId,
   };
 }
 
@@ -464,24 +460,14 @@ function getMatchingPresetId(selection: AvatarSelection) {
         candidate[key as keyof AvatarSelection],
     );
 
-  if (matches(explorerSelection)) {
-    return 'explorer' as const;
+  if (matches(standardSelection)) {
+    return 'standard' as const;
   }
-  if (matches(trailBasicsSelection)) {
-    return 'trail_basics' as const;
+
+  if (matches(prettyPrettyPrincessSelection)) {
+    return 'pretty_pretty_princess' as const;
   }
-  if (matches(cozyWinterSelection)) {
-    return 'cozy_winter' as const;
-  }
-  if (matches(classicCowboySelection)) {
-    return 'classic_cowboy' as const;
-  }
-  if (matches(rodeoCowboySelection)) {
-    return 'rodeo_cowboy' as const;
-  }
-  if (matches(pinkPrincessSelection)) {
-    return 'pink_princess' as const;
-  }
+
   return 'custom' as const;
 }
 
@@ -510,20 +496,19 @@ export const getMyAvatarProfile = query({
         .collect(),
     ]);
     const selection = getStoredSelection(profile);
-    const legacyOwnedItemIds = Object.values(selection).filter(
-      isPurchasableAvatarItemId,
-    );
+
+    const unlockedAvatarItemIds = profile?.unlockedAvatarItemIds ?? [];
+    const effectiveUnlockedAvatarItemIds = unlockedAvatarItemIds.includes(
+      'color_splash_tee',
+    )
+      ? Array.from(new Set([...unlockedAvatarItemIds, 'beta_tester_tee']))
+      : unlockedAvatarItemIds;
 
     return {
       avatarPresetId: getMatchingPresetId(selection),
       selection,
-      unlockedAvatarItemIds: profile?.unlockedAvatarItemIds ?? [],
-      purchasedAvatarItemIds: Array.from(
-        new Set([
-          ...purchases.map((purchase) => purchase.itemId),
-          ...legacyOwnedItemIds,
-        ]),
-      ),
+      unlockedAvatarItemIds: effectiveUnlockedAvatarItemIds,
+      purchasedAvatarItemIds: purchases.map((purchase) => purchase.itemId),
       hasSavedAvatar: profile !== null,
     };
   },
@@ -565,8 +550,11 @@ export const saveMyAvatarProfile = mutation({
       : selectionForPreset(args.avatarPresetId);
 
     if (
-      selection.topId === 'new_explorer_tee' &&
-      !existingProfile?.unlockedAvatarItemIds?.includes('new_explorer_tee')
+      selection.topId === 'beta_tester_tee' &&
+      !existingProfile?.unlockedAvatarItemIds?.some(
+        (itemId) =>
+          itemId === 'beta_tester_tee' || itemId === 'color_splash_tee',
+      )
     ) {
       throw new ConvexError(
         'Complete the Welcome to Lorcal mission to unlock this shirt.',
@@ -577,26 +565,6 @@ export const saveMyAvatarProfile = mutation({
       purchases.map((purchase) => purchase.itemId),
     );
     const now = Date.now();
-
-    if (existingProfile !== null) {
-      for (const itemId of getStoredAvatarItemIds(existingProfile)) {
-        if (
-          !isPurchasableAvatarItemId(itemId) ||
-          purchasedItemIds.has(itemId)
-        ) {
-          continue;
-        }
-
-        await ctx.db.insert('avatarItemPurchases', {
-          clerkUserId: identity.subject,
-          itemId,
-          price: 0,
-          acquisition: 'legacy',
-          purchasedAt: now,
-        });
-        purchasedItemIds.add(itemId);
-      }
-    }
 
     const unownedItemId = Object.values(selection).find(
       (itemId) =>
@@ -620,6 +588,7 @@ export const saveMyAvatarProfile = mutation({
       avatarFaceId: selection.faceId,
       avatarHeadwearId: selection.headwearId,
       avatarHandheldId: selection.handheldId,
+      avatarCatalogVersion: currentAvatarCatalogVersion,
       avatarCustomizedAt: now,
       updatedAt: now,
     };

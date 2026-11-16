@@ -215,3 +215,110 @@ export const purchaseAvatarItem = mutation({
     };
   },
 });
+
+export const purchaseAvatarItems = mutation({
+  args: {
+    itemIds: v.array(v.string()),
+  },
+
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (identity === null) {
+      throw new ConvexError('Sign in before buying wardrobe items.');
+    }
+
+    const requestedItemIds = Array.from(new Set(args.itemIds));
+
+    if (requestedItemIds.length === 0) {
+      throw new ConvexError('Choose at least one wardrobe item to buy.');
+    }
+
+    if (requestedItemIds.length > 16) {
+      throw new ConvexError('Too many wardrobe items were selected.');
+    }
+
+    if (!requestedItemIds.every(isPurchasableAvatarItemId)) {
+      throw new ConvexError('One of these wardrobe items is not for sale.');
+    }
+
+    const [existingPurchases, profile] = await Promise.all([
+      ctx.db
+        .query('avatarItemPurchases')
+        .withIndex('by_user', (queryBuilder) =>
+          queryBuilder.eq('clerkUserId', identity.subject),
+        )
+        .collect(),
+      ctx.db
+        .query('userProfiles')
+        .withIndex('by_user', (queryBuilder) =>
+          queryBuilder.eq('clerkUserId', identity.subject),
+        )
+        .unique(),
+    ]);
+
+    const ownedItemIds = new Set(
+      existingPurchases.map((purchase) => purchase.itemId),
+    );
+    const legacyOwnedItemIds = new Set(
+      profile === null ? [] : getStoredAvatarItemIds(profile),
+    );
+    const purchasedAt = Date.now();
+
+    for (const itemId of requestedItemIds) {
+      if (!ownedItemIds.has(itemId) && legacyOwnedItemIds.has(itemId)) {
+        await ctx.db.insert('avatarItemPurchases', {
+          clerkUserId: identity.subject,
+          itemId,
+          price: 0,
+          acquisition: 'legacy',
+          purchasedAt,
+        });
+        ownedItemIds.add(itemId);
+      }
+    }
+
+    const missingItemIds = requestedItemIds.filter(
+      (itemId) => !ownedItemIds.has(itemId),
+    );
+    const totalPrice =
+      missingItemIds.length * AVATAR_ITEM_LORCOIN_PRICE;
+    const snapshot = await getWalletSnapshot(ctx, identity.subject);
+
+    if (missingItemIds.length === 0) {
+      return {
+        status: 'already_owned' as const,
+        balance: snapshot.balance,
+        purchasedItemIds: [] as string[],
+        totalPrice: 0,
+      };
+    }
+
+    if (snapshot.balance < totalPrice) {
+      return {
+        status: 'insufficient_funds' as const,
+        balance: snapshot.balance,
+        needed: totalPrice - snapshot.balance,
+        purchasedItemIds: [] as string[],
+        totalPrice,
+      };
+    }
+
+    for (const itemId of missingItemIds) {
+      await ctx.db.insert('avatarItemPurchases', {
+        clerkUserId: identity.subject,
+        itemId,
+        price: AVATAR_ITEM_LORCOIN_PRICE,
+        acquisition: 'purchase',
+        purchasedAt,
+      });
+    }
+
+    return {
+      status: 'purchased' as const,
+      balance: snapshot.balance - totalPrice,
+      purchasedItemIds: missingItemIds,
+      totalPrice,
+    };
+  },
+});

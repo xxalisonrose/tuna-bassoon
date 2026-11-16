@@ -16,6 +16,7 @@ import type * as adminIngest from "../adminIngest.js";
 import type * as adminLocations from "../adminLocations.js";
 import type * as adminUsers from "../adminUsers.js";
 import type * as annualBadgeEditions from "../annualBadgeEditions.js";
+import type * as avatarArt from "../avatarArt.js";
 import type * as badgeMigration from "../badgeMigration.js";
 import type * as badges from "../badges.js";
 import type * as betaFeedback from "../betaFeedback.js";
@@ -56,6 +57,7 @@ declare const fullApi: ApiFromModules<{
   adminLocations: typeof adminLocations;
   adminUsers: typeof adminUsers;
   annualBadgeEditions: typeof annualBadgeEditions;
+  avatarArt: typeof avatarArt;
   badgeMigration: typeof badgeMigration;
   badges: typeof badges;
   betaFeedback: typeof betaFeedback;

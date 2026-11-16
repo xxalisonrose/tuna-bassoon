@@ -8,7 +8,8 @@ const CURRENT_MISSION_VERSION = 2;
 const TUTORIAL_MISSION_KEY = 'welcome-to-lorcal';
 const LEGACY_TUTORIAL_MISSION_KEY = 'welcome-to-tuna-bassoon';
 const TUTORIAL_BADGE_KEY = 'mission-new-explorer';
-const TUTORIAL_REWARD_ITEM_ID = 'new_explorer_tee';
+const TUTORIAL_REWARD_ITEM_ID = 'beta_tester_tee';
+const LEGACY_TUTORIAL_REWARD_ITEM_ID = 'color_splash_tee';
 
 const missionDefinitions = [
   {
@@ -51,7 +52,7 @@ const missionDefinitions = [
       avatarItems: [
         {
           id: TUTORIAL_REWARD_ITEM_ID,
-          name: 'New Explorer Shirt',
+          name: 'Beta Tester Shirt',
           slot: 'Top',
         },
       ],
@@ -197,7 +198,7 @@ async function ensureTutorialBadgeDefinition(ctx: MutationCtx) {
     levelsEnabled: false,
     imageKey: 'mission-tutorial',
     congratulationsMessages: [
-      'Tutorial complete! Your New Explorer Shirt is now unlocked.',
+      'Tutorial complete! Your Beta Tester Shirt is now unlocked.',
     ],
   };
 
@@ -249,12 +250,15 @@ async function awardTutorialRewards(
   if (profile === null) {
     await ctx.db.insert('userProfiles', {
       clerkUserId,
-      avatarPresetId: 'explorer',
-      avatarTopId: 'explorer_field',
-      avatarBottomId: 'explorer_cargo',
-      avatarShoesId: 'explorer_boots',
-      avatarNeckId: 'rust_neckerchief',
-      avatarFaceId: 'explorer_goggles',
+      avatarPresetId: 'standard',
+      avatarTopId: 'white_tee',
+      avatarBottomId: 'blue_pants',
+      avatarShoesId: 'scout_boots',
+      avatarNeckId: 'none',
+      avatarFaceId: 'none',
+      avatarHeadwearId: 'none',
+      avatarHandheldId: 'none',
+      avatarCatalogVersion: 2,
       unlockedAvatarItemIds,
       createdAt: now,
       updatedAt: now,
@@ -303,12 +307,17 @@ async function revokeIncompleteLegacyRewards(
   if (profile !== null) {
     const unlockedAvatarItemIds = (
       profile.unlockedAvatarItemIds ?? []
-    ).filter((itemId) => itemId !== TUTORIAL_REWARD_ITEM_ID);
+    ).filter(
+      (itemId) =>
+        itemId !== TUTORIAL_REWARD_ITEM_ID &&
+        itemId !== LEGACY_TUTORIAL_REWARD_ITEM_ID,
+    );
     await ctx.db.patch(profile._id, {
-      ...(profile.avatarTopId === TUTORIAL_REWARD_ITEM_ID
+      ...(profile.avatarTopId === TUTORIAL_REWARD_ITEM_ID ||
+      profile.avatarTopId === LEGACY_TUTORIAL_REWARD_ITEM_ID
         ? {
             avatarPresetId: 'custom' as const,
-            avatarTopId: 'trail_tank' as const,
+            avatarTopId: 'white_tee' as const,
           }
         : {}),
       unlockedAvatarItemIds,

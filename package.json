@@ -5,6 +5,7 @@
   "dependencies": {
     "@ai-sdk/google": "^4.0.74",
     "@clerk/expo": "4.6.6",
+    "@clerk/expo-google-signin": "^1.1.0",
     "@convex-dev/agent": "^0.7.3",
     "@expo/ui": "~57.0.26",
     "@maplibre/maplibre-react-native": "^11.3.10",
@@ -21,6 +22,7 @@
     "expo-font": "~57.0.1",
     "expo-glass-effect": "~57.0.4",
     "expo-image": "~57.0.5",
+    "expo-image-picker": "~57.0.21",
     "expo-linking": "~57.0.13",
     "expo-location": "~57.0.22",
     "expo-router": "~57.0.29",

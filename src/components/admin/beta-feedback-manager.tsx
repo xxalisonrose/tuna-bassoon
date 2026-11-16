@@ -1,6 +1,13 @@
 import { useMutation, useQuery } from 'convex/react';
+import { Image } from 'expo-image';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Linking,
+  Pressable,
+  StyleSheet,
+  View,
+} from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -189,6 +196,38 @@ export function BetaFeedbackManager({ visible }: { visible: boolean }) {
 
                 <ThemedText style={styles.message}>{entry.message}</ThemedText>
 
+                {entry.imageUrls.length > 0 ? (
+                  <View style={styles.screenshotSection}>
+                    <ThemedText type="smallBold">
+                      {entry.imageUrls.length}{' '}
+                      {entry.imageUrls.length === 1
+                        ? 'screenshot'
+                        : 'screenshots'}
+                    </ThemedText>
+                    <View style={styles.screenshotList}>
+                      {entry.imageUrls.map((imageUrl, index) => (
+                        <Pressable
+                          key={imageUrl}
+                          accessibilityLabel={`Open feedback screenshot ${index + 1}`}
+                          accessibilityRole="button"
+                          onPress={() => void Linking.openURL(imageUrl)}
+                          style={({ pressed }) => [
+                            styles.screenshotButton,
+                            pressed && styles.pressed,
+                          ]}
+                        >
+                          <Image
+                            accessibilityLabel={`Feedback screenshot ${index + 1}`}
+                            contentFit="cover"
+                            source={{ uri: imageUrl }}
+                            style={styles.screenshot}
+                          />
+                        </Pressable>
+                      ))}
+                    </View>
+                  </View>
+                ) : null}
+
                 <Pressable
                   accessibilityRole="button"
                   disabled={changingId !== null}
@@ -293,6 +332,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: Spacing.three,
     padding: Spacing.three,
+  },
+  screenshotSection: {
+    gap: Spacing.two,
+  },
+  screenshotList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  screenshotButton: {
+    borderRadius: Spacing.two,
+    height: 140,
+    overflow: 'hidden',
+    width: 140,
+  },
+  screenshot: {
+    height: '100%',
+    width: '100%',
   },
   feedbackHeader: {
     alignItems: 'flex-start',

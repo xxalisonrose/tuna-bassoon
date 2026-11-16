@@ -4,30 +4,27 @@
 
 This kit defines the proportions, alignment, layer order, naming, and export rules for Lorcal avatar artwork. New clothing and accessories should fit this template so placeholder art can be replaced without changing saved avatar selections or repositioning every item.
 
-The approved character is a friendly upright cow with slightly lanky proportions, a long cow muzzle, prominent ears, short visible horns, a dark hair tuft, and black-and-cream markings. The default outfit is a traditional explorer ensemble with an olive utility vest, cream field shirt, tan cargo shorts, brown walking boots, a rust-red neckerchief, round sunglasses, and a tan backpack.
+The production character is Dan's hand-drawn Scout: a friendly upright cow with slightly lanky proportions, a long cow muzzle, prominent ears, short visible horns, a dark hair tuft, and black-and-white markings. Clothing, glasses, accessories, and hats are exported from the same Photoshop canvas.
 
 ## Included references
 
-- `assets/images/avatar/concepts/explorer-cow-concept-v1.png` is the approved visual-direction sheet.
-- `assets/images/avatar/references/avatar-neutral-reference.png` is the transparent neutral fitting reference.
-- `assets/images/avatar/references/avatar-explorer-reference.png` is the transparent default explorer reference.
-- `assets/images/avatar/templates/avatar-proportion-guide.svg` is the editable, non-AI blank mannequin and measurement template.
+- `assets/images/avatar/references/avatar-neutral-base-no-clothes.png` is the production neutral Scout body.
+- `assets/images/avatar/items/` contains the production full-canvas clothing and accessory layers.
+- `assets/images/avatar/map/` contains 384 × 384 downsampled copies for the map marker.
+- The owner's `New Avatar Assets/Photoshop Files` folder contains the editable 1254 × 1254 source templates.
 
-The generated PNGs are visual placeholders and references. The SVG establishes the reusable geometry. Future artists should use the guide's measurements and the approved references while deliberately redrawing final art rather than treating generated pixels as finished production artwork.
+The 1254 × 1254 production PNGs define the reusable geometry. New artwork should use the supplied Photoshop templates and retain the complete canvas.
 
 ## Canonical canvas
 
 | Property | Requirement |
 | --- | --- |
-| Master canvas | 2048 × 2048 pixels |
-| App export | 1024 × 1024 transparent PNG |
-| Small preview | 256 × 256 transparent PNG |
+| Master canvas | 1254 × 1254 pixels |
+| App export | 1254 × 1254 transparent PNG |
+| Map preview | 384 × 384 transparent PNG, generated from the app export |
 | Color space | sRGB |
 | Origin | Top-left, `(0, 0)` |
-| Character centerline | `x = 1024` |
-| Ground baseline | `y = 1920` |
-| Full-avatar safe zone | `x = 256–1792`, `y = 96–1940` |
-| Small-map readability zone | `x = 452–1596`, `y = 210–1870` |
+| Character centerline | `x = 627` |
 
 Never crop an individual item to its visible pixels. Every exported layer must retain the complete square canvas, transparent unused space, and the same origin. This makes every item align without per-item offsets.
 
@@ -35,19 +32,19 @@ Never crop an individual item to its visible pixels. Every exported layer must r
 
 | Guide | Coordinate |
 | --- | ---: |
-| Headwear top | `y = 180` |
-| Face anchor | `(1024, 400)` |
-| Neck anchor | `(1024, 570)` |
-| Shoulder line | `y = 650` |
-| Back anchor | `(1270, 760)` |
-| Waist anchor | `(1024, 1050)` |
-| Hip line | `y = 1160` |
-| Hand line | `y = 1260` |
-| Left-hand anchor | `(676, 1260)` |
-| Right-hand anchor | `(1372, 1260)` |
-| Knee line | `y = 1515` |
-| Ankle line | `y = 1800` |
-| Ground baseline | `y = 1920` |
+| Headwear top | `y = 110` |
+| Face anchor | `(627, 245)` |
+| Neck anchor | `(627, 349)` |
+| Shoulder line | `y = 398` |
+| Back anchor | `(778, 465)` |
+| Waist anchor | `(627, 643)` |
+| Hip line | `y = 710` |
+| Hand line | `y = 772` |
+| Left-hand anchor | `(414, 772)` |
+| Right-hand anchor | `(840, 772)` |
+| Knee line | `y = 928` |
+| Ankle line | `y = 1102` |
+| Ground baseline | `y = 1175` |
 
 The blank mannequin intentionally contains no character styling. It is a proportion and placement reference that can remain beneath a drawing at low opacity. The neutral cow PNG provides the more detailed fitting reference.
 
@@ -57,8 +54,8 @@ Render layers from back to front in this order:
 
 1. `backpack-rear` — pack body and anything behind the cow
 2. `body` — coat, hair, horns, ears, tail, and neutral base
-3. `bottom` — shorts, pants, skirts, or other lower clothing
-4. `shoes` — boots, shoes, or hoof accessories
+3. `shoes` — boots, shoes, or hoof accessories
+4. `bottom` — shorts, pants, skirts, or other lower clothing
 5. `top` — shirts, sweaters, coats, and vests
 6. `backpack-front` — shoulder straps and front-facing pack details
 7. `neck` — scarves, ties, necklaces, and neckerchiefs
@@ -105,14 +102,14 @@ assets/images/avatar/items/handheld/
 
 ## Drawing workflow
 
-1. Open `avatar-proportion-guide.svg` on a 2048 × 2048 artboard.
-2. Keep the guide in a locked layer and reduce its opacity if needed.
-3. Optionally place `avatar-neutral-reference.png` above it, scale it to the full artboard, and reduce its opacity.
+1. Open the matching PSD template on its existing 1254 × 1254 canvas.
+2. Keep the Scout guide in a locked layer and reduce its opacity if needed.
+3. Do not resize or reposition the canvas or guide.
 4. Draw the new item on a separate named layer without moving the artboard or centerline.
 5. Check overlaps at the neck, waist, wrists, horns, ears, backpack straps, and boots.
 6. Hide the guides and reference art before export.
-7. Export the item on the full transparent 2048 × 2048 canvas.
-8. Produce the 1024 × 1024 app export and 256 × 256 preview from that master.
+7. Export the item on the full transparent 1254 × 1254 canvas.
+8. Let the app build produce the 384 × 384 map copy from that master.
 9. Test the item over the neutral cow and at small map size.
 10. Add or update its provenance entry before committing it.
 
@@ -138,86 +135,26 @@ The approved concept and reference PNGs were generated from Dan's original hand-
 5. Move the superseded entry out of the active-placeholder section only after the replacement is live and verified.
 
 
-## Current prototype wardrobe layers
+## Current human-created wardrobe layers
 
-The item-level prototype uses the neutral reference as its base and stacks full-canvas transparent overlays. The Explorer set includes:
-
-- `items/top/avatar-top-explorer-field.png`
-- `items/bottom/avatar-bottom-explorer-cargo.png`
-- `items/shoes/avatar-shoes-explorer-boots.png`
-- `items/neck/avatar-neck-rust-neckerchief.png`
-- `items/face/avatar-face-explorer-goggles.png`
-
-The Cozy Winter set adds:
-
-- `items/top/avatar-top-winter-polka-sweater.png`
-- `items/bottom/avatar-bottom-winter-charcoal-pants.png`
-- `items/shoes/avatar-shoes-winter-snow-boots.png`
-- `items/neck/avatar-neck-winter-cream-scarf.png`
-- `items/headwear/avatar-headwear-winter-knit-beanie.png`
-
-The Cowboy sets add:
-
-- `items/top/avatar-top-cowboy-sheriff-shirt.png`
-- `items/bottom/avatar-bottom-cowboy-western-pants.png`
-- `items/bottom/avatar-bottom-cowboy-western-shorts.png`
-- `items/shoes/avatar-shoes-cowboy-brown-boots.png`
-- `items/shoes/avatar-shoes-cowboy-red-boots.png`
-- `items/neck/avatar-neck-cowboy-red-bandana.png`
-- `items/headwear/avatar-headwear-cowboy-sheriff-hat.png`
-
-The Pink Princess set adds:
-
-- `items/top/avatar-top-princess-puff-bodice.png`
-- `items/bottom/avatar-bottom-princess-ballgown-skirt.png`
-- `items/headwear/avatar-headwear-princess-crown.png`
-- `items/handheld/avatar-handheld-princess-star-wand.png`
-
-The Trail Tank and Trail Shorts remain baked into the neutral reference during this prototype. Final production artwork should split those garments from the body layer while preserving the current stable item IDs.
+The production wardrobe stacks Dan's 1254 × 1254 transparent layers over the neutral Scout body. It currently includes nine tops, five pants, one pair of boots, goggles, glasses, six beanies, and three cowboy hats. The superseded generated wardrobe IDs and fit defaults have been removed.
 
 ## Admin fitting workflow
 
-The Content Portal includes an administrator-only **Avatar** workspace for
-calibrating prototype layers against the neutral cow. The fitting lab uses the
-same placement registry as every player-facing avatar preview, so its values
-describe the actual runtime result instead of a separate mockup.
+The Content Portal includes an administrator-only **Avatar** workspace.
+Correct 1254 × 1254 layers all start at left 0%, top 0%, width 100%, height
+100%, and rotation 0°. The editor and player-facing renderer use those same
+defaults, so correctly exported clothing appears at the same size everywhere.
 
-1. Open **Content Portal → Avatar** and choose a slot and item.
-2. Leave the grid visible for the first pass. Drag inside the outlined box to
-   move the selected layer over the cow.
-3. Drag a corner handle to resize the item proportionally. **Keep corner
-   proportions** is enabled by default so the artwork does not become
-   stretched. Drag a side handle only when one-axis stretching is intentional.
-4. Use the Horizontal, Vertical, Width, Height, and Rotation buttons for
-   one-percent and one-degree fine adjustments.
-5. Switch between items and categories as needed. Every changed item stays in
-   the current working batch and receives an adjusted-item dot. On the web,
-   the fitting lab auto-saves the batch in that browser and restores it after
-   switching portal sections, navigating away, or refreshing.
-6. Select **Mask Hidden Areas** after an item is aligned. Paint red only over
-   garment pixels that should disappear behind the cow, such as the inside of
-   a neckline or the rear half of a sleeve cuff. Adjust the brush size, use
-   **Undo Mask Stroke** for small corrections, or **Clear This Mask** to restart
-   that item. Mask strokes auto-save in the same browser alongside fit edits.
-7. Inspect the 92-pixel map-size preview before accepting a fit. Fine details
-   that disappear there should be strengthened in the artwork rather than
-   solved with more scaling.
-8. Select **Export Batch ZIP** when the fitting and masking pass is complete.
-   The archive
-   contains the changed values, the complete merged fit registry, composed PNG
-   and SVG previews, editable mask data, transparent garment layers with masks
-   applied, and the exact source layers used in the preview. Send the complete
-   ZIP for implementation instead of collecting individual screenshots and
-   value lines.
-9. **Reset Entire Batch** clears both the saved fit edits and masks only when a
-   new fitting pass should start.
-10. Commit approved values in `src/lib/avatar-fit.ts`, apply the exported mask
-   layers, then recheck the custom
-   wardrobe preview, complete looks, Passport preview, and map marker.
+1. Choose an item. The Fire Tee is the first adjustment test case.
+2. Drag inside its outline to move it, drag the handles to resize it, or use
+   the fine adjustment controls.
+3. Check the 92-pixel map preview.
+4. Press **Save Fit**. The adjustment is stored directly and becomes the
+   runtime fit without an export or code change.
+5. Use **Reset to 1254 Template** to delete an exception and restore the
+   full-canvas default.
 
-The fitting registry is a prototype bridge for the AI-assisted source sheets.
-Final production layers should still use the complete canonical canvas and
-anchors above. A layer that cannot align without distorting the cow, exposing
-the base clothing, or covering the wrong body parts needs a redraw or a proper
-foreground/background split; placement controls cannot repair incompatible
-art geometry.
+The mask-painting and ZIP-export workflows have been removed. Placement
+controls remain an exception path for a file that was not exported correctly;
+new artwork should normally need no adjustment.

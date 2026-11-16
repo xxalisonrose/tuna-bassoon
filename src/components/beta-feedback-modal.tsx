@@ -1,5 +1,8 @@
 import { useMutation } from 'convex/react';
-import { useState } from 'react';
+import { Image } from 'expo-image';
+import type { ImagePickerAsset } from 'expo-image-picker';
+import { requireOptionalNativeModule } from 'expo-modules-core';
+import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -19,8 +22,14 @@ import { Palette, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { buildProfile } from '@/lib/build-profile';
 import { api } from '../../convex/_generated/api';
+import type { Id } from '../../convex/_generated/dataModel';
 
 const MAXIMUM_MESSAGE_LENGTH = 2_000;
+const MAXIMUM_SCREENSHOTS = 3;
+const MAXIMUM_SCREENSHOT_BYTES = 8 * 1_024 * 1_024;
+const imagePickerIsAvailable =
+  Platform.OS === 'web' ||
+  requireOptionalNativeModule('ExponentImagePicker') !== null;
 
 function getErrorMessage(error: unknown) {
   if (
@@ -30,6 +39,10 @@ function getErrorMessage(error: unknown) {
     typeof error.data === 'string'
   ) {
     return error.data;
+  }
+
+  if (error instanceof Error && error.message.length > 0) {
+    return error.message;
   }
 
   return 'Your feedback could not be sent. Check your connection and try again.';
@@ -43,8 +56,11 @@ export function BetaFeedbackModal({
   visible: boolean;
 }) {
   const theme = useTheme();
+  const scrollViewRef = useRef<ScrollView>(null);
+  const generateUploadUrl = useMutation(api.betaFeedback.generateUploadUrl);
   const submitFeedback = useMutation(api.betaFeedback.submit);
   const [message, setMessage] = useState('');
+  const [screenshots, setScreenshots] = useState<ImagePickerAsset[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,9 +73,99 @@ export function BetaFeedbackModal({
     }
 
     setMessage('');
+    setScreenshots([]);
     setSubmitted(false);
     setError(null);
     onClose();
+  };
+
+  const chooseScreenshots = async () => {
+    const availableSlots = MAXIMUM_SCREENSHOTS - screenshots.length;
+
+    if (!imagePickerIsAvailable) {
+      setError(
+        'Screenshot attachments require the newest beta build. You can still send text feedback from this build.',
+      );
+      return;
+    }
+
+    if (availableSlots <= 0 || submitting) {
+      return;
+    }
+
+    setError(null);
+
+    const ImagePicker = await import('expo-image-picker');
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsMultipleSelection: true,
+      mediaTypes: ['images'],
+      orderedSelection: true,
+      quality: 0.85,
+      selectionLimit: availableSlots,
+    });
+
+    if (result.canceled) {
+      return;
+    }
+
+    const oversizedAsset = result.assets.find(
+      (asset) =>
+        asset.fileSize !== undefined &&
+        asset.fileSize > MAXIMUM_SCREENSHOT_BYTES,
+    );
+
+    if (oversizedAsset !== undefined) {
+      setError('Each screenshot must be 8 MB or smaller.');
+      return;
+    }
+
+    setScreenshots((current) => {
+      const seenUris = new Set(current.map((asset) => asset.uri));
+      const additions = result.assets.filter((asset) => {
+        if (seenUris.has(asset.uri)) {
+          return false;
+        }
+
+        seenUris.add(asset.uri);
+        return true;
+      });
+
+      return [...current, ...additions].slice(0, MAXIMUM_SCREENSHOTS);
+    });
+  };
+
+  const uploadScreenshot = async (screenshot: ImagePickerAsset) => {
+    const uploadUrl = await generateUploadUrl({});
+    const response = await fetch(screenshot.uri);
+
+    if (!response.ok) {
+      throw new Error('Unable to read that screenshot.');
+    }
+
+    const blob = await response.blob();
+
+    if (blob.size > MAXIMUM_SCREENSHOT_BYTES) {
+      throw new Error('Each screenshot must be 8 MB or smaller.');
+    }
+
+    const uploadResponse = await fetch(uploadUrl, {
+      body: blob,
+      headers: {
+        'Content-Type': screenshot.mimeType || blob.type || 'image/jpeg',
+      },
+      method: 'POST',
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error('Unable to upload that screenshot.');
+    }
+
+    const result = (await uploadResponse.json()) as {
+      storageId: Id<'_storage'>;
+    };
+
+    return result.storageId;
   };
 
   const submit = async () => {
@@ -71,14 +177,20 @@ export function BetaFeedbackModal({
     setError(null);
 
     try {
+      const imageStorageIds = await Promise.all(
+        screenshots.map(uploadScreenshot),
+      );
+
       await submitFeedback({
         buildProfile,
+        imageStorageIds,
         message: trimmedMessage,
         sourcePlatform: Platform.OS,
         sourceRoute: 'map',
       });
       setSubmitted(true);
       setMessage('');
+      setScreenshots([]);
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {
@@ -95,11 +207,14 @@ export function BetaFeedbackModal({
     >
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
         >
           <ScrollView
+            ref={scrollViewRef}
+            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
             contentContainerStyle={styles.scrollContent}
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
@@ -196,6 +311,11 @@ export function BetaFeedbackModal({
                         setMessage(value);
                         setError(null);
                       }}
+                      onFocus={() => {
+                        requestAnimationFrame(() => {
+                          scrollViewRef.current?.scrollToEnd({ animated: true });
+                        });
+                      }}
                       placeholder="Example: I opened a location from the list, but the map did not move to its pin..."
                       placeholderTextColor={theme.textSecondary}
                       style={[
@@ -219,6 +339,84 @@ export function BetaFeedbackModal({
                       {message.length.toLocaleString()} /{' '}
                       {MAXIMUM_MESSAGE_LENGTH.toLocaleString()}
                     </ThemedText>
+                  </View>
+
+                  <View style={styles.field}>
+                    <View style={styles.attachmentHeading}>
+                      <View style={styles.attachmentCopy}>
+                        <ThemedText type="smallBold">
+                          Screenshots (optional)
+                        </ThemedText>
+                        <ThemedText type="small" themeColor="textSecondary">
+                          {imagePickerIsAvailable
+                            ? `Attach up to ${MAXIMUM_SCREENSHOTS} images so we can see exactly what happened.`
+                            : 'Install the newest beta build to attach images. Text feedback still works in this build.'}
+                        </ThemedText>
+                      </View>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityState={{
+                          disabled:
+                            submitting ||
+                            screenshots.length >= MAXIMUM_SCREENSHOTS,
+                        }}
+                        disabled={
+                          submitting ||
+                          screenshots.length >= MAXIMUM_SCREENSHOTS
+                        }
+                        onPress={() => void chooseScreenshots()}
+                        style={({ pressed }) => [
+                          styles.attachmentButton,
+                          (submitting ||
+                            screenshots.length >= MAXIMUM_SCREENSHOTS) &&
+                            styles.disabled,
+                          pressed && styles.pressed,
+                        ]}
+                      >
+                        <ThemedText type="smallBold">
+                          {!imagePickerIsAvailable
+                            ? 'Update to Add Images'
+                            : screenshots.length === 0
+                              ? 'Add Images'
+                              : 'Add More'}
+                        </ThemedText>
+                      </Pressable>
+                    </View>
+
+                    {screenshots.length > 0 ? (
+                      <View style={styles.attachmentList}>
+                        {screenshots.map((screenshot, index) => (
+                          <View key={screenshot.uri} style={styles.attachment}>
+                            <Image
+                              accessibilityLabel={`Attached screenshot ${index + 1}`}
+                              contentFit="cover"
+                              source={{ uri: screenshot.uri }}
+                              style={styles.attachmentImage}
+                            />
+                            <Pressable
+                              accessibilityLabel={`Remove screenshot ${index + 1}`}
+                              accessibilityRole="button"
+                              disabled={submitting}
+                              onPress={() =>
+                                setScreenshots((current) =>
+                                  current.filter(
+                                    (asset) => asset.uri !== screenshot.uri,
+                                  ),
+                                )
+                              }
+                              style={({ pressed }) => [
+                                styles.removeAttachmentButton,
+                                pressed && styles.pressed,
+                              ]}
+                            >
+                              <ThemedText style={styles.removeAttachmentText}>
+                                ×
+                              </ThemedText>
+                            </Pressable>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
                   </View>
 
                   {error ? (
@@ -339,6 +537,60 @@ const styles = StyleSheet.create({
   },
   characterCount: {
     alignSelf: 'flex-end',
+  },
+  attachmentHeading: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+    justifyContent: 'space-between',
+  },
+  attachmentCopy: {
+    flex: 1,
+    gap: Spacing.one,
+    minWidth: 210,
+  },
+  attachmentButton: {
+    alignItems: 'center',
+    backgroundColor: Palette.beige,
+    borderColor: Palette.borderStrong,
+    borderRadius: Spacing.two,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingHorizontal: Spacing.three,
+  },
+  attachmentList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  attachment: {
+    borderRadius: Spacing.two,
+    height: 96,
+    overflow: 'hidden',
+    position: 'relative',
+    width: 96,
+  },
+  attachmentImage: {
+    height: '100%',
+    width: '100%',
+  },
+  removeAttachmentButton: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(20, 26, 19, 0.82)',
+    borderRadius: 15,
+    height: 30,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: 5,
+    top: 5,
+    width: 30,
+  },
+  removeAttachmentText: {
+    color: Palette.paper,
+    fontSize: 22,
+    lineHeight: 24,
   },
   errorText: {
     color: Palette.danger,

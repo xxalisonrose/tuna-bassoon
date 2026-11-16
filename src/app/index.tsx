@@ -1,1 +1,1 @@
-export { default } from '@/components/authentication-entry-screen';
+export { default } from '@/components/authentication-entry-screen.native';
