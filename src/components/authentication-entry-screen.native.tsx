@@ -7,15 +7,14 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
-  ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AuthenticationPassportShell } from '@/components/authentication-passport-shell';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Palette, Spacing } from '@/constants/theme';
+import { Palette, Spacing } from '@/constants/theme';
 
 function AuthenticationLoadingScreen({ message }: { message: string }) {
   return (
@@ -107,115 +106,70 @@ export default function AuthenticationEntryScreen() {
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
-          <View style={styles.brandSection}>
-            <View
-              accessible={false}
-              importantForAccessibility="no"
-              style={styles.brandMark}>
-              <ThemedText style={styles.brandMarkText}>L</ThemedText>
+    <AuthenticationPassportShell>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Continue with Google"
+        accessibilityHint="Opens the Google account picker"
+        disabled={isGoogleSignInPending}
+        onPress={handleGoogleSignIn}
+        style={({ pressed }) => [
+          styles.googleButton,
+          (pressed || isGoogleSignInPending) && styles.pressed,
+        ]}>
+        {isGoogleSignInPending ? (
+          <ActivityIndicator
+            accessibilityLabel="Opening Google sign-in"
+            size="small"
+          />
+        ) : (
+          <View style={styles.googleButtonContent}>
+            <View style={styles.googleMark}>
+              <ThemedText style={styles.googleMarkText}>G</ThemedText>
             </View>
-
-            <ThemedText
-              accessibilityRole="header"
-              type="title"
-              style={styles.centeredText}>
-              Welcome to Lorcal
-            </ThemedText>
-
-            <ThemedText
-              themeColor="textSecondary"
-              style={[styles.centeredText, styles.introduction]}>
-              Explore Harvard stories, check in at real places, and build your
-              explorer Passport.
+            <ThemedText type="smallBold" style={styles.buttonInkText}>
+              Continue with Google
             </ThemedText>
           </View>
+        )}
+      </Pressable>
 
-          <ThemedView type="backgroundElement" style={styles.authenticationCard}>
-            <ThemedText
-              accessibilityRole="header"
-              type="subtitle"
-              style={styles.centeredText}>
-              Begin Your Adventure
-            </ThemedText>
+      <View style={styles.divider}>
+        <View style={styles.dividerLine} />
+        <ThemedText type="small" style={styles.dividerText}>
+          or
+        </ThemedText>
+        <View style={styles.dividerLine} />
+      </View>
 
-            <ThemedText
-              themeColor="textSecondary"
-              style={styles.centeredText}>
-              Sign in to save check-ins, earn badges, and use your customized
-              explorer on the map.
-            </ThemedText>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Sign In with Email"
+        accessibilityHint="Opens the secure Lorcal email sign-in screen"
+        onPress={() => setAuthMode('signIn')}
+        style={({ pressed }) => [
+          styles.primaryButton,
+          pressed && styles.pressed,
+        ]}>
+        <ThemedText type="smallBold" style={styles.primaryButtonText}>
+          Sign In with Email
+        </ThemedText>
+      </Pressable>
 
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Continue with Google"
-              accessibilityHint="Opens the Google account picker"
-              disabled={isGoogleSignInPending}
-              onPress={handleGoogleSignIn}
-              style={({ pressed }) => [
-                styles.googleButton,
-                (pressed || isGoogleSignInPending) && styles.pressed,
-              ]}>
-              {isGoogleSignInPending ? (
-                <ActivityIndicator
-                  accessibilityLabel="Opening Google sign-in"
-                  size="small"
-                />
-              ) : (
-                <ThemedText type="smallBold">Continue with Google</ThemedText>
-              )}
-            </Pressable>
-
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <ThemedText type="small" themeColor="textSecondary">
-                or
-              </ThemedText>
-              <View style={styles.dividerLine} />
-            </View>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Sign In with Email"
-              accessibilityHint="Opens the secure Lorcal email sign-in screen"
-              onPress={() => setAuthMode('signIn')}
-              style={({ pressed }) => [
-                styles.primaryButton,
-                pressed && styles.pressed,
-              ]}>
-              <ThemedText type="smallBold" style={styles.primaryButtonText}>
-                Sign In with Email
-              </ThemedText>
-            </Pressable>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Create Account"
-              accessibilityHint="Opens the secure account creation screen"
-              onPress={() => setAuthMode('signUp')}
-              style={({ pressed }) => [
-                styles.secondaryButton,
-                pressed && styles.pressed,
-              ]}>
-              <ThemedText type="smallBold">Create Account</ThemedText>
-            </Pressable>
-          </ThemedView>
-
-          <ThemedText
-            type="small"
-            themeColor="textSecondary"
-            style={styles.centeredText}>
-            Your progress and saved explorer are connected to your secure
-            account.
-          </ThemedText>
-        </ScrollView>
-      </SafeAreaView>
-    </ThemedView>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Create Account"
+        accessibilityHint="Opens the secure account creation screen"
+        onPress={() => setAuthMode('signUp')}
+        style={({ pressed }) => [
+          styles.secondaryButton,
+          pressed && styles.pressed,
+        ]}>
+        <ThemedText type="smallBold" style={styles.buttonInkText}>
+          Create Your Passport
+        </ThemedText>
+      </Pressable>
+    </AuthenticationPassportShell>
   );
 }
 
@@ -223,58 +177,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  safeArea: {
-    flex: 1,
-    width: '100%',
-  },
-  scrollContent: {
-    alignSelf: 'center',
-    flexGrow: 1,
-    justifyContent: 'center',
-    gap: Spacing.five,
-    maxWidth: MaxContentWidth,
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.five,
-    width: '100%',
-  },
   loadingContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.three,
     padding: Spacing.four,
-  },
-  brandSection: {
-    alignItems: 'center',
-    gap: Spacing.three,
-  },
-  brandMark: {
-    width: 88,
-    height: 88,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: Palette.lightBronze,
-    borderRadius: 44,
-    backgroundColor: Palette.teaGreen,
-  },
-  brandMarkText: {
-    color: Palette.ink,
-    fontSize: 30,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  introduction: {
-    maxWidth: 480,
-    lineHeight: 24,
-  },
-  authenticationCard: {
-    width: '100%',
-    maxWidth: 480,
-    alignSelf: 'center',
-    gap: Spacing.three,
-    padding: Spacing.four,
-    borderRadius: Spacing.four,
   },
   primaryButton: {
     minHeight: 52,
@@ -299,6 +207,25 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
     backgroundColor: '#ffffff',
   },
+  googleButtonContent: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  googleMark: {
+    alignItems: 'center',
+    borderColor: Palette.border,
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 28,
+    justifyContent: 'center',
+    width: 28,
+  },
+  googleMarkText: {
+    color: '#4285F4',
+    fontSize: 15,
+    fontWeight: '800',
+  },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -308,6 +235,9 @@ const styles = StyleSheet.create({
     flex: 1,
     height: StyleSheet.hairlineWidth,
     backgroundColor: Palette.borderStrong,
+  },
+  dividerText: {
+    color: Palette.mutedInk,
   },
   secondaryButton: {
     minHeight: 52,
@@ -321,6 +251,9 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.72,
+  },
+  buttonInkText: {
+    color: Palette.ink,
   },
   centeredText: {
     textAlign: 'center',
