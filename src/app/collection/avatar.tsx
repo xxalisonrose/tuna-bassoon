@@ -18,6 +18,7 @@ import { LorcoinIcon } from '@/components/lorcoin-icon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
+  BottomTabInset,
   MaxContentWidth,
   Palette,
   Spacing,
@@ -807,7 +808,7 @@ export default function CustomizeAvatarScreen() {
                             ? 'Buying...'
                             : !owned
                               ? selected
-                                ? 'Previewing — Buy Above'
+                                ? 'Previewing — Buy Below'
                                 : 'Preview Item'
                               : selected
                                 ? 'Equipped'
@@ -1442,7 +1443,10 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     gap: Spacing.two,
     maxWidth: MaxContentWidth,
-    paddingBottom: Spacing.three,
+    paddingBottom:
+      Platform.OS === 'web'
+        ? Spacing.three
+        : BottomTabInset + Spacing.two,
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,
     width: '100%',
