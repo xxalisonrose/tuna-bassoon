@@ -1,7 +1,9 @@
 import { Image, type ImageSource } from 'expo-image';
 import type { ReactNode } from 'react';
 import {
+  ActivityIndicator,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   useWindowDimensions,
@@ -12,6 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Palette, Spacing } from '@/constants/theme';
+
+const passportLeather = require('../../assets/images/branding/lorcal-passport-leather.jpg');
+const cowMark = require('../../assets/images/branding/lorcal-cow-mark.png');
 
 const passportDiscoveries: readonly {
   image: ImageSource;
@@ -31,125 +36,188 @@ const passportDiscoveries: readonly {
   },
 ];
 
-export function AuthenticationPassportShell({
-  children,
+type CoverAction = 'log-in' | 'create-account';
+
+export function AuthenticationPassportCover({
+  activeAction = null,
+  disabled = false,
+  onCreateAccount,
+  onLogIn,
 }: {
-  children: ReactNode;
+  activeAction?: CoverAction | null;
+  disabled?: boolean;
+  onCreateAccount: () => void;
+  onLogIn: () => void;
 }) {
   const { width } = useWindowDimensions();
-  const wideLayout = width >= 900;
+  const stackActions = width < 360;
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
+    <View style={styles.coverScreen}>
+      <Image
+        accessible={false}
+        contentFit="cover"
+        importantForAccessibility="no"
+        source={passportLeather}
+        style={StyleSheet.absoluteFill}
+      />
+      <View pointerEvents="none" style={styles.coverShade} />
+
+      <SafeAreaView style={styles.coverSafeArea}>
+        <View style={styles.coverInset}>
+          <View style={styles.coverHeading}>
+            <ThemedText accessibilityRole="header" style={styles.coverTitle}>
+              Lorcal
+            </ThemedText>
+            <ThemedText style={styles.coverSubtitle}>Explore Local</ThemedText>
+          </View>
+
+          <Image
+            accessible={false}
+            contentFit="contain"
+            importantForAccessibility="no"
+            source={cowMark}
+            style={styles.cowMark}
+          />
+
+          <View
+            style={[
+              styles.coverActions,
+              stackActions && styles.coverActionsStacked,
+            ]}>
+            <Pressable
+              accessibilityHint="Shows the available sign-in methods"
+              accessibilityLabel="Log In"
+              accessibilityRole="button"
+              disabled={disabled}
+              onPress={onLogIn}
+              style={({ pressed }) => [
+                styles.coverButton,
+                pressed && styles.coverButtonPressed,
+                disabled && styles.coverButtonDisabled,
+              ]}>
+              {activeAction === 'log-in' ? (
+                <ActivityIndicator
+                  accessibilityLabel="Opening log in"
+                  color={Palette.papayaWhip}
+                  size="small"
+                />
+              ) : (
+                <ThemedText style={styles.coverButtonText}>Log In</ThemedText>
+              )}
+            </Pressable>
+
+            <Pressable
+              accessibilityHint="Opens the account creation screen"
+              accessibilityLabel="Create an Account"
+              accessibilityRole="button"
+              disabled={disabled}
+              onPress={onCreateAccount}
+              style={({ pressed }) => [
+                styles.coverButton,
+                pressed && styles.coverButtonPressed,
+                disabled && styles.coverButtonDisabled,
+              ]}>
+              {activeAction === 'create-account' ? (
+                <ActivityIndicator
+                  accessibilityLabel="Opening account creation"
+                  color={Palette.papayaWhip}
+                  size="small"
+                />
+              ) : (
+                <ThemedText style={styles.coverButtonText}>
+                  Create Account
+                </ThemedText>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </SafeAreaView>
+    </View>
+  );
+}
+
+export function AuthenticationPassportPage({
+  children,
+  onClose,
+}: {
+  children: ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <ThemedView style={styles.pageScreen}>
+      <SafeAreaView style={styles.pageSafeArea}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           nativeID={Platform.OS === 'web' ? 'app-page-scroll-view' : undefined}
-          showsVerticalScrollIndicator={Platform.OS === 'web'}
-        >
-          <View
-            style={[
-              styles.passport,
-              wideLayout && styles.passportWide,
-            ]}
-          >
-            <View
-              style={[
-                styles.cover,
-                wideLayout && styles.coverWide,
-              ]}
-            >
-              <View style={styles.coverInset}>
-                <ThemedText style={styles.coverKicker}>
-                  THE LORCAL
-                </ThemedText>
-                <ThemedText
-                  accessibilityRole="header"
-                  style={styles.coverTitle}
-                >
-                  EXPLORER{`\n`}PASSPORT
-                </ThemedText>
+          showsVerticalScrollIndicator={Platform.OS === 'web'}>
+          <View style={styles.page}>
+            <Pressable
+              accessibilityHint="Returns to the Lorcal passport cover"
+              accessibilityLabel="Close Passport"
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={onClose}
+              style={({ pressed }) => [
+                styles.closeButton,
+                pressed && styles.closeButtonPressed,
+              ]}>
+              <ThemedText style={styles.closeButtonText}>
+                ‹ Close Passport
+              </ThemedText>
+            </Pressable>
 
-                <View
-                  accessible={false}
-                  importantForAccessibility="no-hide-descendants"
-                  style={styles.coverSeal}
-                >
-                  <View style={styles.coverSealInner}>
-                    <ThemedText style={styles.coverSealStar}>✦</ThemedText>
-                    <ThemedText style={styles.coverSealLetter}>L</ThemedText>
-                    <ThemedText style={styles.coverSealCaption}>
-                      EXPLORE LOCAL
-                    </ThemedText>
-                  </View>
-                </View>
-
-                <View style={styles.coverRule} />
-                <ThemedText style={styles.coverMotto}>
-                  STORIES LIVE HERE
-                </ThemedText>
-              </View>
+            <View style={styles.pageHeader}>
+              <ThemedText style={styles.pageKicker}>EXPLORER ENTRY</ThemedText>
+              <ThemedText style={styles.pageNumber}>№ 0001</ThemedText>
             </View>
 
-            <View style={styles.page}>
-              <View style={styles.pageHeader}>
-                <ThemedText style={styles.pageKicker}>
-                  EXPLORER ENTRY
-                </ThemedText>
-                <ThemedText style={styles.pageNumber}>№ 0001</ThemedText>
-              </View>
+            <ThemedText accessibilityRole="header" style={styles.pageTitle}>
+              Your next discovery starts here.
+            </ThemedText>
+            <ThemedText style={styles.pageIntroduction}>
+              Sign in to uncover local stories, check in where they happened,
+              and fill your Passport as you explore.
+            </ThemedText>
 
-              <ThemedText
-                accessibilityRole="header"
-                style={styles.pageTitle}
-              >
-                Your next discovery starts here.
-              </ThemedText>
-              <ThemedText style={styles.pageIntroduction}>
-                Sign in to uncover local stories, check in where they
-                happened, and fill your Passport as you explore.
-              </ThemedText>
-
-              <View style={styles.discoveryRow}>
-                {passportDiscoveries.map((discovery) => (
-                  <View key={discovery.label} style={styles.discovery}>
-                    <View style={styles.discoveryStamp}>
-                      <Image
-                        accessible={false}
-                        contentFit="contain"
-                        importantForAccessibility="no"
-                        source={discovery.image}
-                        style={styles.discoveryImage}
-                      />
-                    </View>
-                    <ThemedText style={styles.discoveryLabel}>
-                      {discovery.label}
-                    </ThemedText>
+            <View style={styles.discoveryRow}>
+              {passportDiscoveries.map((discovery) => (
+                <View key={discovery.label} style={styles.discovery}>
+                  <View style={styles.discoveryStamp}>
+                    <Image
+                      accessible={false}
+                      contentFit="contain"
+                      importantForAccessibility="no"
+                      source={discovery.image}
+                      style={styles.discoveryImage}
+                    />
                   </View>
-                ))}
-              </View>
+                  <ThemedText style={styles.discoveryLabel}>
+                    {discovery.label}
+                  </ThemedText>
+                </View>
+              ))}
+            </View>
 
-              <View style={styles.perforation} />
+            <View style={styles.perforation} />
 
-              <View style={styles.authenticationSection}>
-                <ThemedText style={styles.authenticationTitle}>
-                  Open your Passport
-                </ThemedText>
-                <ThemedText style={styles.authenticationCopy}>
-                  Your check-ins, badges, and Scout stay with your secure
-                  account.
-                </ThemedText>
-                {children}
-              </View>
+            <View style={styles.authenticationSection}>
+              <ThemedText style={styles.authenticationTitle}>
+                Open your Passport
+              </ThemedText>
+              <ThemedText style={styles.authenticationCopy}>
+                Your check-ins, badges, and Scout stay with your secure account.
+              </ThemedText>
+              {children}
+            </View>
 
-              <View style={styles.pageFooter}>
-                <View style={styles.footerLine} />
-                <ThemedText style={styles.footerText}>
-                  Made for curious people and overlooked places.
-                </ThemedText>
-                <View style={styles.footerLine} />
-              </View>
+            <View style={styles.pageFooter}>
+              <View style={styles.footerLine} />
+              <ThemedText style={styles.footerText}>
+                Made for curious people and overlooked places.
+              </ThemedText>
+              <View style={styles.footerLine} />
             </View>
           </View>
         </ScrollView>
@@ -159,10 +227,98 @@ export function AuthenticationPassportShell({
 }
 
 const styles = StyleSheet.create({
-  container: {
+  coverScreen: {
+    backgroundColor: '#07162F',
     flex: 1,
   },
-  safeArea: {
+  coverShade: {
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    backgroundColor: 'rgba(2, 10, 28, 0.1)',
+  },
+  coverSafeArea: {
+    flex: 1,
+    padding: 12,
+  },
+  coverInset: {
+    alignItems: 'center',
+    borderColor: 'rgba(207, 210, 210, 0.72)',
+    borderRadius: 6,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: 'space-between',
+    paddingBottom: Spacing.four,
+    paddingHorizontal: Spacing.three,
+    paddingTop: 38,
+  },
+  coverHeading: {
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  coverTitle: {
+    color: '#D3D5D5',
+    fontFamily: 'serif',
+    fontSize: 56,
+    fontWeight: '400',
+    letterSpacing: 1,
+    lineHeight: 66,
+    textAlign: 'center',
+  },
+  coverSubtitle: {
+    color: '#C7CACA',
+    fontFamily: 'serif',
+    fontSize: 22,
+    letterSpacing: 0.4,
+    textAlign: 'center',
+  },
+  cowMark: {
+    height: 205,
+    maxHeight: '30%',
+    width: 250,
+  },
+  coverActions: {
+    flexDirection: 'row',
+    gap: Spacing.three,
+    maxWidth: 560,
+    width: '100%',
+  },
+  coverActionsStacked: {
+    flexDirection: 'column',
+    gap: Spacing.two,
+  },
+  coverButton: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(4, 15, 39, 0.46)',
+    borderColor: 'rgba(207, 210, 210, 0.8)',
+    borderRadius: Spacing.two,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 58,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.two,
+  },
+  coverButtonPressed: {
+    backgroundColor: 'rgba(215, 217, 216, 0.16)',
+    transform: [{ scale: 0.985 }],
+  },
+  coverButtonDisabled: {
+    opacity: 0.55,
+  },
+  coverButtonText: {
+    color: '#D3D5D5',
+    fontFamily: 'serif',
+    fontSize: 22,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  pageScreen: {
+    flex: 1,
+  },
+  pageSafeArea: {
     flex: 1,
     width: '100%',
   },
@@ -172,108 +328,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: Spacing.three,
   },
-  passport: {
+  page: {
+    backgroundColor: Palette.paper,
     borderRadius: Spacing.four,
     elevation: 10,
+    gap: Spacing.three,
     maxWidth: 560,
-    overflow: 'hidden',
+    minHeight: 580,
+    padding: Spacing.four,
     shadowColor: '#171A12',
     shadowOffset: { height: 12, width: 0 },
     shadowOpacity: 0.22,
     shadowRadius: 24,
     width: '100%',
   },
-  passportWide: {
-    flexDirection: 'row',
-    maxWidth: 1040,
+  closeButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: Spacing.one,
   },
-  cover: {
-    backgroundColor: '#334633',
-    minHeight: 310,
-    padding: Spacing.three,
+  closeButtonPressed: {
+    opacity: 0.62,
   },
-  coverWide: {
-    flex: 1,
-    minHeight: 620,
-  },
-  coverInset: {
-    alignItems: 'center',
-    borderColor: Palette.lightBronze,
-    borderRadius: Spacing.three,
-    borderWidth: 2,
-    flex: 1,
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.four,
-  },
-  coverKicker: {
-    color: Palette.papayaWhip,
-    fontSize: 13,
+  closeButtonText: {
+    color: Palette.bronzeDeep,
+    fontSize: 14,
     fontWeight: '800',
-    letterSpacing: 4,
-  },
-  coverTitle: {
-    color: Palette.papayaWhip,
-    fontFamily: 'serif',
-    fontSize: 32,
-    fontWeight: '700',
-    letterSpacing: 2,
-    lineHeight: 38,
-    textAlign: 'center',
-  },
-  coverSeal: {
-    alignItems: 'center',
-    borderColor: Palette.lightBronze,
-    borderRadius: 62,
-    borderWidth: 3,
-    height: 124,
-    justifyContent: 'center',
-    width: 124,
-  },
-  coverSealInner: {
-    alignItems: 'center',
-    borderColor: Palette.lightBronze,
-    borderRadius: 52,
-    borderWidth: 1,
-    height: 104,
-    justifyContent: 'center',
-    width: 104,
-  },
-  coverSealStar: {
-    color: Palette.lightBronze,
-    fontSize: 22,
-    lineHeight: 24,
-  },
-  coverSealLetter: {
-    color: Palette.papayaWhip,
-    fontFamily: 'serif',
-    fontSize: 44,
-    fontWeight: '700',
-    lineHeight: 47,
-  },
-  coverSealCaption: {
-    color: Palette.lightBronze,
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-  },
-  coverRule: {
-    backgroundColor: Palette.lightBronze,
-    height: 1,
-    width: 96,
-  },
-  coverMotto: {
-    color: Palette.lightBronze,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 3,
-  },
-  page: {
-    backgroundColor: Palette.paper,
-    flex: 1,
-    gap: Spacing.three,
-    minHeight: 580,
-    padding: Spacing.four,
   },
   pageHeader: {
     alignItems: 'center',

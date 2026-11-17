@@ -8,7 +8,10 @@ import {
   View,
 } from 'react-native';
 
-import { AuthenticationPassportShell } from '@/components/authentication-passport-shell';
+import {
+  AuthenticationPassportCover,
+  AuthenticationPassportPage,
+} from '@/components/authentication-passport-shell';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Palette, Spacing } from '@/constants/theme';
@@ -43,6 +46,7 @@ export default function AuthenticationEntryScreen() {
     isLoading: isConvexLoading,
   } = useConvexAuth();
   const startAuth = useStartAuth();
+  const [passportOpen, setPassportOpen] = useState(false);
   const [activeAction, setActiveAction] = useState<
     'sign-in' | 'sign-up' | null
   >(null);
@@ -85,8 +89,21 @@ export default function AuthenticationEntryScreen() {
 
   const authenticationBusy = activeAction !== null;
 
+  if (!passportOpen) {
+    return (
+      <AuthenticationPassportCover
+        activeAction={
+          activeAction === 'sign-up' ? 'create-account' : null
+        }
+        disabled={authenticationBusy}
+        onCreateAccount={() => beginAuthentication('sign-up')}
+        onLogIn={() => setPassportOpen(true)}
+      />
+    );
+  }
+
   return (
-    <AuthenticationPassportShell>
+    <AuthenticationPassportPage onClose={() => setPassportOpen(false)}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Sign In"
@@ -150,7 +167,7 @@ export default function AuthenticationEntryScreen() {
           {errorMessage}
         </ThemedText>
       )}
-    </AuthenticationPassportShell>
+    </AuthenticationPassportPage>
   );
 }
 

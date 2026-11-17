@@ -11,7 +11,10 @@ import {
   View,
 } from 'react-native';
 
-import { AuthenticationPassportShell } from '@/components/authentication-passport-shell';
+import {
+  AuthenticationPassportCover,
+  AuthenticationPassportPage,
+} from '@/components/authentication-passport-shell';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Palette, Spacing } from '@/constants/theme';
@@ -39,6 +42,7 @@ export default function AuthenticationEntryScreen() {
   const { startGoogleAuthenticationFlow } = useSignInWithGoogle();
   const { isAuthenticated, isLoading: isConvexLoading } = useConvexAuth();
   const [authMode, setAuthMode] = useState<AuthViewMode | null>(null);
+  const [passportOpen, setPassportOpen] = useState(false);
   const [isGoogleSignInPending, setIsGoogleSignInPending] = useState(false);
 
   const handleGoogleSignIn = async () => {
@@ -105,8 +109,17 @@ export default function AuthenticationEntryScreen() {
     );
   }
 
+  if (!passportOpen) {
+    return (
+      <AuthenticationPassportCover
+        onCreateAccount={() => setAuthMode('signUp')}
+        onLogIn={() => setPassportOpen(true)}
+      />
+    );
+  }
+
   return (
-    <AuthenticationPassportShell>
+    <AuthenticationPassportPage onClose={() => setPassportOpen(false)}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Continue with Google"
@@ -169,7 +182,7 @@ export default function AuthenticationEntryScreen() {
           Create Your Passport
         </ThemedText>
       </Pressable>
-    </AuthenticationPassportShell>
+    </AuthenticationPassportPage>
   );
 }
 
