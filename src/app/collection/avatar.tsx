@@ -1,6 +1,6 @@
 import { useConvexAuth, useMutation, useQuery } from 'convex/react';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -18,12 +18,12 @@ import { LorcoinIcon } from '@/components/lorcoin-icon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {
-  BottomTabInset,
   MaxContentWidth,
   Palette,
   Spacing,
 } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useAppTabBar } from '@/contexts/app-tab-bar-context';
 import {
   applyAvatarItem,
   avatarCategories,
@@ -92,6 +92,7 @@ export default function CustomizeAvatarScreen() {
   const router = useRouter();
   const theme = useTheme();
   const { width } = useWindowDimensions();
+  const { setHidden: setTabBarHidden } = useAppTabBar();
   const { isAuthenticated, isLoading: isAuthenticationLoading } =
     useConvexAuth();
   const avatarProfile = useQuery(
@@ -121,6 +122,7 @@ export default function CustomizeAvatarScreen() {
   );
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
 
   const savedSelection = normalizeAvatarSelection(
     avatarProfile?.selection,
@@ -141,15 +143,46 @@ export default function CustomizeAvatarScreen() {
     editableSelection,
     savedSelection,
   );
-  const previewSize = Math.min(Math.max(width - 64, 240), 430);
+  const previewSize = Math.min(Math.max(width * 0.38, 128), 190);
   const unlockedAvatarItemIds = new Set(
     avatarProfile?.unlockedAvatarItemIds ?? [],
   );
   const purchasedAvatarItemIds = new Set(
     avatarProfile?.purchasedAvatarItemIds ?? [],
   );
+  const previewPrice =
+    previewPurchase?.price ?? previewOutfitPurchase?.price ?? 0;
+  const purchaseShortfall =
+    wallet === undefined || wallet === null
+      ? 0
+      : Math.max(0, previewPrice - wallet.balance);
+
+  useFocusEffect(
+    useCallback(() => {
+      setTabBarHidden(true);
+
+      return () => setTabBarHidden(false);
+    }, [setTabBarHidden]),
+  );
 
   const returnToPassport = () => {
+    if (
+      hasUnsavedChanges ||
+      previewPurchase !== null ||
+      previewOutfitPurchase !== null
+    ) {
+      setConfirmingDiscard(true);
+      return;
+    }
+
+    router.replace('/collection');
+  };
+
+  const discardAndReturnToPassport = () => {
+    setConfirmingDiscard(false);
+    setDraftSelection(null);
+    setPreviewPurchase(null);
+    setPreviewOutfitPurchase(null);
     router.replace('/collection');
   };
 
@@ -407,53 +440,78 @@ export default function CustomizeAvatarScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          nativeID={Platform.OS === 'web' ? 'app-page-scroll-view' : undefined}
-          showsVerticalScrollIndicator={Platform.OS === 'web'}
-        >
-          <View style={styles.heading}>
-            <View style={styles.headingRow}>
-              <ThemedText accessibilityRole="header" type="title">
-                Customize Avatar
-              </ThemedText>
-              <ThemedView
-                accessibilityLabel={`${wallet?.balance ?? 0} Lorcoins available`}
-                accessible
-                type="backgroundElement"
-                style={styles.walletChip}
+        <View style={styles.fixedTopContent}>
+          <View style={styles.headingRow}>
+            <View style={styles.titleRow}>
+              <Pressable
+                accessibilityLabel="Back to Passport"
+                accessibilityRole="button"
+                onPress={returnToPassport}
+                style={({ pressed }) => [
+                  styles.backButton,
+                  pressed && styles.pressed,
+                ]}
               >
-                <LorcoinIcon size={22} />
-                <ThemedText type="smallBold">
-                  {wallet === undefined ? '…' : wallet?.balance ?? 0} Lorcoins
-                </ThemedText>
-              </ThemedView>
+                <ThemedText type="smallBold">‹ Passport</ThemedText>
+              </Pressable>
+              <ThemedText accessibilityRole="header" type="subtitle">
+                Dressing Room
+              </ThemedText>
             </View>
-            <ThemedText themeColor="textSecondary">
-              Build your look one piece at a time. Complete looks are saved for
-              the end of the wardrobe.
-            </ThemedText>
+            <ThemedView
+              accessibilityLabel={`${wallet?.balance ?? 0} Lorcoins available`}
+              accessible
+              type="backgroundElement"
+              style={styles.walletChip}
+            >
+              <LorcoinIcon size={20} />
+              <ThemedText type="smallBold">
+                {wallet === undefined ? '…' : wallet?.balance ?? 0}
+              </ThemedText>
+            </ThemedView>
           </View>
 
           <ThemedView type="backgroundElement" style={styles.previewCard}>
             <AvatarPreview selection={activeSelection} size={previewSize} />
-            <ThemedText type="smallBold">
-              {matchingPresetId === 'custom'
-                ? 'Custom Look'
-                : avatarPresets.find((preset) => preset.id === matchingPresetId)
-                    ?.name}
-            </ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              {previewOutfitPurchase
-                ? `Previewing ${previewOutfitPurchase.outfitName}`
-                : previewPurchase
-                  ? `Previewing ${previewPurchase.itemName}`
-                : hasUnsavedChanges
-                  ? 'Unsaved Changes'
-                  : 'Saved Look'}
-            </ThemedText>
+            <View style={styles.previewCopy}>
+              <ThemedText type="subtitle">
+                {matchingPresetId === 'custom'
+                  ? 'Custom Look'
+                  : avatarPresets.find(
+                      (preset) => preset.id === matchingPresetId,
+                    )?.name}
+              </ThemedText>
+              <ThemedText
+                type="smallBold"
+                style={
+                  hasUnsavedChanges ||
+                  previewPurchase !== null ||
+                  previewOutfitPurchase !== null
+                    ? styles.unsavedMessage
+                    : styles.successMessage
+                }
+              >
+                {previewOutfitPurchase
+                  ? `Previewing ${previewOutfitPurchase.outfitName}`
+                  : previewPurchase
+                    ? `Previewing ${previewPurchase.itemName}`
+                    : hasUnsavedChanges
+                      ? 'Not saved yet'
+                      : 'Saved look'}
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                Your avatar stays here while you browse the wardrobe.
+              </ThemedText>
+            </View>
           </ThemedView>
+        </View>
 
+        <ScrollView
+          style={styles.wardrobeScroll}
+          contentContainerStyle={styles.scrollContent}
+          nativeID={Platform.OS === 'web' ? 'app-page-scroll-view' : undefined}
+          showsVerticalScrollIndicator={Platform.OS === 'web'}
+        >
           {previewPurchase ? (
             <ThemedView
               type="backgroundElement"
@@ -488,54 +546,9 @@ export default function CustomizeAvatarScreen() {
                   Lorcoins to buy this item.
                 </ThemedText>
               ) : null}
-              <View style={styles.purchaseActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityState={{
-                    disabled:
-                      wallet === undefined ||
-                      wallet === null ||
-                      wallet.balance < previewPurchase.price,
-                  }}
-                  disabled={
-                    wallet === undefined ||
-                    wallet === null ||
-                    wallet.balance < previewPurchase.price
-                  }
-                  onPress={openPurchaseConfirmation}
-                  style={({ pressed }) => [
-                    styles.primaryButton,
-                    (wallet === undefined ||
-                      wallet === null ||
-                      wallet.balance < previewPurchase.price) &&
-                      styles.disabled,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <View style={styles.coinButtonCopy}>
-                    <LorcoinIcon size={20} />
-                    <ThemedText
-                      style={styles.primaryButtonText}
-                      type="smallBold"
-                    >
-                      Buy for {previewPurchase.price}
-                    </ThemedText>
-                  </View>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => {
-                    setPreviewPurchase(null);
-                    setErrorMessage(null);
-                  }}
-                  style={({ pressed }) => [
-                    styles.secondaryButton,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <ThemedText type="smallBold">Cancel Preview</ThemedText>
-                </Pressable>
-              </View>
+              <ThemedText type="smallBold">
+                Buy or cancel this preview from the bar below.
+              </ThemedText>
             </ThemedView>
           ) : null}
 
@@ -577,54 +590,9 @@ export default function CustomizeAvatarScreen() {
                   Lorcoins to complete this outfit.
                 </ThemedText>
               ) : null}
-              <View style={styles.purchaseActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityState={{
-                    disabled:
-                      wallet === undefined ||
-                      wallet === null ||
-                      wallet.balance < previewOutfitPurchase.price,
-                  }}
-                  disabled={
-                    wallet === undefined ||
-                    wallet === null ||
-                    wallet.balance < previewOutfitPurchase.price
-                  }
-                  onPress={openOutfitPurchaseConfirmation}
-                  style={({ pressed }) => [
-                    styles.primaryButton,
-                    (wallet === undefined ||
-                      wallet === null ||
-                      wallet.balance < previewOutfitPurchase.price) &&
-                      styles.disabled,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <View style={styles.coinButtonCopy}>
-                    <LorcoinIcon size={20} />
-                    <ThemedText
-                      style={styles.primaryButtonText}
-                      type="smallBold"
-                    >
-                      Buy the Rest for {previewOutfitPurchase.price}
-                    </ThemedText>
-                  </View>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => {
-                    setPreviewOutfitPurchase(null);
-                    setErrorMessage(null);
-                  }}
-                  style={({ pressed }) => [
-                    styles.secondaryButton,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <ThemedText type="smallBold">Cancel Preview</ThemedText>
-                </Pressable>
-              </View>
+              <ThemedText type="smallBold">
+                Buy or cancel this preview from the bar below.
+              </ThemedText>
             </ThemedView>
           ) : null}
 
@@ -867,15 +835,12 @@ export default function CustomizeAvatarScreen() {
             </ThemedText>
           </ThemedView>
 
-          {statusMessage ? (
-            <ThemedText
-              accessibilityLiveRegion="polite"
-              style={styles.successMessage}
-            >
-              {statusMessage}
-            </ThemedText>
-          ) : null}
+        </ScrollView>
 
+        <ThemedView
+          type="backgroundElement"
+          style={[styles.actionDock, { borderTopColor: theme.border }]}
+        >
           {errorMessage ? (
             <ThemedText
               accessibilityLiveRegion="assertive"
@@ -884,72 +849,179 @@ export default function CustomizeAvatarScreen() {
             >
               {errorMessage}
             </ThemedText>
-          ) : null}
-
-          <View style={styles.actions}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{
-                disabled:
-                  saving ||
-                  previewPurchase !== null ||
-                  previewOutfitPurchase !== null,
-              }}
-              disabled={
-                saving ||
-                previewPurchase !== null ||
-                previewOutfitPurchase !== null
-              }
-              onPress={saveAvatar}
-              style={({ pressed }) => [
-                styles.primaryButton,
-                (saving ||
-                  previewPurchase !== null ||
-                  previewOutfitPurchase !== null) &&
-                  styles.disabled,
-                pressed && styles.pressed,
-              ]}
+          ) : statusMessage ? (
+            <ThemedText
+              accessibilityLiveRegion="polite"
+              style={styles.successMessage}
             >
-              {saving ? (
-                <ActivityIndicator
-                  accessibilityLabel="Saving avatar"
-                  color={Palette.ink}
-                  size="small"
-                />
-              ) : (
-                <ThemedText style={styles.primaryButtonText} type="smallBold">
-                  {previewPurchase || previewOutfitPurchase
-                    ? 'Finish Preview First'
-                    : 'Save Avatar'}
-                </ThemedText>
-              )}
-            </Pressable>
+              {statusMessage}
+            </ThemedText>
+          ) : (
+            <ThemedText
+              accessibilityLiveRegion="polite"
+              type="smallBold"
+              style={
+                purchaseShortfall > 0
+                  ? styles.errorMessage
+                  : previewPurchase ||
+                      previewOutfitPurchase ||
+                      hasUnsavedChanges
+                    ? styles.unsavedMessage
+                    : styles.successMessage
+              }
+            >
+              {purchaseShortfall > 0
+                ? `You need ${purchaseShortfall} more Lorcoins to buy this look.`
+                : previewPurchase || previewOutfitPurchase
+                  ? 'Preview only — finish the purchase or cancel it.'
+                  : hasUnsavedChanges
+                    ? 'Your changes have not been saved.'
+                    : 'Your current look is saved.'}
+            </ThemedText>
+          )}
 
-            {hasUnsavedChanges ? (
+          <View style={styles.dockActions}>
+            {previewPurchase ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{
+                  disabled:
+                    wallet === undefined ||
+                    wallet === null ||
+                    wallet.balance < previewPurchase.price,
+                }}
+                disabled={
+                  wallet === undefined ||
+                  wallet === null ||
+                  wallet.balance < previewPurchase.price
+                }
+                onPress={openPurchaseConfirmation}
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  (wallet === undefined ||
+                    wallet === null ||
+                    wallet.balance < previewPurchase.price) &&
+                    styles.disabled,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <View style={styles.coinButtonCopy}>
+                  <LorcoinIcon size={20} />
+                  <ThemedText
+                    style={styles.primaryButtonText}
+                    type="smallBold"
+                  >
+                    Buy for {previewPurchase.price}
+                  </ThemedText>
+                </View>
+              </Pressable>
+            ) : previewOutfitPurchase ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{
+                  disabled:
+                    wallet === undefined ||
+                    wallet === null ||
+                    wallet.balance < previewOutfitPurchase.price,
+                }}
+                disabled={
+                  wallet === undefined ||
+                  wallet === null ||
+                  wallet.balance < previewOutfitPurchase.price
+                }
+                onPress={openOutfitPurchaseConfirmation}
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  (wallet === undefined ||
+                    wallet === null ||
+                    wallet.balance < previewOutfitPurchase.price) &&
+                    styles.disabled,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <View style={styles.coinButtonCopy}>
+                  <LorcoinIcon size={20} />
+                  <ThemedText
+                    style={styles.primaryButtonText}
+                    type="smallBold"
+                  >
+                    Buy the Rest for {previewOutfitPurchase.price}
+                  </ThemedText>
+                </View>
+              </Pressable>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{
+                  busy: saving,
+                  disabled: saving || !hasUnsavedChanges,
+                }}
+                disabled={saving || !hasUnsavedChanges}
+                onPress={saveAvatar}
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  (saving || !hasUnsavedChanges) && styles.disabled,
+                  pressed && styles.pressed,
+                ]}
+              >
+                {saving ? (
+                  <ActivityIndicator
+                    accessibilityLabel="Saving avatar"
+                    color={Palette.ink}
+                    size="small"
+                  />
+                ) : (
+                  <ThemedText
+                    style={styles.primaryButtonText}
+                    type="smallBold"
+                  >
+                    {hasUnsavedChanges ? 'Save Avatar' : 'Avatar Saved'}
+                  </ThemedText>
+                )}
+              </Pressable>
+            )}
+
+            {previewPurchase || previewOutfitPurchase ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  setPreviewPurchase(null);
+                  setPreviewOutfitPurchase(null);
+                  setConfirmingPurchase(false);
+                  setErrorMessage(null);
+                }}
+                style={({ pressed }) => [
+                  styles.dockSecondaryButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <ThemedText type="smallBold">Cancel Preview</ThemedText>
+              </Pressable>
+            ) : hasUnsavedChanges ? (
               <Pressable
                 accessibilityRole="button"
                 onPress={() => updateSelection(savedSelection)}
                 style={({ pressed }) => [
-                  styles.secondaryButton,
+                  styles.dockSecondaryButton,
                   pressed && styles.pressed,
                 ]}
               >
-                <ThemedText type="smallBold">Undo Changes</ThemedText>
+                <ThemedText type="smallBold">Undo</ThemedText>
               </Pressable>
-            ) : null}
-
-            <Pressable
-              accessibilityRole="button"
-              onPress={returnToPassport}
-              style={({ pressed }) => [
-                styles.secondaryButton,
-                pressed && styles.pressed,
-              ]}
-            >
-              <ThemedText type="smallBold">Back to Passport</ThemedText>
-            </Pressable>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                onPress={returnToPassport}
+                style={({ pressed }) => [
+                  styles.dockSecondaryButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <ThemedText type="smallBold">Done</ThemedText>
+              </Pressable>
+            )}
           </View>
-        </ScrollView>
+        </ThemedView>
       </SafeAreaView>
 
       <Modal
@@ -1128,6 +1200,56 @@ export default function CustomizeAvatarScreen() {
           ) : null}
         </SafeAreaView>
       </Modal>
+
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setConfirmingDiscard(false)}
+        transparent
+        visible={confirmingDiscard}
+      >
+        <SafeAreaView style={styles.confirmationLayer}>
+          <ThemedView
+            accessibilityLabel="Discard unsaved avatar changes?"
+            accessibilityViewIsModal
+            type="backgroundElement"
+            style={styles.confirmationCard}
+          >
+            <ThemedText accessibilityRole="header" type="subtitle">
+              Leave the Dressing Room?
+            </ThemedText>
+            <ThemedText themeColor="textSecondary">
+              Your preview and unsaved changes will be lost.
+            </ThemedText>
+            <View style={styles.purchaseActions}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setConfirmingDiscard(false)}
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <ThemedText
+                  style={styles.primaryButtonText}
+                  type="smallBold"
+                >
+                  Keep Editing
+                </ThemedText>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={discardAndReturnToPassport}
+                style={({ pressed }) => [
+                  styles.secondaryButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <ThemedText type="smallBold">Discard and Leave</ThemedText>
+              </Pressable>
+            </View>
+          </ThemedView>
+        </SafeAreaView>
+      </Modal>
     </ThemedView>
   );
 }
@@ -1145,6 +1267,18 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
   },
+  fixedTopContent: {
+    alignSelf: 'center',
+    gap: Spacing.two,
+    maxWidth: MaxContentWidth,
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.two,
+    width: '100%',
+  },
+  wardrobeScroll: {
+    flex: 1,
+    minHeight: 0,
+  },
   signedOutSafeArea: {
     alignSelf: 'center',
     flex: 1,
@@ -1157,18 +1291,29 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     gap: Spacing.five,
     maxWidth: MaxContentWidth,
-    paddingBottom: BottomTabInset + Spacing.five,
+    paddingBottom: Spacing.five,
     paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.four,
+    paddingTop: Spacing.three,
     width: '100%',
   },
-  heading: { gap: Spacing.two },
   headingRow: {
     alignItems: 'center',
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.two,
     justifyContent: 'space-between',
+  },
+  titleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  backButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingRight: Spacing.two,
   },
   walletChip: {
     alignItems: 'center',
@@ -1186,8 +1331,18 @@ const styles = StyleSheet.create({
   previewCard: {
     alignItems: 'center',
     borderRadius: Spacing.four,
-    gap: Spacing.two,
-    padding: Spacing.three,
+    flexDirection: 'row',
+    gap: Spacing.three,
+    justifyContent: 'center',
+    minHeight: 150,
+    overflow: 'hidden',
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one,
+  },
+  previewCopy: {
+    flex: 1,
+    gap: Spacing.one,
+    maxWidth: 360,
   },
   purchasePreviewCard: {
     borderRadius: Spacing.four,
@@ -1281,10 +1436,30 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     padding: Spacing.four,
   },
-  actions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  actionDock: {
+    alignSelf: 'center',
+    borderRadius: Spacing.four,
+    borderTopWidth: 1,
     gap: Spacing.two,
+    maxWidth: MaxContentWidth,
+    paddingBottom: Spacing.three,
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.three,
+    width: '100%',
+  },
+  dockActions: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  dockSecondaryButton: {
+    alignItems: 'center',
+    backgroundColor: Palette.teaGreen,
+    borderRadius: Spacing.two,
+    justifyContent: 'center',
+    minHeight: 50,
+    minWidth: 92,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
   },
   primaryButton: {
     alignItems: 'center',
@@ -1311,6 +1486,10 @@ const styles = StyleSheet.create({
   },
   successMessage: {
     color: '#18864B',
+    fontWeight: '700',
+  },
+  unsavedMessage: {
+    color: '#9A6500',
     fontWeight: '700',
   },
   errorMessage: {

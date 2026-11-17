@@ -15,6 +15,10 @@ import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
 import { PortalContentWidth, Spacing } from '@/constants/theme';
+import {
+  AppTabBarProvider,
+  useAppTabBar,
+} from '@/contexts/app-tab-bar-context';
 import { useRootCurrentUser } from '@/contexts/root-convex-data-context';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -65,7 +69,7 @@ function NavLink({
   );
 }
 
-export default function AppTabsWeb() {
+function AppTabsWebContent() {
   const router = useRouter();
   const pathname = usePathname();
   const { isLoaded, isSignedIn } = useAuth();
@@ -80,6 +84,7 @@ export default function AppTabsWeb() {
     !isConvexLoading &&
     isAuthenticated;
   const currentUser = useRootCurrentUser();
+  const { hidden: isNavigationHidden } = useAppTabBar();
 
   const theme = useTheme();
 
@@ -118,32 +123,42 @@ export default function AppTabsWeb() {
 
   return (
     <ThemedView style={[styles.shell, { backgroundColor: theme.background }]}>
-      <ThemedView
-        type="backgroundElement"
-        style={[styles.header, { borderBottomColor: theme.border }]}>
-        <View style={styles.navRow}>
-          <ThemedText
-            type="smallBold"
-            style={[styles.brand, { color: theme.text }]}>
-            Lorcal
-          </ThemedText>
+      {!isNavigationHidden ? (
+        <ThemedView
+          type="backgroundElement"
+          style={[styles.header, { borderBottomColor: theme.border }]}>
+          <View style={styles.navRow}>
+            <ThemedText
+              type="smallBold"
+              style={[styles.brand, { color: theme.text }]}>
+              Lorcal
+            </ThemedText>
 
-          <NavLink href="/map" label="Map" />
-          <NavLink href="/collection" label="Passport" />
-          <NavLink href={settingsRoute} label="Settings" />
+            <NavLink href="/map" label="Map" />
+            <NavLink href="/collection" label="Passport" />
+            <NavLink href={settingsRoute} label="Settings" />
 
-          {currentUser?.isAdmin && (
-            <>
-              <NavLink href="/admin" label="Content Portal" />
-            </>
-          )}
-        </View>
-      </ThemedView>
+            {currentUser?.isAdmin && (
+              <>
+                <NavLink href="/admin" label="Content Portal" />
+              </>
+            )}
+          </View>
+        </ThemedView>
+      ) : null}
 
       <View style={styles.slotContainer}>
         <Slot />
       </View>
     </ThemedView>
+  );
+}
+
+export default function AppTabsWeb() {
+  return (
+    <AppTabBarProvider>
+      <AppTabsWebContent />
+    </AppTabBarProvider>
   );
 }
 
