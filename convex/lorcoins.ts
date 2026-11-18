@@ -1,5 +1,6 @@
 import { ConvexError, v } from 'convex/values';
 
+import type { Id } from './_generated/dataModel';
 import type { MutationCtx, QueryCtx } from './_generated/server';
 import { mutation, query } from './_generated/server';
 import { isAdminSubject } from './lib/auth';
@@ -9,9 +10,69 @@ import {
   CHECK_IN_LORCOIN_REWARD,
   getStoredAvatarItemIds,
   isPurchasableAvatarItemId,
+  type PurchasableAvatarItemId,
 } from './lib/avatarEconomy';
 
 const BETA_PROMO_CODE = 'TRAILBETA500';
+
+function getPurchasedAvatarItemProfilePatch(
+  itemId: PurchasableAvatarItemId,
+) {
+  switch (itemId) {
+    case 'brown_tee':
+    case 'purple_tee':
+    case 'crimson_tee':
+    case 'pink_tee':
+    case 'black_tee':
+    case 'fire_tee':
+    case 'noah_kahan_tee':
+    case 'pink_gown_top':
+      return { avatarTopId: itemId };
+    case 'classic_pants':
+    case 'grey_pants':
+    case 'brown_pants':
+    case 'purple_pants':
+    case 'pink_gown_bottom':
+      return { avatarBottomId: itemId };
+    case 'pink_heels':
+      return { avatarShoesId: itemId };
+    case 'glasses':
+      return { avatarFaceId: itemId };
+    case 'beanie':
+    case 'beanie_blue':
+    case 'beanie_green':
+    case 'beanie_pink':
+    case 'beanie_purple':
+    case 'beanie_red':
+    case 'cowboy_hat':
+    case 'cowboy_hat_brown':
+    case 'cowboy_hat_red':
+    case 'princess_crown':
+      return { avatarHeadwearId: itemId };
+    case 'heart_wand':
+      return { avatarHandheldId: itemId };
+  }
+}
+
+async function equipPurchasedAvatarItem(
+  ctx: MutationCtx,
+  profileId: Id<'userProfiles'> | null,
+  itemId: PurchasableAvatarItemId,
+) {
+  if (profileId === null) {
+    return;
+  }
+
+  const now = Date.now();
+
+  await ctx.db.patch(profileId, {
+    avatarPresetId: 'custom',
+    ...getPurchasedAvatarItemProfilePatch(itemId),
+    avatarCatalogVersion: 2,
+    avatarCustomizedAt: now,
+    updatedAt: now,
+  });
+}
 
 async function getWalletSnapshot(
   ctx: QueryCtx | MutationCtx,
@@ -140,20 +201,35 @@ export const purchaseAvatarItem = mutation({
       throw new ConvexError('Sign in before buying wardrobe items.');
     }
 
-    if (!isPurchasableAvatarItemId(args.itemId)) {
+    const itemId = args.itemId;
+
+    if (!isPurchasableAvatarItemId(itemId)) {
       throw new ConvexError('This wardrobe item is not for sale.');
     }
 
-    const existingPurchase = await ctx.db
-      .query('avatarItemPurchases')
-      .withIndex('by_user_and_item', (queryBuilder) =>
-        queryBuilder
-          .eq('clerkUserId', identity.subject)
-          .eq('itemId', args.itemId),
-      )
-      .unique();
+    const [existingPurchase, profile] = await Promise.all([
+      ctx.db
+        .query('avatarItemPurchases')
+        .withIndex('by_user_and_item', (queryBuilder) =>
+          queryBuilder
+            .eq('clerkUserId', identity.subject)
+            .eq('itemId', itemId),
+        )
+        .unique(),
+      ctx.db
+        .query('userProfiles')
+        .withIndex('by_user', (queryBuilder) =>
+          queryBuilder.eq('clerkUserId', identity.subject),
+        )
+        .unique(),
+    ]);
 
     if (existingPurchase !== null) {
+      await equipPurchasedAvatarItem(
+        ctx,
+        profile?._id ?? null,
+        itemId,
+      );
       const snapshot = await getWalletSnapshot(ctx, identity.subject);
 
       return {
@@ -162,24 +238,19 @@ export const purchaseAvatarItem = mutation({
       };
     }
 
-    const profile = await ctx.db
-      .query('userProfiles')
-      .withIndex('by_user', (queryBuilder) =>
-        queryBuilder.eq('clerkUserId', identity.subject),
-      )
-      .unique();
-
     if (
       profile !== null &&
-      getStoredAvatarItemIds(profile).includes(args.itemId)
+      getStoredAvatarItemIds(profile).includes(itemId)
     ) {
       await ctx.db.insert('avatarItemPurchases', {
         clerkUserId: identity.subject,
-        itemId: args.itemId,
+        itemId,
         price: 0,
         acquisition: 'legacy',
         purchasedAt: Date.now(),
       });
+
+      await equipPurchasedAvatarItem(ctx, profile._id, itemId);
 
       const snapshot = await getWalletSnapshot(ctx, identity.subject);
 
@@ -201,13 +272,17 @@ export const purchaseAvatarItem = mutation({
       };
     }
 
+    const purchasedAt = Date.now();
+
     await ctx.db.insert('avatarItemPurchases', {
       clerkUserId: identity.subject,
-      itemId: args.itemId,
+      itemId,
       price: AVATAR_ITEM_LORCOIN_PRICE,
       acquisition: 'purchase',
-      purchasedAt: Date.now(),
+      purchasedAt,
     });
+
+    await equipPurchasedAvatarItem(ctx, profile?._id ?? null, itemId);
 
     return {
       status: 'purchased' as const,
