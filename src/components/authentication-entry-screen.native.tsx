@@ -1,11 +1,14 @@
-import { useAuth } from '@clerk/expo';
+import { useAuth, useSSO } from '@clerk/expo';
+import { useSignInWithApple } from '@clerk/expo/apple';
 import { useSignInWithGoogle } from '@clerk/expo/google';
 import { AuthView, type AuthViewMode } from '@clerk/expo/native';
 import { useConvexAuth } from 'convex/react';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   StyleSheet,
   View,
@@ -39,11 +42,52 @@ function AuthenticationLoadingScreen({ message }: { message: string }) {
 
 export default function AuthenticationEntryScreen() {
   const { isLoaded, isSignedIn } = useAuth();
+  const { startAppleAuthenticationFlow } = useSignInWithApple();
   const { startGoogleAuthenticationFlow } = useSignInWithGoogle();
+  const { startSSOFlow } = useSSO();
   const { isAuthenticated, isLoading: isConvexLoading } = useConvexAuth();
   const [authMode, setAuthMode] = useState<AuthViewMode | null>(null);
   const [passportOpen, setPassportOpen] = useState(false);
+  const [isAppleSignInPending, setIsAppleSignInPending] = useState(false);
   const [isGoogleSignInPending, setIsGoogleSignInPending] = useState(false);
+
+  const handleAppleSignIn = async () => {
+    if (isAppleSignInPending) {
+      return;
+    }
+
+    setIsAppleSignInPending(true);
+
+    try {
+      const { createdSessionId, setActive } =
+        Platform.OS === 'ios'
+          ? await startAppleAuthenticationFlow()
+          : await startSSOFlow({ strategy: 'oauth_apple' });
+
+      if (createdSessionId && setActive) {
+        await setActive({ session: createdSessionId });
+      }
+    } catch (error: unknown) {
+      const appleSignInError = error as {
+        code?: number | string;
+        message?: string;
+      };
+
+      if (
+        appleSignInError.code !== 'ERR_REQUEST_CANCELED' &&
+        appleSignInError.code !== 'ERR_CANCELED' &&
+        !appleSignInError.message?.includes('ERR_REQUEST_CANCELED')
+      ) {
+        Alert.alert(
+          'Apple sign-in did not finish',
+          appleSignInError.message ??
+            'Please try again or sign in with your email address.',
+        );
+      }
+    } finally {
+      setIsAppleSignInPending(false);
+    }
+  };
 
   const handleGoogleSignIn = async () => {
     if (isGoogleSignInPending) {
@@ -147,6 +191,54 @@ export default function AuthenticationEntryScreen() {
         )}
       </Pressable>
 
+      {Platform.OS === 'ios' ? (
+        isAppleSignInPending ? (
+          <View style={styles.appleButtonPending}>
+            <ActivityIndicator
+              accessibilityLabel="Opening Apple sign-in"
+              size="small"
+            />
+          </View>
+        ) : (
+          <AppleAuthentication.AppleAuthenticationButton
+            accessibilityLabel="Continue with Apple"
+            accessibilityHint="Opens Apple sign-in"
+            buttonStyle={
+              AppleAuthentication.AppleAuthenticationButtonStyle.WHITE_OUTLINE
+            }
+            buttonType={
+              AppleAuthentication.AppleAuthenticationButtonType.CONTINUE
+            }
+            cornerRadius={Spacing.two}
+            onPress={handleAppleSignIn}
+            style={styles.appleButton}
+          />
+        )
+      ) : Platform.OS === 'android' ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Continue with Apple"
+          accessibilityHint="Opens Apple sign-in in a secure browser"
+          disabled={isAppleSignInPending}
+          onPress={handleAppleSignIn}
+          style={({ pressed }) => [
+            styles.appleAndroidButton,
+            (pressed || isAppleSignInPending) && styles.pressed,
+          ]}>
+          {isAppleSignInPending ? (
+            <ActivityIndicator
+              accessibilityLabel="Opening Apple sign-in"
+              color="#ffffff"
+              size="small"
+            />
+          ) : (
+            <ThemedText type="smallBold" style={styles.appleButtonText}>
+              Continue with Apple
+            </ThemedText>
+          )}
+        </Pressable>
+      ) : null}
+
       <View style={styles.divider}>
         <View style={styles.dividerLine} />
         <ThemedText type="small" style={styles.dividerText}>
@@ -238,6 +330,30 @@ const styles = StyleSheet.create({
     color: '#4285F4',
     fontSize: 15,
     fontWeight: '800',
+  },
+  appleButton: {
+    height: 52,
+    width: '100%',
+  },
+  appleButtonPending: {
+    alignItems: 'center',
+    borderColor: Palette.ink,
+    borderRadius: Spacing.two,
+    borderWidth: 1,
+    height: 52,
+    justifyContent: 'center',
+    width: '100%',
+  },
+  appleAndroidButton: {
+    alignItems: 'center',
+    backgroundColor: '#000000',
+    borderRadius: Spacing.two,
+    height: 52,
+    justifyContent: 'center',
+    width: '100%',
+  },
+  appleButtonText: {
+    color: '#ffffff',
   },
   divider: {
     flexDirection: 'row',

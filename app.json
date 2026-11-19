@@ -9,6 +9,7 @@
     "ios": {
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.dffallonsteam.tunabassoonapp",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -46,6 +47,7 @@
       ],
       "expo-web-browser",
       "expo-secure-store",
+      "expo-apple-authentication",
       "@clerk/expo",
       "@clerk/expo-google-signin"
     ],
